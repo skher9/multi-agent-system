@@ -8,7 +8,6 @@ An AI agent team that works like a small software services company. A customer s
 
 | Folder | What lives there |
 |---|---|
-| `docs/` | Reference docs: briefing, setup guide, product overview, system design, services |
 | `backend/` | Python: FastAPI API, Celery workers, database models, service clients, agents, LLM router |
 | `web/` | Next.js + TypeScript frontend |
 | `sandbox/` | Docker image that runs agent-written code in isolation |
