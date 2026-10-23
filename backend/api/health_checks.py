@@ -9,6 +9,7 @@ from api.health import CheckFn, NotConfiguredError
 from db import session as db_session
 from services import redis_client
 from services.github import GitHubClient
+from services.openrouter import OpenRouterClient
 from services.r2 import R2Credentials, R2Storage
 from services.realtime import PusherCredentials, Realtime
 
@@ -78,10 +79,21 @@ def check_pusher(settings: Settings) -> None:
     realtime_from_settings(settings).ping()
 
 
+def check_openrouter(settings: Settings) -> None:
+    if settings.openrouter_api_key is None:
+        raise NotConfiguredError("OPENROUTER_API_KEY")
+    client = OpenRouterClient(settings.openrouter_api_key.get_secret_value())
+    try:
+        client.ping()
+    finally:
+        client.close()
+
+
 CHECKS: dict[str, CheckFn] = {
     "database": check_database,
     "redis": check_redis,
     "r2": check_r2,
     "github": check_github,
     "pusher": check_pusher,
+    "openrouter": check_openrouter,
 }
