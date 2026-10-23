@@ -1,0 +1,17 @@
+# This folder becomes its own GitHub template repo, so it carries its own pnpm
+# settings (and stops pnpm from treating it as part of the parent workspace).
+
+# Skip package versions released in the last 14 days (minutes: 14 x 24 x 60).
+minimumReleaseAge: 20160
+
+# Security exceptions: only for packages with a published advisory whose fix is
+# newer than 14 days. Remove once the pinned version is 14+ days old.
+minimumReleaseAgeExclude:
+  - next # GHSA-2464-fhr4-w9xw, GHSA-673q-mjm6-r5xr (critical RCE), fixed in 16.4.1
+  - "@next/*"
+  - eslint-config-next
+
+# pnpm blocks dependency install scripts by default (supply-chain safety).
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver
