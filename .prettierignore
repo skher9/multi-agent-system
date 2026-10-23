@@ -1,0 +1,8 @@
+# Python is formatted by ruff, not Prettier
+backend/
+
+# Generated or private
+pnpm-lock.yaml
+docs/
+node_modules/
+.next/

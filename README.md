@@ -6,12 +6,12 @@ An AI agent team that works like a small software services company. A customer s
 
 ## Repo layout
 
-| Folder | What lives there |
-|---|---|
-| `backend/` | Python: FastAPI API, Celery workers, database models, service clients, agents, LLM router |
-| `web/` | Next.js + TypeScript frontend |
-| `sandbox/` | Docker image that runs agent-written code in isolation |
-| `templates/nextjs-starter/` | Starter app every generated project begins from |
+| Folder                      | What lives there                                                                          |
+| --------------------------- | ----------------------------------------------------------------------------------------- |
+| `backend/`                  | Python: FastAPI API, Celery workers, database models, service clients, agents, LLM router |
+| `web/`                      | Next.js + TypeScript frontend                                                             |
+| `sandbox/`                  | Docker image that runs agent-written code in isolation                                    |
+| `templates/nextjs-starter/` | Starter app every generated project begins from                                           |
 
 ## Running locally
 

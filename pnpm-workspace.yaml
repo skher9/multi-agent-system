@@ -1,0 +1,6 @@
+packages:
+  - web
+
+# Setup guide rule: skip package versions released in the last 14 days.
+# Value is in minutes: 14 days x 24 h x 60 min = 20160.
+minimumReleaseAge: 20160
