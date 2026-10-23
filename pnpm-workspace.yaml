@@ -4,3 +4,17 @@ packages:
 # Setup guide rule: skip package versions released in the last 14 days.
 # Value is in minutes: 14 days x 24 h x 60 min = 20160.
 minimumReleaseAge: 20160
+
+# pnpm blocks dependency install scripts by default (supply-chain safety).
+# These two are known to be safe to skip for our use.
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver
+
+# Security exceptions to the 14-day rule: only for packages with a published
+# advisory whose fix is newer than 14 days. Remove each entry once the pinned
+# version is older than 14 days. Log every entry in docs/decision-log.md.
+minimumReleaseAgeExclude:
+  - next # GHSA-2464-fhr4-w9xw, GHSA-673q-mjm6-r5xr (critical RCE), fixed in 16.4.1
+  - "@next/*"
+  - eslint-config-next
