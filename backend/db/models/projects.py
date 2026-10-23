@@ -6,10 +6,10 @@ another's data once the app opens to more users.
 
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, Enum, ForeignKey, String, Text
+from sqlalchemy import BigInteger, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from db.base import Base, IdMixin, TimestampMixin
+from db.base import Base, IdMixin, TimestampMixin, text_enum
 
 
 class ProjectKind(StrEnum):
@@ -32,17 +32,7 @@ class Project(IdMixin, TimestampMixin, Base):
         BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(200))
-    # Stored as text plus a CHECK constraint (not a Postgres ENUM type),
-    # so adding a value later is a simple migration.
-    kind: Mapped[ProjectKind] = mapped_column(
-        Enum(
-            ProjectKind,
-            name="project_kind",
-            native_enum=False,
-            create_constraint=True,
-            values_callable=lambda e: [m.value for m in e],
-        )
-    )
+    kind: Mapped[ProjectKind] = mapped_column(text_enum(ProjectKind, "project_kind"))
     code_repo_url: Mapped[str | None] = mapped_column(Text)
     context_repo_url: Mapped[str | None] = mapped_column(Text)
     # Allowed values are defined when the orchestrator is built (M1).

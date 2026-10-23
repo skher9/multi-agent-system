@@ -7,11 +7,11 @@ documents -> discovery_sessions -> questions (the question ledger)
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import BigInteger, Enum, ForeignKey, String, Text
+from sqlalchemy import BigInteger, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from db.base import Base, IdMixin, TimestampMixin
+from db.base import Base, IdMixin, TimestampMixin, text_enum
 
 
 class Lens(StrEnum):
@@ -41,15 +41,7 @@ class Question(IdMixin, TimestampMixin, Base):
     session_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("discovery_sessions.id", ondelete="CASCADE"), index=True
     )
-    lens: Mapped[Lens] = mapped_column(
-        Enum(
-            Lens,
-            name="lens",
-            native_enum=False,
-            create_constraint=True,
-            values_callable=lambda e: [m.value for m in e],
-        )
-    )
+    lens: Mapped[Lens] = mapped_column(text_enum(Lens, "lens"))
     doc_section: Mapped[str | None] = mapped_column(Text)  # where in the PRD it came from
     text: Mapped[str] = mapped_column(Text)
     # Suggested answers the customer can pick from, e.g. ["Email", "Google login"]

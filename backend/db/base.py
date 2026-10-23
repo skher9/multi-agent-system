@@ -1,8 +1,9 @@
 """Shared base for every table: naming rules for constraints, id, and timestamps."""
 
 from datetime import datetime
+from enum import StrEnum
 
-from sqlalchemy import BigInteger, DateTime, MetaData, func
+from sqlalchemy import BigInteger, DateTime, Enum, MetaData, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Predictable constraint names, e.g. "fk_projects_user_id_users".
@@ -29,4 +30,19 @@ class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+def text_enum[E: StrEnum](enum_cls: type[E], name: str) -> Enum:
+    """Store a Python enum as plain text plus a CHECK constraint (not a Postgres ENUM type).
+
+    Adding a value later is then a simple migration. The stored text is the enum's value
+    ("new"), not its Python name ("NEW").
+    """
+    return Enum(
+        enum_cls,
+        name=name,
+        native_enum=False,
+        create_constraint=True,
+        values_callable=lambda e: [m.value for m in e],
     )
