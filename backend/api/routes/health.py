@@ -3,7 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response, status
 
 from api.config import Settings, get_settings
-from api.health import CHECKS, HealthReport, run_checks
+from api.health import HealthReport, run_checks
+from api.health_checks import CHECKS
 
 router = APIRouter(tags=["health"])
 

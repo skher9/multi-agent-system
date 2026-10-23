@@ -4,7 +4,7 @@ A check function takes the settings and either returns (healthy) or raises.
 - NotConfiguredError: the service's keys are not in .env yet.
 - Any other exception: the service is configured but unreachable or broken.
 
-Service chunks register their check in CHECKS.
+The real checks and their registry live in api/health_checks.py.
 """
 
 from collections.abc import Callable
@@ -25,9 +25,6 @@ class NotConfiguredError(Exception):
 
 
 CheckFn = Callable[[Settings], None]
-
-# Filled in by later setup chunks: {"database": check_database, ...}
-CHECKS: dict[str, CheckFn] = {}
 
 
 class ServiceStatus(BaseModel):
