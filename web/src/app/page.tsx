@@ -11,6 +11,11 @@ export default function Home() {
             Service status
           </Link>
         </li>
+        <li>
+          <Link href="/realtime-test" className="underline">
+            Realtime test
+          </Link>
+        </li>
       </ul>
     </main>
   );
