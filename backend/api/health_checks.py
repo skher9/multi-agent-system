@@ -10,6 +10,7 @@ from db import session as db_session
 from services import redis_client
 from services.github import GitHubClient
 from services.r2 import R2Credentials, R2Storage
+from services.realtime import PusherCredentials, Realtime
 
 
 def check_database(settings: Settings) -> None:
@@ -55,9 +56,32 @@ def check_github(settings: Settings) -> None:
         client.close()
 
 
+def realtime_from_settings(settings: Settings) -> Realtime:
+    if not (
+        settings.pusher_app_id
+        and settings.pusher_key
+        and settings.pusher_secret
+        and settings.pusher_cluster
+    ):
+        raise NotConfiguredError("PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER")
+    return Realtime(
+        PusherCredentials(
+            app_id=settings.pusher_app_id,
+            key=settings.pusher_key,
+            secret=settings.pusher_secret.get_secret_value(),
+            cluster=settings.pusher_cluster,
+        )
+    )
+
+
+def check_pusher(settings: Settings) -> None:
+    realtime_from_settings(settings).ping()
+
+
 CHECKS: dict[str, CheckFn] = {
     "database": check_database,
     "redis": check_redis,
     "r2": check_r2,
     "github": check_github,
+    "pusher": check_pusher,
 }
