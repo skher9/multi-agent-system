@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.config import get_settings
-from api.routes import health
+from api.routes import health, jobs
 
 
 def create_app() -> FastAPI:
@@ -21,6 +21,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(health.router)
+    app.include_router(jobs.router)
     return app
 
 
