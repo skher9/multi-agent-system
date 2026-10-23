@@ -5,10 +5,12 @@ description = "API, workers, and agents for the multi-agent system"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.20.0",
+    "boto3>=1.43.110",
     "celery[redis]>=5.6.3",
     "fastapi>=0.143.0",
     "httpx2>=2.13.1",
     "psycopg[binary]>=3.3.6",
+    "pusher>=3.3.4",
     "pydantic-settings>=2.15.0",
     "sqlalchemy>=2.1.4",
     "uvicorn[standard]>=0.54.0",
@@ -16,6 +18,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "boto3-stubs[s3]>=1.43.110",
+    "moto>=5.2.3",
     "pyright>=1.1.414",
     "pytest>=9.1.1",
     "ruff>=0.16.10",
@@ -36,8 +40,8 @@ target-version = "py312"
 select = ["E", "F", "I", "B", "UP", "S"]
 
 [tool.ruff.lint.per-file-ignores]
-# assert is how pytest works; S101 flags it, so allow it in tests only
-"tests/**" = ["S101"]
+# Tests only: assert is how pytest works (S101); fake credentials are expected (S105/S106)
+"tests/**" = ["S101", "S105", "S106"]
 
 [tool.pyright]
 pythonVersion = "3.12"

@@ -8,6 +8,7 @@ from api.config import Settings
 from api.health import CheckFn, NotConfiguredError
 from db import session as db_session
 from services import redis_client
+from services.r2 import R2Credentials, R2Storage
 
 
 def check_database(settings: Settings) -> None:
@@ -21,7 +22,30 @@ def check_redis(settings: Settings) -> None:
     redis_client.ping(settings.redis_url)
 
 
+def r2_from_settings(settings: Settings) -> R2Storage:
+    if not (
+        settings.r2_account_id
+        and settings.r2_access_key_id
+        and settings.r2_secret_access_key
+        and settings.r2_bucket
+    ):
+        raise NotConfiguredError("R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET")
+    return R2Storage(
+        R2Credentials(
+            account_id=settings.r2_account_id,
+            access_key_id=settings.r2_access_key_id.get_secret_value(),
+            secret_access_key=settings.r2_secret_access_key.get_secret_value(),
+            bucket=settings.r2_bucket,
+        )
+    )
+
+
+def check_r2(settings: Settings) -> None:
+    r2_from_settings(settings).ping()
+
+
 CHECKS: dict[str, CheckFn] = {
     "database": check_database,
     "redis": check_redis,
+    "r2": check_r2,
 }
