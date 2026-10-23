@@ -21,6 +21,9 @@ class Settings(BaseSettings):
         extra="ignore",  # ignore unknown variables instead of failing
     )
 
+    # Browser origins allowed to call the API (the Next.js dev server)
+    cors_origins: list[str] = ["http://localhost:3000"]
+
     # Neon Postgres (connection strings contain the password)
     database_url: SecretStr | None = None
     database_url_test: SecretStr | None = None
