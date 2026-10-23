@@ -8,6 +8,7 @@ from api.config import Settings
 from api.health import CheckFn, NotConfiguredError
 from db import session as db_session
 from services import redis_client
+from services.github import GitHubClient
 from services.r2 import R2Credentials, R2Storage
 
 
@@ -44,8 +45,19 @@ def check_r2(settings: Settings) -> None:
     r2_from_settings(settings).ping()
 
 
+def check_github(settings: Settings) -> None:
+    if not (settings.github_token and settings.github_org):
+        raise NotConfiguredError("GITHUB_TOKEN, GITHUB_ORG")
+    client = GitHubClient(settings.github_token.get_secret_value(), settings.github_org)
+    try:
+        client.ping()
+    finally:
+        client.close()
+
+
 CHECKS: dict[str, CheckFn] = {
     "database": check_database,
     "redis": check_redis,
     "r2": check_r2,
+    "github": check_github,
 }
