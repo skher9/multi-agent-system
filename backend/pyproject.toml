@@ -1,0 +1,41 @@
+[project]
+name = "multi-agent-system-backend"
+version = "0.1.0"
+description = "API, workers, and agents for the multi-agent system"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+
+[tool.uv]
+# Setup guide rule: avoid package versions released in the last 14 days.
+# Bump this date deliberately when upgrading dependencies.
+exclude-newer = "2026-10-09T00:00:00Z"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/F: pyflakes + pycodestyle errors, I: import sorting, B: common bugs,
+# UP: modern Python syntax, S: security checks (e.g. hardcoded secrets)
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# assert is how pytest works; S101 flags it, so allow it in tests only
+"tests/**" = ["S101"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
