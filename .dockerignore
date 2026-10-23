@@ -1,0 +1,7 @@
+# Docker build context is the repo root (the sandbox image needs the template's
+# lockfile). Send only what images actually use, never secrets or node_modules.
+*
+!sandbox/
+!templates/nextjs-starter/package.json
+!templates/nextjs-starter/pnpm-lock.yaml
+!templates/nextjs-starter/pnpm-workspace.yaml

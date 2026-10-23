@@ -9,7 +9,8 @@ removed afterwards. Defence in layers:
 - secrets: none. `docker run` does not inherit the host environment, and we
   pass no --env flags, so backend/.env never reaches the container.
 
-Requires: `docker compose up -d` (for npm-proxy) and `docker build -t mas-sandbox sandbox`.
+Requires: `docker compose up -d` (for npm-proxy) and, from the repo root,
+`docker build -t mas-sandbox -f sandbox/Dockerfile .`
 """
 
 import subprocess
