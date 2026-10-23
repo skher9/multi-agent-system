@@ -35,3 +35,23 @@ def test_project_kind_is_text_with_check_constraint() -> None:
     sql = ddl("projects")
     assert "kind VARCHAR(8) NOT NULL" in sql
     assert "CONSTRAINT ck_projects_project_kind CHECK (kind IN ('new', 'existing'))" in sql
+
+
+def test_all_eleven_v1_tables_exist() -> None:
+    assert set(Base.metadata.tables) == {
+        "users",
+        "projects",
+        "documents",
+        "discovery_sessions",
+        "questions",
+        "chat_messages",
+        "features",
+        "tasks",
+        "approvals",
+        "agent_runs",
+        "llm_calls",
+    }
+
+
+def test_cost_is_exact_decimal_not_float() -> None:
+    assert "cost_inr NUMERIC(12, 4) NOT NULL" in ddl("llm_calls")
