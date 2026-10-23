@@ -16,5 +16,23 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # The sandbox's only way to the internet, allowing registry.npmjs.org only.
+  # It sits on both networks: the internal sandbox network and the normal one.
+  npm-proxy:
+    build: ./sandbox/proxy
+    image: mas-npm-proxy
+    container_name: npm-proxy
+    networks:
+      - sandbox
+      - default
+    restart: unless-stopped
+
+networks:
+  # internal: true = no route to the internet. Sandbox containers join only this
+  # network, so anything that doesn't go through npm-proxy simply can't connect.
+  sandbox:
+    name: mas-sandbox
+    internal: true
+
 volumes:
   redis-data:
