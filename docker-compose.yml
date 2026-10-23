@@ -1,0 +1,20 @@
+# Local services for development. Start: docker compose up -d   Stop: docker compose down
+services:
+  redis:
+    # Pinned minor version: patch updates only, never a surprise major upgrade.
+    image: redis:8.10-alpine
+    # Bound to 127.0.0.1 only: this Redis has no password, so it must not be
+    # reachable from other machines on your network.
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  redis-data:

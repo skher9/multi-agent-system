@@ -5,6 +5,7 @@ description = "API, workers, and agents for the multi-agent system"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.20.0",
+    "celery[redis]>=5.6.3",
     "fastapi>=0.143.0",
     "httpx2>=2.13.1",
     "psycopg[binary]>=3.3.6",
