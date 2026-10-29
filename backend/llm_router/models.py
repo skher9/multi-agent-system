@@ -17,9 +17,9 @@ class Role(StrEnum):
 
 
 MODELS: dict[Role, str] = {
-    # Cheap and fast; reading a ticket needs no strong reasoning.
-    # Undated ID chosen over "deepseek-v4.1-flash-1017", which costs ~3x more per output token.
-    Role.TICKET_READER: "deepseek/deepseek-v4.1-flash",
+    # Was deepseek/deepseek-v4.1-flash, but the live smoke test (2026-10-29) showed it
+    # cost about the same as MiniMax per call with no cache hits, so one model is simpler.
+    Role.TICKET_READER: "minimax/minimax-m3",
     Role.DEVELOPER: "minimax/minimax-m3",
     Role.REVIEWER: "minimax/minimax-m3",
 }

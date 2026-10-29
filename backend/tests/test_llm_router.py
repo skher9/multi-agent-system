@@ -77,7 +77,7 @@ def test_picks_model_by_role_and_sends_run_session() -> None:
     router.complete(role=Role.TICKET_READER, messages=[], agent_run_id=7)
     router.complete(role=Role.DEVELOPER, messages=[], agent_run_id=7, escalate=True)
 
-    assert sent[0]["model"] == "deepseek/deepseek-v4.1-flash"
+    assert sent[0]["model"] == "minimax/minimax-m3"
     assert sent[0]["session_id"] == "agent-run-7"
     assert sent[1]["model"] == "z-ai/glm-5.2"
 
