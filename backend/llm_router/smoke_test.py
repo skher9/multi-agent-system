@@ -8,11 +8,10 @@ deletes everything it created at the end. Re-run it whenever a model in models.p
 """
 
 import time
-import uuid
 from decimal import Decimal
 
 from api.config import get_settings
-from db.models import AgentRun, Feature, Project, ProjectKind, Task, User
+from db.scratch import scratch_agent_run
 from db.session import make_session_factory
 from llm_router.budget import db_story_spend
 from llm_router.models import Role
@@ -38,25 +37,6 @@ def main() -> None:
         raise SystemExit("Needs DATABASE_URL_TEST and OPENROUTER_API_KEY in backend/.env")
     factory = make_session_factory(settings.database_url_test.get_secret_value())
 
-    # llm_calls rows need a parent chain: user -> project -> feature -> task -> agent_run
-    with factory.begin() as session:
-        user = User(email=f"smoke-test-{uuid.uuid4().hex}@example.com")
-        session.add(user)
-        session.flush()
-        project = Project(user_id=user.id, name="smoke", kind=ProjectKind.NEW, status="test")
-        session.add(project)
-        session.flush()
-        feature = Feature(project_id=project.id, title="smoke", status="test")
-        session.add(feature)
-        session.flush()
-        task = Task(feature_id=feature.id, role="developer", status="test")
-        session.add(task)
-        session.flush()
-        run = AgentRun(task_id=task.id, role="developer", model="various", status="test")
-        session.add(run)
-        session.flush()
-        user_id, run_id = user.id, run.id
-
     seen: list[CallRecord] = []
     save = db_recorder(factory)
 
@@ -68,7 +48,7 @@ def main() -> None:
     spend = db_story_spend(factory)
     router = LlmRouter(client, record, settings.usd_to_inr, spend, settings.story_budget_inr)
 
-    try:
+    with scratch_agent_run(factory, role="developer") as run_id:
         print(f"{'case':<14} {'model':<30} {'in':>6} {'cached':>6} {'out':>5} {'₹':>8} {'ms':>6}")
         for label, role, escalate in CASES:
             for attempt in (1, 2):
@@ -91,11 +71,8 @@ def main() -> None:
 
         total = sum((c.cost_inr for c in seen), Decimal("0"))
         print(f"\nTotal: ₹{total} | budget guard reads ₹{spend(run_id)} from the database")
-    finally:
-        client.close()
-        with factory.begin() as session:
-            session.delete(session.get_one(User, user_id))  # cascades to every row above
-        print("Cleaned up test rows.")
+    client.close()
+    print("Cleaned up test rows.")
 
 
 if __name__ == "__main__":

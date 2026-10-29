@@ -68,6 +68,16 @@ class JiraClient:
             labels=fields.get("labels") or [],
         )
 
+    def add_comment(self, key: str, body: dict[str, Any]) -> str:
+        """Post an ADF comment on a ticket; return the new comment's id."""
+        if not TICKET_KEY.fullmatch(key):
+            raise ValueError(f"not a Jira ticket key: {key!r}")
+        response = self._http.post(f"/rest/api/3/issue/{key}/comment", json={"body": body})
+        if response.status_code == 404:
+            raise TicketNotFoundError(key)
+        response.raise_for_status()
+        return response.json()["id"]
+
     def ping(self) -> None:
         """Raise if the email + token can't sign in. GET /myself reads only the caller."""
         self._http.get("/rest/api/3/myself").raise_for_status()

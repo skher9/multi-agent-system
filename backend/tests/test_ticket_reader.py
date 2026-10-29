@@ -9,10 +9,11 @@ from agents.ticket_reader import (
     RESPONSE_FORMAT,
     TicketReaderError,
     TicketSpec,
+    questions_comment,
     read_ticket,
 )
 from llm_router.router import LlmRouter
-from services.jira import JiraTicket
+from services.jira import JiraTicket, adf_to_text
 from services.openrouter import OpenRouterClient
 
 TICKET = JiraTicket(
@@ -150,6 +151,19 @@ def test_accepts_json_wrapped_in_code_fences() -> None:
 def test_spec_rules(change: dict[str, Any], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         TicketSpec.model_validate({**READY, **change})
+
+
+def test_questions_comment_lists_reason_and_every_question() -> None:
+    comment = questions_comment(TicketSpec.model_validate(BLOCKED))
+    text = adf_to_text(comment)
+    assert "Why: 'Better' is not measurable" in text
+    assert "1. Which pages are in scope?" in text
+    assert "2. Is there a design to match?" in text
+
+
+def test_ready_ticket_gets_no_questions_comment() -> None:
+    with pytest.raises(ValueError):
+        questions_comment(TicketSpec.model_validate(READY))
 
 
 def test_schema_is_strict_mode_friendly() -> None:

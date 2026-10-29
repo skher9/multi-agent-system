@@ -5,7 +5,7 @@ may contain instructions ("ignore your rules..."); the worst a tool-less reader 
 do is fill in the form wrong, and the form is checked in code before anyone uses it.
 """
 
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
@@ -106,6 +106,31 @@ def read_ticket(router: LlmRouter, ticket: JiraTicket, *, agent_run_id: int) -> 
         return TicketSpec.model_validate_json(_strip_fences(content))
     except ValidationError as second_error:
         raise TicketReaderError(f"{ticket.key}: {_summarise(second_error)}") from second_error
+
+
+def questions_comment(spec: TicketSpec) -> dict[str, Any]:
+    """The Jira comment (ADF) that asks a blocked ticket's author for what's missing."""
+    if spec.status != "blocked":
+        raise ValueError("only a blocked ticket gets a questions comment")
+
+    def paragraph(text: str) -> dict[str, Any]:
+        return {"type": "paragraph", "content": [{"type": "text", "text": text}]}
+
+    return {
+        "type": "doc",
+        "version": 1,
+        "content": [
+            paragraph("🤖 This ticket isn't ready to build yet."),
+            paragraph(f"Why: {spec.reason}"),
+            paragraph("Please answer these in the description, then move the ticket back:"),
+            {
+                "type": "orderedList",
+                "content": [
+                    {"type": "listItem", "content": [paragraph(q)]} for q in spec.questions
+                ],
+            },
+        ],
+    }
 
 
 def _ask(router: LlmRouter, messages: list[dict[str, str]], agent_run_id: int) -> str:

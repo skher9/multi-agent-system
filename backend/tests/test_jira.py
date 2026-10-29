@@ -1,4 +1,5 @@
 import base64
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -89,6 +90,26 @@ def test_rejects_bad_keys_before_any_request(bad_key: str) -> None:
 
     with pytest.raises(ValueError, match="not a Jira ticket key"):
         make_client(handler).get_ticket(bad_key)
+
+
+def test_add_comment_posts_adf_body_and_returns_id() -> None:
+    body = {"type": "doc", "version": 1, "content": [p("hello")]}
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/rest/api/3/issue/KAN-5/comment"
+        assert json.loads(request.content) == {"body": body}
+        return httpx2.Response(201, json={"id": "10042"})
+
+    assert make_client(handler).add_comment("KAN-5", body) == "10042"
+
+
+def test_add_comment_rejects_bad_keys() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        raise AssertionError("no request should be sent for a bad key")
+
+    with pytest.raises(ValueError):
+        make_client(handler).add_comment("KAN-5/../../x", {})
 
 
 def test_ping_raises_on_bad_token() -> None:
