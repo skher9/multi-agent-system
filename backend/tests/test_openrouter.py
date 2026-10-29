@@ -81,6 +81,7 @@ def test_chat_sends_request_and_parses_usage_exactly() -> None:
         assert sent == {
             "model": "minimax/minimax-m3",
             "messages": [{"role": "user", "content": "hi"}],
+            "provider": {"require_parameters": True},
             "session_id": "run-42",
         }
         return httpx2.Response(200, json=chat_reply())

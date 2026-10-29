@@ -133,7 +133,13 @@ class OpenRouterClient:
         max_tokens: int | None = None,
     ) -> ChatResponse:
         """One chat completion. Raises OpenRouterError on any failure, even inside a 200."""
-        body: dict[str, Any] = {"model": model, "messages": messages}
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            # Route only to providers that support every parameter sent (e.g. a JSON
+            # schema), instead of one that silently ignores it.
+            "provider": {"require_parameters": True},
+        }
         optional = {
             "tools": tools,
             "response_format": response_format,
