@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     # OpenRouter
     openrouter_api_key: SecretStr | None = None
 
+    # Jira Cloud: where v1 tickets come from (basic auth: account email + API token)
+    jira_base_url: str | None = None  # e.g. https://your-site.atlassian.net
+    jira_email: str | None = None
+    jira_api_token: SecretStr | None = None
+
     # LLM costs. OpenRouter bills in USD; we log and limit in ₹.
     # Rate from the Services doc (July 2026); update by hand when it drifts.
     usd_to_inr: Decimal = Decimal("96.5")
