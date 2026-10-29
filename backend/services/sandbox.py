@@ -40,7 +40,11 @@ class SandboxResult:
 
 
 def build_docker_command(
-    command: list[str], name: str, workspace: Path | None, limits: SandboxLimits
+    command: list[str],
+    name: str,
+    workspace: Path | None,
+    limits: SandboxLimits,
+    masked_paths: tuple[str, ...] = (),
 ) -> list[str]:
     """The exact `docker run` invocation. Kept separate so tests can inspect it."""
     args = [
@@ -58,6 +62,10 @@ def build_docker_command(
     ]  # fmt: skip
     if workspace is not None:
         args += ["--volume", f"{workspace.resolve()}:{CONTAINER_WORKDIR}"]
+        # An empty in-memory folder laid over each masked path, e.g. ".git": the
+        # container sees an empty folder and can't touch the real one on the host.
+        for rel in masked_paths:
+            args += ["--mount", f"type=tmpfs,destination={CONTAINER_WORKDIR}/{rel}"]
     return [*args, IMAGE, *command]
 
 
@@ -65,10 +73,11 @@ def run(
     command: list[str],
     workspace: Path | None = None,
     limits: SandboxLimits = SandboxLimits(),  # noqa: B008  (frozen dataclass: safe default)
+    masked_paths: tuple[str, ...] = (),
 ) -> SandboxResult:
     """Run `command` (a list, never a shell string) inside a fresh sandbox container."""
     name = f"mas-sandbox-{uuid.uuid4().hex[:12]}"
-    docker_cmd = build_docker_command(command, name, workspace, limits)
+    docker_cmd = build_docker_command(command, name, workspace, limits, masked_paths)
     try:
         done = subprocess.run(  # noqa: S603  (fixed binary, list args, no shell)
             docker_cmd,
