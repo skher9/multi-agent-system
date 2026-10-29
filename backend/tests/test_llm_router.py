@@ -8,6 +8,7 @@ from typing import Any
 import httpx2
 import pytest
 
+from llm_router.budget import BudgetExceededError
 from llm_router.models import Role
 from llm_router.router import CallRecord, LlmRouter
 from services.openrouter import OpenRouterClient, OpenRouterError
@@ -30,12 +31,39 @@ def reply(cost: float = 0.001, model: str = "minimax/minimax-m3") -> dict[str, A
 
 def make_router(
     handler: Callable[[httpx2.Request], httpx2.Response],
+    spent_inr: Decimal = Decimal("0"),
 ) -> tuple[LlmRouter, list[CallRecord], list[float]]:
     records: list[CallRecord] = []
     waits: list[float] = []
     client = OpenRouterClient("fake-key", transport=httpx2.MockTransport(handler))
-    router = LlmRouter(client, records.append, Decimal("96.5"), sleep=waits.append)
+    router = LlmRouter(
+        client,
+        records.append,
+        Decimal("96.5"),
+        story_spend=lambda _run_id: spent_inr,
+        story_budget_inr=Decimal("50"),
+        sleep=waits.append,
+    )
     return router, records, waits
+
+
+def test_refuses_calls_once_story_budget_is_used() -> None:
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        raise AssertionError("no model call should be made over budget")
+
+    router, records, _ = make_router(handler, spent_inr=Decimal("50.0000"))
+    with pytest.raises(BudgetExceededError) as exc_info:
+        router.complete(role=Role.DEVELOPER, messages=[], agent_run_id=1)
+    assert exc_info.value.spent_inr == Decimal("50.0000")
+    assert records == []
+
+
+def test_allows_calls_just_under_budget() -> None:
+    router, records, _ = make_router(
+        lambda _: httpx2.Response(200, json=reply()), spent_inr=Decimal("49.9999")
+    )
+    router.complete(role=Role.DEVELOPER, messages=[], agent_run_id=1)
+    assert len(records) == 1
 
 
 def test_picks_model_by_role_and_sends_run_session() -> None:

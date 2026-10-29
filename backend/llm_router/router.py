@@ -1,7 +1,8 @@
 """complete(): the single doorway every agent uses to call a model.
 
-It picks the model for the role, retries failures that are worth retrying,
-times the call, converts OpenRouter's USD cost to ₹, and records one llm_calls row.
+It refuses calls once the story's budget is used, picks the model for the role,
+retries failures that are worth retrying, times the call, converts OpenRouter's
+USD cost to ₹, and records one llm_calls row.
 """
 
 import logging
@@ -11,6 +12,7 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
+from llm_router.budget import BudgetExceededError, SpendLookup
 from llm_router.models import Role, model_for
 from services.openrouter import ChatResponse, OpenRouterClient, OpenRouterError
 
@@ -46,11 +48,15 @@ class LlmRouter:
         client: OpenRouterClient,
         record: Recorder,
         usd_to_inr: Decimal,
+        story_spend: SpendLookup,
+        story_budget_inr: Decimal,
         sleep: Callable[[float], None] = time.sleep,  # tests pass a no-op
     ) -> None:
         self._client = client
         self._record = record
         self._usd_to_inr = usd_to_inr
+        self._story_spend = story_spend
+        self._story_budget_inr = story_budget_inr
         self._sleep = sleep
 
     def complete(
@@ -64,6 +70,12 @@ class LlmRouter:
         response_format: dict[str, Any] | None = None,
         max_tokens: int | None = None,
     ) -> ChatResponse:
+        # Checked before each call, so the call that crosses the budget finishes
+        # and the next one is refused.
+        spent = self._story_spend(agent_run_id)
+        if spent >= self._story_budget_inr:
+            raise BudgetExceededError(spent, self._story_budget_inr)
+
         model = model_for(role, escalate=escalate)
         attempt = 0
         while True:
