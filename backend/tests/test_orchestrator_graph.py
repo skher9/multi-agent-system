@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any
 
 import httpx2
+import pytest
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 
@@ -31,17 +32,25 @@ ISSUE = {
 class Fakes:
     """A fake Jira and model; records what the graph did to them."""
 
-    def __init__(self, reader_reply: dict[str, Any]) -> None:
+    def __init__(self, reader_reply: dict[str, Any], fail_posts: int = 0) -> None:
+        """fail_posts: how many comment posts fail (HTTP 500) before they work, to
+        simulate a run crashing partway."""
         self.comments: list[dict[str, Any]] = []
         self.agent_runs: list[str] = []
+        self.model_calls = 0
+        self._fail_posts = fail_posts
 
         def jira(request: httpx2.Request) -> httpx2.Response:
             if request.method == "POST":
+                if self._fail_posts > 0:
+                    self._fail_posts -= 1
+                    return httpx2.Response(500)
                 self.comments.append(json.loads(request.content))
                 return httpx2.Response(201, json={"id": "10001"})
             return httpx2.Response(200, json=ISSUE)
 
         def model(_: httpx2.Request) -> httpx2.Response:
+            self.model_calls += 1
             return model_reply(json.dumps(reader_reply))
 
         router = LlmRouter(
@@ -101,3 +110,19 @@ def test_checkpointer_saves_state_after_every_node() -> None:
     assert saved.next == ()  # nothing left to run
     # One checkpoint per step, so a crashed run could resume from any of them
     assert len(list(graph.get_state_history(config))) >= 4
+
+
+def test_a_crashed_run_resumes_without_redoing_finished_nodes() -> None:
+    fakes = Fakes(BLOCKED, fail_posts=1)
+    graph = build_graph(checkpointer=InMemorySaver())
+    config: RunnableConfig = {"configurable": {"thread_id": "run-2"}}
+
+    with pytest.raises(httpx2.HTTPStatusError):
+        graph.invoke({"ticket_key": "KAN-4"}, config, context=fakes.context)
+    assert graph.get_state(config).next == ("post_questions",)  # where it stopped
+
+    final = graph.invoke(None, config, context=fakes.context)  # None = continue
+
+    assert final["outcome"] == "blocked"
+    assert fakes.model_calls == 1  # the reader was not paid for twice
+    assert len(fakes.comments) == 1

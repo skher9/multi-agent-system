@@ -7,6 +7,7 @@ to every row it created.
 import uuid
 from collections.abc import Iterator
 
+import httpx2
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from api.config import get_settings
 from db.models import AgentRun, Feature, Project, Task, User
 from db.session import make_session_factory
+from orchestrator.checkpoints import postgres_checkpointer
 from orchestrator.records import agent_run, ensure_feature, ensure_project, update_feature
 from orchestrator.runner import Pipeline, run_ticket
 from tests.test_orchestrator_graph import Fakes
@@ -113,3 +115,29 @@ def test_run_ticket_records_the_whole_run(factory: sessionmaker[Session], projec
         assert feature.title == "KAN-4: Add a contact page"
         task = session.scalars(select(Task).where(Task.feature_id == feature.id)).one()
         assert (task.role, task.status) == ("ticket_reader", "done")
+
+
+def test_run_ticket_resumes_from_postgres_checkpoint(
+    factory: sessionmaker[Session], project_id: int
+) -> None:
+    assert test_db_url is not None
+    fakes = Fakes(BLOCKED, fail_posts=1)  # the first Jira post fails: a crash mid-run
+    with postgres_checkpointer(test_db_url.get_secret_value()) as checkpointer:
+        pipeline = Pipeline(
+            factory, fakes.context.jira, fakes.context.router, project_id, checkpointer
+        )
+        try:
+            with pytest.raises(httpx2.HTTPStatusError):
+                run_ticket(pipeline, "KAN-4")
+            feature_id = ensure_feature(factory, project_id, "KAN-4")
+            with factory() as session:
+                assert session.get_one(Feature, feature_id).status == "failed"
+
+            final = run_ticket(pipeline, "KAN-4")  # picks up from the saved checkpoint
+
+            assert final["outcome"] == "blocked"
+            assert fakes.model_calls == 1  # the reader ran once across both runs
+            with factory() as session:
+                assert session.get_one(Feature, feature_id).status == "blocked"
+        finally:
+            checkpointer.delete_thread(f"feature-{ensure_feature(factory, project_id, 'KAN-4')}")
