@@ -13,6 +13,7 @@ nodes get added after it, one at a time.
 """
 
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import asdict, dataclass
 from typing import Any, Literal, TypedDict
 
@@ -54,8 +55,9 @@ class RunContext:
 
     jira: JiraClient
     router: LlmRouter
-    # Creates the agent_runs row for one agent's turn and returns its id
-    start_agent_run: Callable[[str], int]
+    # `with agent_run("ticket_reader") as run_id:` records one agent's turn,
+    # marking it done or failed when the block ends (see records.agent_run)
+    agent_run: Callable[[str], AbstractContextManager[int]]
 
 
 def fetch_ticket(state: RunState, runtime: Runtime[RunContext]) -> Update:
@@ -65,11 +67,8 @@ def fetch_ticket(state: RunState, runtime: Runtime[RunContext]) -> Update:
 
 def read(state: RunState, runtime: Runtime[RunContext]) -> Update:
     ctx = runtime.context
-    spec = read_ticket(
-        ctx.router,
-        JiraTicket(**state["ticket"]),
-        agent_run_id=ctx.start_agent_run("ticket_reader"),
-    )
+    with ctx.agent_run("ticket_reader") as run_id:
+        spec = read_ticket(ctx.router, JiraTicket(**state["ticket"]), agent_run_id=run_id)
     return {"spec": spec.model_dump()}
 
 

@@ -1,6 +1,8 @@
 """The pipeline graph with a fake Jira and a fake model (no network, no database)."""
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from decimal import Decimal
 from typing import Any
 
@@ -52,12 +54,13 @@ class Fakes:
         self.context = RunContext(
             jira=JiraClient("https://x.atlassian.net", "e", "t", httpx2.MockTransport(jira)),
             router=router,
-            start_agent_run=self._start_agent_run,
+            agent_run=self._agent_run,
         )
 
-    def _start_agent_run(self, role: str) -> int:
+    @contextmanager
+    def _agent_run(self, role: str) -> Iterator[int]:
         self.agent_runs.append(role)
-        return len(self.agent_runs)
+        yield len(self.agent_runs)
 
 
 def nodes_visited(fakes: Fakes) -> list[str]:
