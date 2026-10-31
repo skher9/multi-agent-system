@@ -14,6 +14,7 @@ import db.models  # noqa: F401  (registers every table on Base.metadata)
 from alembic import context
 from api.config import get_settings
 from db.base import Base
+from orchestrator.checkpoints import CHECKPOINT_TABLES
 
 config = context.config
 if config.config_file_name is not None:
@@ -38,6 +39,12 @@ def database_url() -> str:
     return secret.get_secret_value()
 
 
+def include_name(name: str | None, type_: str, parent_names: object) -> bool:
+    """Leave LangGraph's checkpoint tables alone: LangGraph creates and migrates them,
+    so autogenerate must not offer to drop them as "unknown" tables."""
+    return not (type_ == "table" and name in CHECKPOINT_TABLES)
+
+
 def run_migrations_offline() -> None:
     """Print the SQL instead of running it (alembic ... upgrade head --sql)."""
     context.configure(
@@ -46,6 +53,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_name=include_name,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -61,6 +69,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,  # also detect column type changes, not just new columns
+            include_name=include_name,
         )
         with context.begin_transaction():
             context.run_migrations()

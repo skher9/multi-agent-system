@@ -5,6 +5,7 @@ A missing value shows up as "not configured" in /health instead of a crash.
 Secrets use SecretStr so they never appear in logs, errors, or repr().
 """
 
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 
@@ -49,6 +50,21 @@ class Settings(BaseSettings):
 
     # OpenRouter
     openrouter_api_key: SecretStr | None = None
+
+    # Jira Cloud: where v1 tickets come from (basic auth: account email + API token)
+    jira_base_url: str | None = None  # e.g. https://your-site.atlassian.net
+    jira_email: str | None = None
+    jira_api_token: SecretStr | None = None
+
+    # v1 pipeline: the one repo agents work on, and who owns its project in the database
+    agent_repo: str | None = None  # GitHub owner/name, e.g. skher9/agent-playground
+    agent_owner_email: str | None = None
+
+    # LLM costs. OpenRouter bills in USD; we log and limit in ₹.
+    # Rate from the Services doc (July 2026); update by hand when it drifts.
+    usd_to_inr: Decimal = Decimal("96.5")
+    # Budget guard: a story run (one feature, all its tasks together) stops past this.
+    story_budget_inr: Decimal = Decimal("50")
 
 
 @lru_cache

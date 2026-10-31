@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from api.config import Settings
@@ -12,6 +14,13 @@ def test_reads_values_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_missing_values_default_to_none() -> None:
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
     assert settings.openrouter_api_key is None
+
+
+def test_money_settings_are_exact_decimals(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("USD_TO_INR", "97.25")
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert settings.usd_to_inr == Decimal("97.25")
+    assert settings.story_budget_inr == Decimal("50")
 
 
 def test_secrets_are_hidden_when_printed(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -121,6 +121,48 @@
           }
         }
       }
+    },
+    "/runs": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Start Run",
+        "description": "Queue a run. 202 = accepted, not finished.",
+        "operationId": "start_run_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStarted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -203,6 +245,20 @@
           "status"
         ],
         "title": "JobStatus"
+      },
+      "RunRequest": {
+        "properties": {
+          "ticket": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]+-\\d+$",
+            "title": "Ticket"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticket"
+        ],
+        "title": "RunRequest"
       },
       "ServiceStatus": {
         "properties": {

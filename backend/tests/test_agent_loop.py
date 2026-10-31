@@ -1,0 +1,139 @@
+"""The agent loop against a fake model that replies with scripted tool calls."""
+
+import json
+from decimal import Decimal
+from typing import Any
+
+import httpx2
+import pytest
+from pydantic import BaseModel, Field
+
+from agents.loop import AgentLoopError, run_agent
+from llm_router.models import Role
+from llm_router.router import LlmRouter
+from services.openrouter import OpenRouterClient
+
+
+class Answer(BaseModel):
+    """Your final answer."""
+
+    summary: str = Field(min_length=1)
+
+
+def call(name: str, args: dict[str, Any], call_id: str = "c1") -> dict[str, Any]:
+    return {
+        "id": call_id,
+        "type": "function",
+        "function": {"name": name, "arguments": json.dumps(args)},
+    }
+
+
+def reply(*tool_calls: dict[str, Any], content: str | None = None) -> dict[str, Any]:
+    message: dict[str, Any] = {"content": content}
+    if tool_calls:
+        message["tool_calls"] = list(tool_calls)
+    return {
+        "model": "minimax/minimax-m3",
+        "choices": [{"finish_reason": "tool_calls" if tool_calls else "stop", "message": message}],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 10, "cost": 0.0001},
+    }
+
+
+class Script:
+    """A fake model: answers with the scripted replies in order, records what it was sent."""
+
+    def __init__(self, *replies: dict[str, Any]) -> None:
+        self.replies = list(replies)
+        self.sent: list[dict[str, Any]] = []
+        self.tool_calls: list[tuple[str, str]] = []
+
+    def router(self) -> LlmRouter:
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            self.sent.append(json.loads(request.content))
+            return httpx2.Response(200, json=self.replies.pop(0))
+
+        client = OpenRouterClient("fake-key", transport=httpx2.MockTransport(handler))
+        return LlmRouter(
+            client, lambda _c: None, Decimal("96.5"), lambda _r: Decimal(0), Decimal(50)
+        )
+
+    def handle(self, name: str, arguments: str) -> str:
+        self.tool_calls.append((name, arguments))
+        return f"result of {name}"
+
+    def run(self, max_tool_calls: int = 25) -> Answer:
+        return run_agent(
+            self.router(),
+            role=Role.DEVELOPER,
+            agent_run_id=1,
+            system="sys",
+            user="task",
+            tools=[{"type": "function", "function": {"name": "read_file", "parameters": {}}}],
+            handle=self.handle,
+            answer=Answer,
+            max_tool_calls=max_tool_calls,
+        )
+
+
+def test_tools_run_then_finish_returns_the_answer() -> None:
+    script = Script(
+        reply(call("read_file", {"path": "a.ts"})),
+        reply(call("finish", {"summary": "done"})),
+    )
+    assert script.run() == Answer(summary="done")
+    assert script.tool_calls == [("read_file", '{"path": "a.ts"}')]
+    # The 2nd request carried the tool's result back to the model
+    last = script.sent[1]["messages"][-1]
+    assert last == {"role": "tool", "tool_call_id": "c1", "content": "result of read_file"}
+
+
+def test_finish_tool_is_offered_with_the_answer_schema() -> None:
+    script = Script(reply(call("finish", {"summary": "x"})))
+    script.run()
+    finish = script.sent[0]["tools"][-1]["function"]
+    assert finish["name"] == "finish"
+    assert finish["description"] == "Your final answer."
+    assert finish["parameters"]["required"] == ["summary"]
+
+
+def test_invalid_answer_goes_back_as_an_error() -> None:
+    script = Script(
+        reply(call("finish", {"summary": ""})),
+        reply(call("finish", {"summary": "fixed"})),
+    )
+    assert script.run().summary == "fixed"
+    assert script.sent[1]["messages"][-1]["content"].startswith("ERROR: your answer is not valid")
+
+
+def test_tool_limit_refuses_tools_but_allows_finish() -> None:
+    script = Script(
+        reply(call("read_file", {"path": "a"})),
+        reply(call("read_file", {"path": "b"})),
+        reply(call("finish", {"summary": "ok"})),
+    )
+    assert script.run(max_tool_calls=1).summary == "ok"
+    assert len(script.tool_calls) == 1  # the second read was refused
+    assert "tool limit (1) reached" in script.sent[2]["messages"][-1]["content"]
+
+
+def test_gives_up_when_the_model_never_finishes() -> None:
+    script = Script(*[reply(call("read_file", {"path": "a"})) for _ in range(4)])
+    with pytest.raises(AgentLoopError):
+        script.run(max_tool_calls=1)
+
+
+def test_nudges_a_model_that_stops_calling_tools() -> None:
+    script = Script(
+        reply(content="I think I'm done"),
+        reply(call("finish", {"summary": "ok"})),
+    )
+    assert script.run().summary == "ok"
+    assert (
+        script.sent[1]["messages"][-1]["content"] == "Use a tool, or call finish with your answer."
+    )
+
+
+def test_gives_up_on_a_model_that_only_talks() -> None:
+    script = Script(*[reply(content="hmm") for _ in range(3)])
+    with pytest.raises(AgentLoopError, match="stopped calling tools"):
+        script.run()

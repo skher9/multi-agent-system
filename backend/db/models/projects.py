@@ -6,7 +6,7 @@ another's data once the app opens to more users.
 
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, ForeignKey, String, Text
+from sqlalchemy import BigInteger, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.base import Base, IdMixin, TimestampMixin, text_enum
@@ -49,3 +49,24 @@ class Document(IdMixin, TimestampMixin, Base):
     )
     r2_key: Mapped[str] = mapped_column(Text)
     version: Mapped[int] = mapped_column(default=1)
+
+
+class CodeGraph(IdMixin, TimestampMixin, Base):
+    """A Graphify map of a project's code at one commit. The files live in R2.
+
+    Built once per repo, then updated for each new commit (only changed files are
+    re-read), so later tickets start from a map instead of exploring the code.
+    """
+
+    __tablename__ = "code_graphs"
+    # One graph per commit. Also serves as the project_id index (leading column).
+    __table_args__ = (
+        UniqueConstraint("project_id", "commit_sha", name="uq_code_graphs_project_id_commit_sha"),
+    )
+
+    project_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("projects.id", ondelete="CASCADE")
+    )
+    commit_sha: Mapped[str] = mapped_column(String(40))  # full git SHA-1
+    r2_key: Mapped[str] = mapped_column(Text)  # zipped graphify-out folder
+    graphify_version: Mapped[str] = mapped_column(String(32))  # rebuild if this changes

@@ -9,6 +9,7 @@ from api.health import CheckFn, NotConfiguredError
 from db import session as db_session
 from services import redis_client
 from services.github import GitHubClient
+from services.jira import JiraClient
 from services.openrouter import OpenRouterClient
 from services.r2 import R2Credentials, R2Storage
 from services.realtime import PusherCredentials, Realtime
@@ -89,6 +90,18 @@ def check_openrouter(settings: Settings) -> None:
         client.close()
 
 
+def check_jira(settings: Settings) -> None:
+    if not (settings.jira_base_url and settings.jira_email and settings.jira_api_token):
+        raise NotConfiguredError("JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN")
+    client = JiraClient(
+        settings.jira_base_url, settings.jira_email, settings.jira_api_token.get_secret_value()
+    )
+    try:
+        client.ping()
+    finally:
+        client.close()
+
+
 CHECKS: dict[str, CheckFn] = {
     "database": check_database,
     "redis": check_redis,
@@ -96,4 +109,5 @@ CHECKS: dict[str, CheckFn] = {
     "github": check_github,
     "pusher": check_pusher,
     "openrouter": check_openrouter,
+    "jira": check_jira,
 }
