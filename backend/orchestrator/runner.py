@@ -1,5 +1,6 @@
 """run_ticket(): one full pipeline run for a ticket, with its database records."""
 
+import logging
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -21,6 +22,9 @@ from services.workspace import GitIdentity, Workspace
 
 # Author of the agents' commits. GitHub's noreply domain: no real inbox behind it.
 AGENT_AUTHOR = GitIdentity(name="Agent Dev Team", email="agent-dev-team@users.noreply.github.com")
+
+
+logger = logging.getLogger(__name__)
 
 
 class AlreadyRunningError(Exception):
@@ -201,9 +205,17 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
     unfinished = pipeline.checkpointer is not None and bool(graph.get_state(config).next)
     # Input None tells LangGraph "continue from the checkpoint" instead of starting over.
     graph_input: RunInput | None = None if unfinished else {"ticket_key": ticket_key}
+    final: dict[str, Any] = {}
     try:
-        # invoke() is typed as returning a plain dict; it is the graph's RunState.
-        final = cast(RunState, graph.invoke(graph_input, config, context=context))
+        # "updates" says which box just finished (logged); "values" is the state after it.
+        for mode, chunk in graph.stream(
+            graph_input, config, context=context, stream_mode=["updates", "values"]
+        ):
+            if mode == "updates":
+                for node in cast(dict[str, Any], chunk):
+                    logger.info("%s: finished %s", ticket_key, node)
+            else:
+                final = cast(dict[str, Any], chunk)
     except BaseException:
         update_feature(pipeline.factory, feature_id, status="failed")
         raise
@@ -213,4 +225,4 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
         status=final["outcome"],
         title=f"{ticket_key}: {final['ticket']['summary']}",
     )
-    return final
+    return cast(RunState, final)

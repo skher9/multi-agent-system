@@ -9,6 +9,7 @@ It can only look: list_files, search, read_file, and the graph tools. Requests f
 any other tool are refused in code, whatever the model asks for.
 """
 
+import logging
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, Self
 
@@ -23,8 +24,10 @@ from llm_router.models import Role
 from llm_router.router import LlmRouter
 from services.workspace import Workspace
 
+logger = logging.getLogger(__name__)
+
 MAX_TOOL_CALLS = 25
-MAX_OUTPUT_TOKENS = 4000  # per round: room to think, then call a tool
+MAX_OUTPUT_TOKENS = 16000  # per round: thinking plus a full plan in one finish call
 MAX_TREE_FILES = 300
 MAX_REPORT_CHARS = 6000  # ~1,500 tokens of GRAPH_REPORT.md
 
@@ -108,6 +111,10 @@ def plan_ticket(
     agent_run_id: int,
 ) -> Plan:
     repo = RepoTools(workspace, typecheck_after_edit=False)
+    # Packages installed so the planner can read library docs in node_modules (the
+    # template's AGENTS.md points there). Planning still works if it fails.
+    if error := repo.install():
+        logger.warning("planner: package install failed, planning without: %.300s", error)
     graph_tools = GraphTools(graph)
 
     def handle(name: str, arguments: str) -> str:

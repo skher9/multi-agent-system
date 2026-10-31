@@ -120,7 +120,7 @@ def test_retries_temporary_errors_then_succeeds() -> None:
     assert len(records) == 1  # failed attempts aren't billed, so they aren't recorded
 
 
-def test_gives_up_after_two_retries() -> None:
+def test_gives_up_after_five_retries() -> None:
     calls = 0
 
     def handler(_: httpx2.Request) -> httpx2.Response:
@@ -128,10 +128,11 @@ def test_gives_up_after_two_retries() -> None:
         calls += 1
         return httpx2.Response(502, json={"error": {"code": 502, "message": "down"}})
 
-    router, records, _ = make_router(handler)
+    router, records, waits = make_router(handler)
     with pytest.raises(OpenRouterError):
         router.complete(role=Role.DEVELOPER, messages=[], agent_run_id=1)
-    assert calls == 3
+    assert calls == 6
+    assert waits == [1, 2, 5, 10, 20]
     assert records == []
 
 

@@ -19,7 +19,7 @@ from llm_router.router import LlmRouter
 from services.workspace import Workspace
 
 MAX_TOOL_CALLS = 20
-MAX_OUTPUT_TOKENS = 4000
+MAX_OUTPUT_TOKENS = 12000  # thinking plus issues and the per-criterion check
 MAX_DIFF_CHARS = 40_000  # ~10k tokens; bigger diffs are cut and the reviewer reads files
 
 

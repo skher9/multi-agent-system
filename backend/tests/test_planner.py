@@ -164,7 +164,12 @@ def test_a_plan_with_conflicts_leaves_subtasks_empty(repo: Path) -> None:
         checked(repo).model_validate({**GOOD_PLAN, "conflicts": [conflict]})
 
 
-def test_planner_can_look_but_not_touch(origin: str, tmp_path: Path) -> None:  # noqa: F811
+def test_planner_can_look_but_not_touch(
+    origin: str,  # noqa: F811
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("agents.repo_tools.RepoTools.install", lambda self: "")
     graph_dir = tmp_path / "graph"
     graph_dir.mkdir()
     (graph_dir / "GRAPH_REPORT.md").write_text("# Graph Report\nGod nodes: Home()")

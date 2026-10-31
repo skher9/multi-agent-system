@@ -26,8 +26,8 @@ from llm_router.models import Role
 from llm_router.router import LlmRouter
 from services.workspace import Workspace
 
-MAX_TOOL_CALLS = 40
-MAX_OUTPUT_TOKENS = 8000  # per round: room for a whole new file in one create_file call
+MAX_TOOL_CALLS = 60
+MAX_OUTPUT_TOKENS = 16000  # per round: thinking plus a whole new file in one create_file call
 MAX_CHECK_OUTPUT_CHARS = 6000  # failure output sent back to the model
 
 
@@ -229,5 +229,5 @@ Stay inside the plan:
 - Don't add features, dependencies, or files nobody asked for. Don't refactor or rename
   code outside your changes.
 - Never read or write .env files or put secrets in code.
-- Use at most 40 tool calls. If you hit the limit, call finish with what's done and
+- Use at most 60 tool calls. If you hit the limit, call finish with what's done and
   what's left."""
