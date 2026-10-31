@@ -22,6 +22,7 @@ from pathlib import Path
 from services import sandbox
 from services.sandbox import SandboxLimits, SandboxResult
 
+SHA = re.compile(r"[0-9a-f]{40}")  # a full git commit id
 GITHUB_REPO = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")  # owner/name
 
 # Applied to every host git command. Hooks off: nothing in the repo runs on the host.
@@ -73,10 +74,24 @@ class Workspace:
         """Every file git tracks, as repo-relative paths (no node_modules or build output)."""
         return self._git("ls-files").splitlines()
 
-    def create_branch(self, name: str) -> None:
+    def checkout(self, branch: str) -> None:
+        """Switch to an existing remote branch (e.g. the agent's, to review or fix it)."""
+        self._git("check-ref-format", "--branch", branch)
+        self._git("switch", "--quiet", branch)
+
+    def diff(self, base: str) -> str:
+        """Everything changed since commit `base`, as a unified diff."""
+        if not SHA.fullmatch(base):
+            raise ValueError(f"not a commit sha: {base!r}")
+        return self._git("diff", f"{base}..HEAD")
+
+    def create_branch(self, name: str, start: str | None = None) -> None:
+        """Create and switch to a branch, from `start` (a commit sha) or the current commit."""
         # git's own rules for branch names (no spaces, no "..", etc.)
         self._git("check-ref-format", "--branch", name)
-        self._git("switch", "--quiet", "-c", name)
+        if start is not None and not SHA.fullmatch(start):
+            raise ValueError(f"not a commit sha: {start!r}")
+        self._git("switch", "--quiet", "-c", name, *([start] if start else []))
 
     def run(self, command: list[str], limits: SandboxLimits | None = None) -> SandboxResult:
         """Run a command in the sandbox with this repo mounted and .git masked."""
@@ -96,8 +111,10 @@ class Workspace:
         )  # fmt: skip
         return self.head_sha()
 
-    def push(self, branch: str) -> None:
-        self._git("push", "--quiet", "origin", f"HEAD:refs/heads/{branch}")
+    def push(self, branch: str, *, replace: bool = False) -> None:
+        """Push HEAD to a branch. replace=True overwrites the branch (the "+" refspec):
+        only for branches the agents own, e.g. when a crashed run builds again."""
+        self._git("push", "--quiet", "origin", f"{'+' if replace else ''}HEAD:refs/heads/{branch}")
 
     def _git(self, *args: str, cwd: Path | None = None) -> str:
         try:

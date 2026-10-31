@@ -28,6 +28,11 @@ COMMAND_TIMEOUT_SECONDS = 5 * 60
 # Inside node_modules: ignored by git, so the report never ends up in a commit.
 TEST_REPORT = "node_modules/.cache/vitest-report.json"
 
+# What "done" means for code: every one must pass. Commands in the repo's package.json.
+CHECKS = {"lint": "pnpm lint", "typecheck": "pnpm typecheck", "unit tests": "pnpm test"}
+INSTALL = "pnpm install --frozen-lockfile --prefer-offline"
+TEST_FILE = re.compile(r"(\.test\.|\.spec\.|(^|/)__tests__/)")
+
 ANSI_ESCAPES = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")  # terminal colour codes
 
 
@@ -77,6 +82,12 @@ class CreateFile(ToolArgs):
     content: str
 
 
+class DeleteFile(ToolArgs):
+    """Delete a file the plan says to remove."""
+
+    path: str
+
+
 class Run(ToolArgs):
     """Run a shell command in the sandbox at the repo root (e.g. "pnpm lint")."""
 
@@ -93,6 +104,7 @@ TOOL_ARGS: dict[str, type[ToolArgs]] = {
     "read_file": ReadFile,
     "edit_file": EditFile,
     "create_file": CreateFile,
+    "delete_file": DeleteFile,
     "run": Run,
     "run_tests": RunTests,
 }
@@ -142,6 +154,7 @@ class RepoTools:
             "read_file": self._read_file,
             "edit_file": self._edit_file,
             "create_file": self._create_file,
+            "delete_file": self._delete_file,
             "run": self._run,
             "run_tests": self._run_tests,
         }
@@ -259,6 +272,14 @@ class RepoTools:
         self.changed_files.add(self._rel(path))
         return f"Created {args.path}." + self._after_edit()
 
+    def _delete_file(self, args: DeleteFile) -> str:
+        path = self._resolve(args.path)
+        if not path.is_file():
+            raise ToolError(f"{args.path!r} is not a file")
+        path.unlink()
+        self.changed_files.add(self._rel(path))
+        return f"Deleted {args.path}." + self._after_edit()
+
     def _after_edit(self) -> str:
         """Type-check after every change (System Design doc), so mistakes surface at once."""
         if not self._typecheck_after_edit:
@@ -282,6 +303,20 @@ class RepoTools:
             # The tests didn't even start (e.g. a syntax error): show the raw output.
             return f"Tests could not run (exit code {exit_code}):\n{output}"
         return summarise_test_report(json.loads(report.read_text()))
+
+    def install(self) -> str:
+        """Install the repo's packages; return "" on success, else the error output."""
+        exit_code, output = self._sandbox(INSTALL)
+        return "" if exit_code == 0 else f"install failed (exit {exit_code}):\n{output}"
+
+    def run_checks(self) -> list[str]:
+        """Run every check in CHECKS; return the failures with their output (empty: all pass)."""
+        failures = []
+        for name, command in CHECKS.items():
+            exit_code, output = self._sandbox(command)
+            if exit_code != 0:
+                failures.append(f"{name} failed (exit code {exit_code}):\n{output}")
+        return failures
 
     def _sandbox(self, command: str) -> tuple[int, str]:
         result = self._ws.run(
