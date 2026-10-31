@@ -173,6 +173,11 @@ def test_planner_can_look_but_not_touch(
     graph_dir = tmp_path / "graph"
     graph_dir.mkdir()
     (graph_dir / "GRAPH_REPORT.md").write_text("# Graph Report\nGod nodes: Home()")
+    (graph_dir / "graph.json").write_text(
+        json.dumps(
+            {"nodes": [{"id": "home", "label": "Home()", "source_file": "src/app/page.tsx"}]}
+        )
+    )
     with Workspace.clone(origin) as ws:
         (ws.path / "src/app").mkdir(parents=True)
         (ws.path / "src/app/page.tsx").write_text("export default function Home() {}\n")
@@ -204,6 +209,8 @@ def test_planner_can_look_but_not_touch(
     assert "1. Visiting /contact shows a form" in task
     assert "src/app/page.tsx" in task  # file tree
     assert "God nodes: Home()" in task  # graph report
+    assert "<relevant_files>" in task
+    assert "1. src/app/page.tsx: Home()" in task  # ranked from graph.json
     offered = [t["function"]["name"] for t in first["tools"]]
     assert offered == [
         "list_files", "search", "read_file",
