@@ -62,7 +62,7 @@ GRAPH_TOOL_ARGS: dict[str, type[GraphArgs]] = {
 
 
 def graph_tool_definitions() -> list[dict[str, Any]]:
-    return definitions(dict(GRAPH_TOOL_ARGS))
+    return definitions(GRAPH_TOOL_ARGS)
 
 
 class GraphTools:

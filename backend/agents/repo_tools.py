@@ -9,7 +9,7 @@ File tools work on the host, locked to the repo folder. Commands run in the sand
 
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -103,7 +103,7 @@ def tool_definitions() -> list[dict[str, Any]]:
     return definitions(TOOL_ARGS)
 
 
-def definitions(tools: dict[str, type[ToolArgs]]) -> list[dict[str, Any]]:
+def definitions(tools: Mapping[str, type[BaseModel]]) -> list[dict[str, Any]]:
     """Tool definitions for chat() from {name: argument model}."""
     return [
         {
@@ -118,7 +118,7 @@ def definitions(tools: dict[str, type[ToolArgs]]) -> list[dict[str, Any]]:
     ]
 
 
-def _parameters(args: type[ToolArgs]) -> dict[str, Any]:
+def _parameters(args: type[BaseModel]) -> dict[str, Any]:
     schema = args.model_json_schema()
     schema.pop("title", None)
     schema.pop("description", None)  # already the tool's description
