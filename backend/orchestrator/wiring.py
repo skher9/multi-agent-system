@@ -1,0 +1,80 @@
+"""open_pipeline(): build a real Pipeline from settings, and close everything after."""
+
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+from api.config import Settings
+from db.session import make_session_factory
+from llm_router.budget import db_story_spend
+from llm_router.recorder import db_recorder
+from llm_router.router import LlmRouter
+from orchestrator.checkpoints import postgres_checkpointer
+from orchestrator.records import ensure_project
+from orchestrator.runner import Pipeline
+from services.jira import JiraClient
+from services.openrouter import OpenRouterClient
+from services.workspace import github_remote
+
+
+class NotConfiguredError(Exception):
+    """A setting the pipeline needs is missing from backend/.env."""
+
+
+@contextmanager
+def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Iterator[Pipeline]:
+    """Connect Jira, OpenRouter and the database, with Postgres checkpoints for resuming.
+
+    database_url overrides settings.database_url (scripts and tests use the test branch).
+    """
+    db_url = database_url or (
+        settings.database_url.get_secret_value() if settings.database_url else None
+    )
+    missing = [
+        name
+        for name, value in [
+            ("DATABASE_URL", db_url),
+            ("OPENROUTER_API_KEY", settings.openrouter_api_key),
+            ("JIRA_BASE_URL", settings.jira_base_url),
+            ("JIRA_EMAIL", settings.jira_email),
+            ("JIRA_API_TOKEN", settings.jira_api_token),
+            ("AGENT_REPO", settings.agent_repo),
+            ("AGENT_OWNER_EMAIL", settings.agent_owner_email),
+        ]
+        if not value
+    ]
+    # Same check as `missing`, spelled out so the type checker knows none are None below
+    if not (
+        db_url
+        and settings.openrouter_api_key
+        and settings.jira_base_url
+        and settings.jira_email
+        and settings.jira_api_token
+        and settings.agent_repo
+        and settings.agent_owner_email
+    ):
+        raise NotConfiguredError(", ".join(missing))
+
+    factory = make_session_factory(db_url)
+    project_id = ensure_project(
+        factory,
+        owner_email=settings.agent_owner_email,
+        name=settings.agent_repo.split("/")[1],
+        repo_url=github_remote(settings.agent_repo),
+    )
+    jira = JiraClient(
+        settings.jira_base_url, settings.jira_email, settings.jira_api_token.get_secret_value()
+    )
+    client = OpenRouterClient(settings.openrouter_api_key.get_secret_value())
+    router = LlmRouter(
+        client,
+        db_recorder(factory),
+        settings.usd_to_inr,
+        db_story_spend(factory),
+        settings.story_budget_inr,
+    )
+    try:
+        with postgres_checkpointer(db_url) as checkpointer:
+            yield Pipeline(factory, jira, router, project_id, checkpointer)
+    finally:
+        jira.close()
+        client.close()

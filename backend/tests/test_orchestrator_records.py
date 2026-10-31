@@ -6,18 +6,26 @@ to every row it created.
 
 import uuid
 from collections.abc import Iterator
+from datetime import timedelta
 
 import httpx2
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from api.config import get_settings
 from db.models import AgentRun, Feature, Project, Task, User
 from db.session import make_session_factory
 from orchestrator.checkpoints import postgres_checkpointer
-from orchestrator.records import agent_run, ensure_feature, ensure_project, update_feature
-from orchestrator.runner import Pipeline, run_ticket
+from orchestrator.records import (
+    STALE_AFTER,
+    agent_run,
+    claim_feature,
+    ensure_feature,
+    ensure_project,
+    update_feature,
+)
+from orchestrator.runner import AlreadyRunningError, Pipeline, run_ticket
 from tests.test_orchestrator_graph import Fakes
 from tests.test_ticket_reader import BLOCKED
 
@@ -99,6 +107,37 @@ def test_update_feature_trims_long_titles(factory: sessionmaker[Session], projec
     with factory() as session:
         feature = session.get_one(Feature, feature_id)
         assert (feature.status, len(feature.title)) == ("blocked", 200)
+
+
+def test_claim_feature_lets_one_run_in(factory: sessionmaker[Session], project_id: int) -> None:
+    feature_id = ensure_feature(factory, project_id, "KAN-4")
+    assert claim_feature(factory, feature_id)
+    assert not claim_feature(factory, feature_id)  # the first run hasn't finished
+    update_feature(factory, feature_id, status="blocked")
+    assert claim_feature(factory, feature_id)  # finished runs free it up
+
+
+def test_claim_feature_takes_over_a_dead_run(
+    factory: sessionmaker[Session], project_id: int
+) -> None:
+    feature_id = ensure_feature(factory, project_id, "KAN-4")
+    assert claim_feature(factory, feature_id)
+    with factory.begin() as session:  # pretend its worker was killed long ago
+        old = func.now() - STALE_AFTER - timedelta(minutes=1)
+        session.execute(update(Feature).where(Feature.id == feature_id).values(updated_at=old))
+    assert claim_feature(factory, feature_id)
+
+
+def test_run_ticket_skips_a_ticket_already_running(
+    factory: sessionmaker[Session], project_id: int
+) -> None:
+    fakes = Fakes(BLOCKED)
+    pipeline = Pipeline(factory, fakes.context.jira, fakes.context.router, project_id)
+    assert claim_feature(factory, ensure_feature(factory, project_id, "KAN-4"))
+
+    with pytest.raises(AlreadyRunningError):
+        run_ticket(pipeline, "KAN-4")
+    assert fakes.model_calls == 0  # nothing ran, nothing was paid for
 
 
 def test_run_ticket_records_the_whole_run(factory: sessionmaker[Session], project_id: int) -> None:

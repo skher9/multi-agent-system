@@ -5,15 +5,17 @@ users -> projects -> features (one per Jira ticket) -> tasks (one per role) -> a
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from db.models import AgentRun, Feature, Project, ProjectKind, Task, User
 from llm_router.models import Role, model_for
 
 TITLE_MAX = 200  # features.title is String(200)
+# Story runs are capped at 30 minutes, so a run "running" longer than this has died.
+STALE_AFTER = timedelta(minutes=30)
 
 
 def ensure_project(
@@ -55,6 +57,26 @@ def ensure_feature(factory: sessionmaker[Session], project_id: int, jira_key: st
             session.add(feature)
             session.flush()
         return feature.id
+
+
+def claim_feature(factory: sessionmaker[Session], feature_id: int) -> bool:
+    """Mark the feature running, unless another run already is. True if we got it.
+
+    One UPDATE, so two runs racing for the same feature can't both win: Postgres makes
+    the second wait for the first, then re-checks the WHERE and finds it running.
+    A "running" left behind by a killed worker counts as dead after STALE_AFTER.
+    """
+    with factory.begin() as session:
+        claimed = session.scalar(
+            update(Feature)
+            .where(
+                Feature.id == feature_id,
+                or_(Feature.status != "running", Feature.updated_at < func.now() - STALE_AFTER),
+            )
+            .values(status="running")  # updated_at refreshes itself (onupdate)
+            .returning(Feature.id)
+        )
+        return claimed is not None
 
 
 def update_feature(

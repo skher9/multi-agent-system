@@ -9,8 +9,12 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from llm_router.router import LlmRouter
 from orchestrator.graph import RunContext, RunInput, RunState, build_graph
-from orchestrator.records import agent_run, ensure_feature, update_feature
+from orchestrator.records import agent_run, claim_feature, ensure_feature, update_feature
 from services.jira import JiraClient
+
+
+class AlreadyRunningError(Exception):
+    """Another run of this ticket is in progress; this one did nothing."""
 
 
 @dataclass(frozen=True)
@@ -30,9 +34,11 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
 
     If the ticket's last run stopped partway (a crash), this continues from the node
     that didn't finish. Otherwise it starts from the beginning.
+    Raises AlreadyRunningError if another run of the ticket hasn't finished.
     """
     feature_id = ensure_feature(pipeline.factory, pipeline.project_id, ticket_key)
-    update_feature(pipeline.factory, feature_id, status="running")
+    if not claim_feature(pipeline.factory, feature_id):
+        raise AlreadyRunningError(ticket_key)
     context = RunContext(
         jira=pipeline.jira,
         router=pipeline.router,

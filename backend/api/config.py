@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     jira_email: str | None = None
     jira_api_token: SecretStr | None = None
 
+    # v1 pipeline: the one repo agents work on, and who owns its project in the database
+    agent_repo: str | None = None  # GitHub owner/name, e.g. skher9/agent-playground
+    agent_owner_email: str | None = None
+
     # LLM costs. OpenRouter bills in USD; we log and limit in ₹.
     # Rate from the Services doc (July 2026); update by hand when it drifts.
     usd_to_inr: Decimal = Decimal("96.5")
