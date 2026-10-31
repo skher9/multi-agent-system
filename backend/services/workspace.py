@@ -69,6 +69,10 @@ class Workspace:
         """The full sha of the commit currently checked out."""
         return self._git("rev-parse", "HEAD").strip()
 
+    def tracked_files(self) -> list[str]:
+        """Every file git tracks, as repo-relative paths (no node_modules or build output)."""
+        return self._git("ls-files").splitlines()
+
     def create_branch(self, name: str) -> None:
         # git's own rules for branch names (no spaces, no "..", etc.)
         self._git("check-ref-format", "--branch", name)

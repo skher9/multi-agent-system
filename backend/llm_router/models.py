@@ -9,9 +9,10 @@ from enum import StrEnum
 
 
 class Role(StrEnum):
-    """Agent roles in the v1 pipeline: Jira ticket -> developer -> reviewer."""
+    """Agent roles in the v1 pipeline: Jira ticket -> planner -> developer -> reviewer."""
 
     TICKET_READER = "ticket_reader"  # no tools: turns a ticket into validated JSON
+    PLANNER = "planner"  # read-only tools: understands the code, plans the changes
     DEVELOPER = "developer"
     REVIEWER = "reviewer"
 
@@ -20,6 +21,7 @@ MODELS: dict[Role, str] = {
     # Was deepseek/deepseek-v4.1-flash, but the live smoke test (2026-10-29) showed it
     # cost about the same as MiniMax per call with no cache hits, so one model is simpler.
     Role.TICKET_READER: "minimax/minimax-m3",
+    Role.PLANNER: "minimax/minimax-m3",
     Role.DEVELOPER: "minimax/minimax-m3",
     Role.REVIEWER: "minimax/minimax-m3",
 }

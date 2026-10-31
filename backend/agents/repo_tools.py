@@ -98,6 +98,11 @@ TOOL_ARGS: dict[str, type[ToolArgs]] = {
 }
 
 
+# The tools that only look: what the planner gets. RepoTools.call runs any tool, so
+# the planner's dispatcher checks names against this before calling it.
+READ_ONLY_TOOLS = ("list_files", "search", "read_file")
+
+
 def tool_definitions() -> list[dict[str, Any]]:
     """The tools in the format chat() sends to the model."""
     return definitions(TOOL_ARGS)
