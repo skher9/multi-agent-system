@@ -11,6 +11,7 @@ from llm_router.router import LlmRouter
 from orchestrator.checkpoints import postgres_checkpointer
 from orchestrator.records import ensure_project
 from orchestrator.runner import Pipeline
+from services.github import GitHubClient
 from services.jira import JiraClient
 from services.openrouter import OpenRouterClient
 from services.r2 import R2Credentials, R2Storage
@@ -85,6 +86,10 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
         settings.jira_base_url, settings.jira_email, settings.jira_api_token.get_secret_value()
     )
     client = OpenRouterClient(settings.openrouter_api_key.get_secret_value())
+    # The org argument is only used by list_repos/ping; PRs name their repo
+    github = GitHubClient(
+        settings.github_token.get_secret_value(), settings.agent_repo.split("/")[0]
+    )
     router = LlmRouter(
         client,
         db_recorder(factory),
@@ -103,7 +108,10 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
                 storage=storage,
                 repo_url=repo_url,
                 github_token=settings.github_token.get_secret_value(),
+                github=github,
+                repo=settings.agent_repo,
             )
     finally:
         jira.close()
         client.close()
+        github.close()

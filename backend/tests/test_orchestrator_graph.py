@@ -95,6 +95,7 @@ class Fakes:
             agent_run=self._agent_run,
             make_plan=self._make_plan,
             make_code=self._make_code,
+            open_pr=self._open_pr,
         )
 
     def _make_plan(self, spec: TicketSpec, agent_run_id: int) -> tuple[Plan, str]:
@@ -107,6 +108,10 @@ class Fakes:
         self.built = (key, sha, [c.path for c in plan.changes])
         dev = DevResult(summary="Added the contact page", changed_files=["src/app/page.tsx"])
         return dev, f"agent/{key}", "def456"
+
+    def _open_pr(self, branch: str, title: str, body: str) -> tuple[int, str]:
+        self.pr = (branch, title, body)
+        return 7, "https://github.com/skher9/agent-playground/pull/7"
 
     @contextmanager
     def _agent_run(self, role: str) -> Iterator[int]:
@@ -123,9 +128,8 @@ def nodes_visited(fakes: Fakes) -> list[str]:
 def test_ready_ticket_is_planned_split_into_subtasks_then_developed() -> None:
     fakes = Fakes(READY)
     assert nodes_visited(fakes) == [
-        "fetch_ticket", "read_ticket", "plan", "create_subtasks", "develop",
+        "fetch_ticket", "read_ticket", "plan", "create_subtasks", "develop", "open_pr",
     ]  # fmt: skip
-    assert fakes.comments == []
     assert fakes.agent_runs == ["ticket_reader", "planner", "developer"]
     # The developer built the plan on the commit the planner looked at
     assert fakes.built == ("KAN-4", "abc123", ["src/app/contact/page.tsx", "src/app/page.tsx"])
@@ -144,7 +148,21 @@ def test_final_state_holds_plan_commit_and_subtasks() -> None:
     assert final["subtask_keys"] == ["KAN-11"]
     assert (final["branch"], final["head_sha"]) == ("agent/KAN-4", "def456")
     assert final["dev"]["summary"] == "Added the contact page"
-    assert final["outcome"] == "pushed"
+    assert final["pr_url"] == "https://github.com/skher9/agent-playground/pull/7"
+    assert final["outcome"] == "in_review"
+
+
+def test_pr_describes_the_work_and_jira_links_to_it() -> None:
+    fakes = Fakes(READY)
+    build_graph().invoke({"ticket_key": "KAN-4"}, context=fakes.context)
+    branch, title, body = fakes.pr
+    assert (branch, title) == ("agent/KAN-4", "KAN-4: Add a contact page")
+    assert "Ticket: https://x.atlassian.net/browse/KAN-4" in body
+    assert "- [x] Visiting /contact shows a form" in body
+    assert "- KAN-11: [FE] Contact page" in body
+    assert "Added the contact page" in body
+    [comment] = fakes.comments
+    assert "https://github.com/skher9/agent-playground/pull/7" in json.dumps(comment)
 
 
 def test_conflicts_go_back_to_jira_and_stop() -> None:
@@ -183,7 +201,7 @@ def test_checkpointer_saves_state_after_every_node() -> None:
     graph.invoke({"ticket_key": "KAN-4"}, config, context=Fakes(READY).context)
 
     saved = graph.get_state(config)
-    assert saved.values["outcome"] == "pushed"
+    assert saved.values["outcome"] == "in_review"
     assert saved.next == ()  # nothing left to run
     # One checkpoint per step, so a crashed run could resume from any of them
     assert len(list(graph.get_state_history(config))) >= 4

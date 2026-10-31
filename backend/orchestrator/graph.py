@@ -4,13 +4,15 @@
                                       |
                                     ready -> plan -> conflicts? -> post_conflicts -> end
                                                         |
-                                                       none -> create_subtasks -> develop -> end
+                                                       none -> create_subtasks -> develop
+                                                                                    |
+                                                                         end <- open_pr
 
 Each box is a node: a function that gets the run's state and returns only the keys it
 changes. Routing is plain code (route_after_reader). Agents decide; nodes that act on the
 outside world (like posting to Jira) are separate, so actions stay visible in the graph.
 
-After develop the code is on a pushed branch; the PR and reviewer nodes come next.
+After open_pr the code is in a PR linked from the ticket; the reviewer comes next.
 """
 
 from collections.abc import Callable
@@ -27,6 +29,7 @@ from agents.developer import DevResult
 from agents.planner import Plan, conflicts_comment, subtask_description
 from agents.ticket_reader import TicketSpec, questions_comment, read_ticket
 from llm_router.router import LlmRouter
+from orchestrator.handback import pr_body, pr_comment, pr_title
 from services.jira import JiraClient, JiraTicket
 
 # A node returns only the keys it changes; LangGraph merges them into RunState.
@@ -58,6 +61,8 @@ class RunState(RunInput):
     branch: str  # where the developer's commit was pushed, e.g. "agent/KAN-4"
     head_sha: str  # the developer's commit
     dev: dict[str, Any]  # a DevResult as a dict: summary and changed files
+    pr_number: int
+    pr_url: str
 
 
 @dataclass(frozen=True)
@@ -75,6 +80,8 @@ class RunContext:
     # make_code(ticket_key, spec, plan, commit_sha, agent_run_id) -> (dev result, branch,
     # head sha): clones, builds the plan on a new branch, commits and pushes (runner.py)
     make_code: Callable[[str, TicketSpec, Plan, str, int], tuple[DevResult, str, str]]
+    # open_pr(branch, title, body) -> (number, url); returns the open PR if there is one
+    open_pr: Callable[[str, str, str], tuple[int, str]]
 
 
 def fetch_ticket(state: RunState, runtime: Runtime[RunContext]) -> Update:
@@ -141,8 +148,23 @@ def develop(state: RunState, runtime: Runtime[RunContext]) -> Update:
             state["commit_sha"],
             run_id,
         )
-    # "pushed" until the PR node exists
     return {"dev": dev.model_dump(), "branch": branch, "head_sha": head_sha, "outcome": "pushed"}
+
+
+def open_pr(state: RunState, runtime: Runtime[RunContext]) -> Update:
+    """Open the PR, then link it from the ticket."""
+    ctx, key = runtime.context, state["ticket_key"]
+    spec = TicketSpec.model_validate(state["spec"])
+    body = pr_body(
+        ctx.jira.browse_url(key),
+        spec,
+        Plan.model_validate(state["plan"]),
+        DevResult.model_validate(state["dev"]),
+        state["subtask_keys"],
+    )
+    number, url = ctx.open_pr(state["branch"], pr_title(key, spec), body)
+    ctx.jira.add_comment(key, pr_comment(url))
+    return {"pr_number": number, "pr_url": url, "outcome": "in_review"}
 
 
 def build_graph(
@@ -156,6 +178,7 @@ def build_graph(
     builder.add_node("post_conflicts", post_conflicts)
     builder.add_node("create_subtasks", create_subtasks)
     builder.add_node("develop", develop)
+    builder.add_node("open_pr", open_pr)
 
     builder.add_edge(START, "fetch_ticket")
     builder.add_edge("fetch_ticket", "read_ticket")
@@ -164,6 +187,7 @@ def build_graph(
     builder.add_conditional_edges("plan", route_after_plan)
     builder.add_edge("post_conflicts", END)
     builder.add_edge("create_subtasks", "develop")
-    builder.add_edge("develop", END)
+    builder.add_edge("develop", "open_pr")
+    builder.add_edge("open_pr", END)
     # The checkpointer saves the state after every node, so a run can resume (step 2).
     return builder.compile(checkpointer=checkpointer)

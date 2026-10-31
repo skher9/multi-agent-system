@@ -80,6 +80,10 @@ class JiraClient:
         response.raise_for_status()
         return response.json()["id"]
 
+    def browse_url(self, key: str) -> str:
+        """The ticket's page in Jira, for links (e.g. in a PR description)."""
+        return f"{str(self._http.base_url).rstrip('/')}/browse/{key}"
+
     def create_subtask(
         self, parent_key: str, summary: str, description: dict[str, Any], labels: list[str]
     ) -> str:

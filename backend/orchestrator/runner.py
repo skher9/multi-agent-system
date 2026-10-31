@@ -14,6 +14,7 @@ from agents.ticket_reader import TicketSpec
 from llm_router.router import LlmRouter
 from orchestrator.graph import RunContext, RunInput, RunState, build_graph
 from orchestrator.records import agent_run, claim_feature, ensure_feature, update_feature
+from services.github import GitHubClient
 from services.jira import JiraClient
 from services.workspace import GitIdentity, Workspace
 
@@ -39,6 +40,19 @@ class Pipeline:
     storage: Storage | None = None
     repo_url: str = ""
     github_token: str | None = None
+    # For opening PRs: the API client and the repo as "owner/name"
+    github: GitHubClient | None = None
+    repo: str = ""
+
+
+def open_pr(pipeline: Pipeline, branch: str, title: str, body: str) -> tuple[int, str]:
+    if pipeline.github is None or not pipeline.repo:
+        raise RuntimeError("opening a PR needs the pipeline's github client and repo")
+    base = pipeline.github.default_branch(pipeline.repo)
+    pr = pipeline.github.open_pull_request(
+        pipeline.repo, head=branch, base=base, title=title, body=body
+    )
+    return pr.number, pr.url
 
 
 def make_plan(pipeline: Pipeline, spec: TicketSpec, agent_run_id: int) -> tuple[Plan, str]:
@@ -96,6 +110,7 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
         make_code=lambda key, spec, plan, sha, run_id: make_code(
             pipeline, key, spec, plan, sha, run_id
         ),
+        open_pr=lambda branch, title, body: open_pr(pipeline, branch, title, body),
     )
     graph = build_graph(pipeline.checkpointer)
     # One thread per feature: every run of this ticket shares its saved state.
