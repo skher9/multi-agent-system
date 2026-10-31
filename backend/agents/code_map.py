@@ -30,6 +30,10 @@ DAMPING = 0.5  # PageRank: chance of following a link vs jumping back to a head 
 ITERATIONS = 40
 # "contains" links a file to its own functions; it says nothing about other files
 SKIPPED_RELATIONS = {"contains"}
+# Data files, not code: Graphify turns every package.json key into a node, so "name" in a
+# ticket matched package.json and its dependencies made it the biggest hub. They're still
+# in the planner's file tree.
+DATA_SUFFIXES = {".json", ".jsonc", ".yaml", ".yml", ".toml", ".lock", ".md"}
 MIN_WORD = 3
 STOP_WORDS = {
     "the", "and", "for", "with", "that", "this", "from", "into", "when", "then", "than",
@@ -65,7 +69,7 @@ def ticket_code_map(graph_json: Path, spec: TicketSpec, *, limit: int = MAX_FILE
     names: dict[str, list[str]] = defaultdict(list)
     for node in graph.get("nodes", []):
         path = node.get("source_file")
-        if not path:
+        if not path or Path(path).suffix.lower() in DATA_SUFFIXES:
             continue
         file_of[node["id"]] = path
         label = node.get("label", "")

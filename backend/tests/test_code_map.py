@@ -29,6 +29,7 @@ def write_graph(tmp_path: Path) -> Path:
             node("button", "Button()", "src/components/ui/button.tsx"),
             node("cn", "cn()", "src/lib/utils.ts"),
             node("config", "next.config.ts", "next.config.ts"),
+            node("pkg_name", "name", "package.json"),
         ],
         "links": [
             link("page", "page_home", "contains"),
@@ -36,6 +37,7 @@ def write_graph(tmp_path: Path) -> Path:
             link("form_fn", "button"),
             link("button", "cn"),
             link("page_home", "button"),
+            link("config", "pkg_name"),
         ],
     }
     path = tmp_path / "graph.json"
@@ -85,3 +87,9 @@ def test_an_empty_graph_gives_an_empty_map(tmp_path: Path) -> None:
     path = tmp_path / "graph.json"
     path.write_text(json.dumps({"nodes": [], "links": []}))
     assert ticket_code_map(path, spec("contact")) == ""
+
+
+def test_data_files_are_left_out(tmp_path: Path) -> None:
+    ranked = ticket_code_map(write_graph(tmp_path), spec("Form with a name field"))
+    assert "package.json" not in ranked
+    assert "next.config.ts\n" in ranked + "\n"  # its link to package.json is gone too
