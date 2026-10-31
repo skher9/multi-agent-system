@@ -25,23 +25,43 @@ GOOD_PLAN: dict[str, Any] = {
         {
             "path": "src/app/contact/page.tsx",
             "action": "create",
+            "what": "ContactPage with a name/email/message form and a thank-you state",
             "why": "The contact page with its form",
+            "criteria": [1, 2],
+        },
+        {
+            "path": "src/app/contact/page.test.tsx",
+            "action": "create",
+            "what": "Tests: the form renders (1); submitting shows the thank-you message (2)",
+            "why": "Every criterion needs a test",
             "criteria": [1, 2],
         },
         {
             "path": "src/app/page.tsx",
             "action": "modify",
+            "what": "Add a link to /contact in Home()",
             "why": "Link to /contact",
             "criteria": [1],
         },
     ],
+    "conventions": [
+        {"what": "Pages are default-exported server components", "example": "src/app/page.tsx"}
+    ],
     "conflicts": [],
+    "assumptions": ["The link sits under the page heading, like other links"],
+    "contract": "",
+    "dependencies": [],
+    "unrelated_issues": [],
     "subtasks": [
         {
             "area": "FE",
             "title": "Contact page",
             "description": "Form page and home link",
-            "files": ["src/app/contact/page.tsx", "src/app/page.tsx"],
+            "files": [
+                "src/app/contact/page.tsx",
+                "src/app/contact/page.test.tsx",
+                "src/app/page.tsx",
+            ],
         }
     ],
 }
@@ -69,7 +89,7 @@ def test_a_good_plan_passes(repo: Path) -> None:
     [
         ({"changes": [{**GOOD_PLAN["changes"][0], "criteria": [1]}]}, "criteria [2]"),
         ({"changes": [{**GOOD_PLAN["changes"][0], "criteria": [1, 2, 7]}]}, "numbered [7]"),
-        ({"changes": [{**GOOD_PLAN["changes"][1], "action": "create"}]}, "already exists"),
+        ({"changes": [{**GOOD_PLAN["changes"][2], "action": "create"}]}, "already exists"),
         (
             {"changes": [{**GOOD_PLAN["changes"][0], "action": "modify"}]},
             "doesn't exist",
@@ -83,6 +103,32 @@ def test_a_good_plan_passes(repo: Path) -> None:
             "not in changes",
         ),
         ({"subtasks": [{**GOOD_PLAN["subtasks"][0], "area": "QA"}]}, "FE"),
+        (
+            {"conventions": [{"what": "x", "example": "src/nope.tsx"}]},
+            "convention example src/nope.tsx doesn't exist",
+        ),
+        (
+            {"changes": [{**GOOD_PLAN["changes"][0], "action": "delete"}]},
+            "can't delete it",
+        ),
+        (
+            {
+                "subtasks": [
+                    {**GOOD_PLAN["subtasks"][0], "area": "FE"},
+                    {**GOOD_PLAN["subtasks"][0], "area": "BE", "title": "API"},
+                ]
+            },
+            "BE comes first",
+        ),
+        (
+            {
+                "subtasks": [
+                    {**GOOD_PLAN["subtasks"][0], "area": "BE", "title": "API"},
+                    {**GOOD_PLAN["subtasks"][0], "area": "FE"},
+                ]
+            },
+            "define the contract",
+        ),
     ],
 )
 def test_bad_plans_are_rejected(repo: Path, change: dict[str, Any], message: str) -> None:
@@ -95,6 +141,11 @@ def test_a_plan_with_conflicts_may_skip_changes(repo: Path) -> None:
         {
             "notes": "Static site, no backend.",
             "changes": [],
+            "conventions": [],
+            "assumptions": [],
+            "contract": "",
+            "dependencies": [],
+            "unrelated_issues": [],
             "conflicts": [
                 {
                     "description": "The form must email support, but there's no backend",
@@ -105,6 +156,12 @@ def test_a_plan_with_conflicts_may_skip_changes(repo: Path) -> None:
         }
     )
     assert len(plan.conflicts) == 1
+
+
+def test_a_plan_with_conflicts_leaves_subtasks_empty(repo: Path) -> None:
+    conflict = {"description": "No backend", "question": "Which email service?"}
+    with pytest.raises(ValidationError, match="leave subtasks empty"):
+        checked(repo).model_validate({**GOOD_PLAN, "conflicts": [conflict]})
 
 
 def test_planner_can_look_but_not_touch(origin: str, tmp_path: Path) -> None:  # noqa: F811

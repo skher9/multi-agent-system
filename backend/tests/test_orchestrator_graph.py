@@ -22,11 +22,17 @@ from services.openrouter import OpenRouterClient
 from tests.test_planner import GOOD_PLAN
 from tests.test_ticket_reader import BLOCKED, READY, model_reply
 
-APPROVE = {"verdict": "approve", "summary": "Meets every criterion.", "issues": []}
+APPROVE = {
+    "verdict": "approve",
+    "summary": "Meets every criterion.",
+    "issues": [],
+    "criteria_check": [{"number": 1, "met": True, "test": "page.test.tsx: renders the form"}],
+}
 CHANGES = {
-    "verdict": "changes",
+    "verdict": "changes_requested",
     "summary": "One criterion isn't met.",
     "issues": [{"path": "src/app/contact/page.tsx", "problem": "No thanks", "fix": "Add it"}],
+    "criteria_check": [{"number": 1, "met": False, "test": ""}],
 }
 
 CONFLICT_PLAN = {
@@ -58,6 +64,8 @@ class Fakes:
         plan: dict[str, Any] = GOOD_PLAN,
         existing_subtasks: tuple[str, ...] = (),
         reviews: tuple[dict[str, Any], ...] = (APPROVE,),
+        dev_problem: str = "",
+        fix_problem: str = "",
     ) -> None:
         """fail_posts: how many comment posts fail (HTTP 500) before they work, to
         simulate a run crashing partway. existing_subtasks: summaries already in Jira."""
@@ -70,6 +78,9 @@ class Fakes:
         self._plan = plan
         self._reviews = list(reviews)
         self.fixed: list[str] = []  # branches the developer fixed
+        self.review_inputs: list[tuple[str, Review | None]] = []  # (summary, previous)
+        self._dev_problem = dev_problem
+        self._fix_problem = fix_problem
         self.pr_comments: list[str] = []
 
         def jira(request: httpx2.Request) -> httpx2.Response:
@@ -121,17 +132,29 @@ class Fakes:
         self, key: str, spec: TicketSpec, plan: Plan, sha: str, agent_run_id: int
     ) -> tuple[DevResult, str, str]:
         self.built = (key, sha, [c.path for c in plan.changes])
-        dev = DevResult(summary="Added the contact page", changed_files=["src/app/page.tsx"])
-        return dev, f"agent/{key}", "def456"
+        dev = DevResult(
+            summary="Added the contact page",
+            changed_files=["src/app/page.tsx"],
+            problem=self._dev_problem,
+        )
+        return dev, f"agent/{key}", "" if self._dev_problem else "def456"
 
     def _open_pr(self, branch: str, title: str, body: str) -> tuple[int, str]:
         self.pr = (branch, title, body)
         return 7, "https://github.com/skher9/agent-playground/pull/7"
 
     def _make_review(
-        self, spec: TicketSpec, plan: Plan, branch: str, base: str, agent_run_id: int
+        self,
+        spec: TicketSpec,
+        plan: Plan,
+        branch: str,
+        base: str,
+        summary: str,
+        previous: Review | None,
+        agent_run_id: int,
     ) -> Review:
         assert (branch, base) == ("agent/KAN-4", "abc123")
+        self.review_inputs.append((summary, previous))
         return Review.model_validate(self._reviews.pop(0))
 
     def _make_fix(
@@ -139,7 +162,8 @@ class Fakes:
     ) -> tuple[DevResult, str]:
         assert review.issues[0].problem == "No thanks"
         self.fixed.append(branch)
-        return DevResult(summary="Added thanks", changed_files=[]), f"fix{len(self.fixed)}"
+        dev = DevResult(summary="Added thanks", changed_files=[], problem=self._fix_problem)
+        return dev, f"fix{len(self.fixed)}"
 
     @contextmanager
     def _agent_run(self, role: str) -> Iterator[int]:
@@ -161,7 +185,11 @@ def test_ready_ticket_is_planned_split_into_subtasks_then_developed() -> None:
     ]  # fmt: skip
     assert fakes.agent_runs == ["ticket_reader", "planner", "developer", "reviewer"]
     # The developer built the plan on the commit the planner looked at
-    assert fakes.built == ("KAN-4", "abc123", ["src/app/contact/page.tsx", "src/app/page.tsx"])
+    assert fakes.built == (
+        "KAN-4",
+        "abc123",
+        ["src/app/contact/page.tsx", "src/app/contact/page.test.tsx", "src/app/page.tsx"],
+    )
     [subtask] = fakes.subtasks
     assert subtask["summary"] == "[FE] Contact page"
     assert subtask["parent"] == {"key": "KAN-4"}
@@ -277,3 +305,30 @@ def test_a_human_takes_over_after_two_fix_rounds() -> None:
     [comment] = fakes.pr_comments
     assert "Review 3: 🔧 Changes needed" in comment
     assert "**`src/app/contact/page.tsx`**: No thanks" in comment
+
+
+def test_reviewer_gets_only_summaries_and_the_previous_review() -> None:
+    fakes = Fakes(READY, reviews=(CHANGES, APPROVE))
+    build_graph().invoke({"ticket_key": "KAN-4"}, context=fakes.context)
+    (first_summary, first_previous), (second_summary, second_previous) = fakes.review_inputs
+    assert (first_summary, first_previous) == ("Added the contact page", None)
+    assert second_summary == "Added the contact page\n\nLatest fixes:\nAdded thanks"
+    assert second_previous is not None and second_previous.issues[0].problem == "No thanks"
+
+
+def test_developer_problem_stops_the_run_for_a_human() -> None:
+    fakes = Fakes(READY, dev_problem="The plan's /api/contact route doesn't exist")
+    updates = build_graph().stream(
+        {"ticket_key": "KAN-4"}, context=fakes.context, stream_mode="updates"
+    )
+    visited = [node for update in updates for node in update]
+    assert visited[-2:] == ["develop", "post_problem"]
+    [comment] = fakes.comments
+    assert "/api/contact route doesn't exist" in json.dumps(comment)
+
+
+def test_a_problem_during_a_fix_also_stops_for_a_human() -> None:
+    fakes = Fakes(READY, reviews=(CHANGES,), fix_problem="The review asks for a backend")
+    final = build_graph().invoke({"ticket_key": "KAN-4"}, context=fakes.context)
+    assert final["outcome"] == "needs_human"
+    assert "asks for a backend" in json.dumps(fakes.comments[-1])

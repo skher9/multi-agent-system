@@ -78,28 +78,62 @@ def make_code(
     commit_sha: str,
     agent_run_id: int,
 ) -> tuple[DevResult, str, str]:
-    """Clone at the planned commit, build the plan on agent/<ticket>, commit and push."""
+    """Clone at the planned commit and build the plan on agent/<ticket>, one subtask at a
+    time (BE before FE, as planned), one commit each; then push.
+
+    If the developer stops with a problem, nothing is pushed and the result carries it.
+    """
     if not pipeline.repo_url:
         raise RuntimeError("developing needs the pipeline's repo_url")
     branch = f"agent/{ticket_key}"
+    summaries: list[str] = []
+    changed: set[str] = set()
+    head = ""
     with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
         workspace.create_branch(branch, start=commit_sha)
-        dev = develop_ticket(pipeline.router, spec, plan, workspace, agent_run_id=agent_run_id)
-        head = workspace.commit_all(f"{ticket_key}: {spec.title}\n\n{dev.summary}", AGENT_AUTHOR)
-        if head is None:
+        for subtask in plan.subtasks:
+            dev = develop_ticket(
+                pipeline.router, spec, plan, workspace, agent_run_id=agent_run_id, subtask=subtask
+            )
+            if dev.problem:
+                return dev, branch, ""
+            label = f"[{subtask.area}] {subtask.title}"
+            summaries.append(f"**{label}**\n{dev.summary}")
+            changed.update(dev.changed_files)
+            head = (
+                workspace.commit_all(f"{ticket_key}: {label}\n\n{dev.summary}", AGENT_AUTHOR)
+                or head
+            )
+        if not head:
             raise RuntimeError("the developer finished without changing any files")
         # replace: the branch is ours; a rerun after a crash builds it again from scratch
         workspace.push(branch, replace=True)
-    return dev, branch, head
+    return DevResult(summary="\n\n".join(summaries), changed_files=sorted(changed)), branch, head
 
 
 def make_review(
-    pipeline: Pipeline, spec: TicketSpec, plan: Plan, branch: str, base_sha: str, run_id: int
+    pipeline: Pipeline,
+    spec: TicketSpec,
+    plan: Plan,
+    branch: str,
+    base_sha: str,
+    dev_summary: str,
+    previous: Review | None,
+    run_id: int,
 ) -> Review:
     """Clone, switch to the agent's branch, and review it against the planned commit."""
     with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
         workspace.checkout(branch)
-        return review_changes(pipeline.router, spec, plan, workspace, base_sha, agent_run_id=run_id)
+        return review_changes(
+            pipeline.router,
+            spec,
+            plan,
+            workspace,
+            base_sha,
+            agent_run_id=run_id,
+            dev_summary=dev_summary,
+            previous=previous,
+        )
 
 
 def make_fix(
@@ -117,6 +151,8 @@ def make_fix(
         dev = develop_ticket(
             pipeline.router, spec, plan, workspace, agent_run_id=run_id, review=review
         )
+        if dev.problem:
+            return dev, ""  # stopped for a human: nothing to commit
         head = workspace.commit_all(f"{ticket_key}: review fixes\n\n{dev.summary}", AGENT_AUTHOR)
         if head is None:
             raise RuntimeError("the developer finished the fixes without changing any files")
@@ -149,8 +185,8 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
             pipeline, key, spec, plan, sha, run_id
         ),
         open_pr=lambda branch, title, body: open_pr(pipeline, branch, title, body),
-        make_review=lambda spec, plan, branch, base, run_id: make_review(
-            pipeline, spec, plan, branch, base, run_id
+        make_review=lambda spec, plan, branch, base, summary, previous, run_id: make_review(
+            pipeline, spec, plan, branch, base, summary, previous, run_id
         ),
         make_fix=lambda key, spec, plan, review, branch, run_id: make_fix(
             pipeline, key, spec, plan, review, branch, run_id

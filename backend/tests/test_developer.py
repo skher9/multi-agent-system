@@ -34,7 +34,7 @@ def fake_checks(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 
 
 def build(script: Script, ws: Workspace, spec: TicketSpec = SPEC) -> developer.DevResult:
-    return develop_ticket(script.router(), spec, PLAN, ws, agent_run_id=1)
+    return develop_ticket(script.router(), spec, PLAN, ws, agent_run_id=1, subtask=PLAN.subtasks[0])
 
 
 def test_finishes_once_code_and_tests_pass(
@@ -88,11 +88,32 @@ def test_failed_install_stops_before_any_model_call(
     assert script.sent == []
 
 
+def test_a_problem_skips_the_checks_and_stops(
+    origin: str,  # noqa: F811
+    fake_checks: list[list[str]],
+) -> None:
+    fake_checks.append(["would fail"])
+    problem = "The plan modifies src/app/page.tsx but the home page lives in src/pages"
+    script = Script(reply(call("finish", {"summary": "Stopped", "problem": problem})))
+    with Workspace.clone(origin) as ws:
+        result = build(script, ws)
+    assert result.problem == problem
+    assert fake_checks == [["would fail"]]  # checks never ran
+
+
+def test_subtask_or_review_is_required(origin: str) -> None:  # noqa: F811
+    with Workspace.clone(origin) as ws, pytest.raises(ValueError, match="exactly one"):
+        develop_ticket(Script().router(), SPEC, PLAN, ws, agent_run_id=1)
+
+
 def test_task_carries_criteria_and_plan() -> None:
-    task = developer._task(SPEC, PLAN)
+    task = developer._task(SPEC, PLAN) + developer._subtask_task(PLAN.subtasks[0])
     assert "2. Submitting thanks you" in task
-    assert "- create src/app/contact/page.tsx (criteria 1, 2)" in task
-    assert "[FE] Contact page" in task
+    assert "- create src/app/contact/page.tsx (criteria 1, 2): ContactPage with" in task
+    assert "- Pages are default-exported server components (see src/app/page.tsx)" in task
+    assert "- The link sits under the page heading" in task
+    assert "Your subtask: [FE] Contact page" in task
+    assert "- src/app/contact/page.test.tsx" in task
 
 
 def test_branch_starts_at_a_given_commit_and_replace_push(origin: str) -> None:  # noqa: F811

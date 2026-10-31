@@ -60,3 +60,20 @@ def pr_comment(pr_url: str) -> dict[str, Any]:
             }
         ],
     }
+
+
+def problem_comment(problem: str) -> dict[str, Any]:
+    """The Jira comment (ADF) when the developer stopped because the plan can't be built."""
+    return {
+        "type": "doc",
+        "version": 1,
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "🤖 The developer stopped and needs a human:"}
+                ],
+            },
+            {"type": "paragraph", "content": [{"type": "text", "text": problem}]},
+        ],
+    }

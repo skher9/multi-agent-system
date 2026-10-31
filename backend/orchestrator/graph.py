@@ -33,7 +33,7 @@ from agents.planner import Plan, conflicts_comment, subtask_description
 from agents.reviewer import Review, review_markdown
 from agents.ticket_reader import TicketSpec, questions_comment, read_ticket
 from llm_router.router import LlmRouter
-from orchestrator.handback import pr_body, pr_comment, pr_title
+from orchestrator.handback import pr_body, pr_comment, pr_title, problem_comment
 from services.jira import JiraClient, JiraTicket
 
 # A node returns only the keys it changes; LangGraph merges them into RunState.
@@ -65,7 +65,8 @@ class RunState(RunInput):
     subtask_keys: list[str]  # Jira subtasks created from the plan, e.g. ["KAN-12"]
     branch: str  # where the developer's commit was pushed, e.g. "agent/KAN-4"
     head_sha: str  # the developer's commit
-    dev: dict[str, Any]  # a DevResult as a dict: summary and changed files
+    dev: dict[str, Any]  # the build's DevResult as a dict: summary, changed files, problem
+    fix_dev: dict[str, Any]  # the latest fix round's DevResult
     pr_number: int
     pr_url: str
     review: dict[str, Any]  # the latest Review as a dict
@@ -90,8 +91,9 @@ class RunContext:
     make_code: Callable[[str, TicketSpec, Plan, str, int], tuple[DevResult, str, str]]
     # open_pr(branch, title, body) -> (number, url); returns the open PR if there is one
     open_pr: Callable[[str, str, str], tuple[int, str]]
-    # make_review(spec, plan, branch, base_sha, agent_run_id) -> Review of the branch
-    make_review: Callable[[TicketSpec, Plan, str, str, int], Review]
+    # make_review(spec, plan, branch, base_sha, developer summary, previous review,
+    # agent_run_id) -> Review
+    make_review: Callable[[TicketSpec, Plan, str, str, str, Review | None, int], Review]
     # make_fix(ticket_key, spec, plan, review, branch, agent_run_id) -> (dev result, head
     # sha): the developer fixes the issues on the branch, then commits and pushes
     make_fix: Callable[[str, TicketSpec, Plan, Review, str, int], tuple[DevResult, str]]
@@ -166,6 +168,18 @@ def develop(state: RunState, runtime: Runtime[RunContext]) -> Update:
     return {"dev": dev.model_dump(), "branch": branch, "head_sha": head_sha, "outcome": "pushed"}
 
 
+def route_after_develop(state: RunState) -> Literal["post_problem", "open_pr"]:
+    return "post_problem" if state["dev"].get("problem") else "open_pr"
+
+
+def post_problem(state: RunState, runtime: Runtime[RunContext]) -> Update:
+    """The developer stopped because the plan can't be built as is: tell the ticket."""
+    problem = state.get("fix_dev", {}).get("problem") or state["dev"]["problem"]
+    comment = problem_comment(problem)
+    comment_id = runtime.context.jira.add_comment(state["ticket_key"], comment)
+    return {"outcome": "needs_human", "comment_id": comment_id}
+
+
 def open_pr(state: RunState, runtime: Runtime[RunContext]) -> Update:
     """Open the PR, then link it from the ticket."""
     ctx, key = runtime.context, state["ticket_key"]
@@ -185,25 +199,32 @@ def open_pr(state: RunState, runtime: Runtime[RunContext]) -> Update:
 def review(state: RunState, runtime: Runtime[RunContext]) -> Update:
     ctx = runtime.context
     with ctx.agent_run("reviewer") as run_id:
+        previous = state.get("review")
+        # The developer's summaries only, never its conversation: an independent review
+        summary = state["dev"]["summary"]
+        if "fix_dev" in state:
+            summary += f"\n\nLatest fixes:\n{state['fix_dev']['summary']}"
         result = ctx.make_review(
             TicketSpec.model_validate(state["spec"]),
             Plan.model_validate(state["plan"]),
             state["branch"],
             state["commit_sha"],
+            summary,
+            Review.model_validate(previous) if previous else None,
             run_id,
         )
     return {"review": result.model_dump(), "reviews": state.get("reviews", 0) + 1}
 
 
 def route_after_review(state: RunState) -> Literal["fix", "post_review"]:
-    wants_changes = state["review"]["verdict"] == "changes"
+    wants_changes = state["review"]["verdict"] == "changes_requested"
     return "fix" if wants_changes and state.get("fixes", 0) < MAX_FIXES else "post_review"
 
 
 def fix(state: RunState, runtime: Runtime[RunContext]) -> Update:
     ctx = runtime.context
     with ctx.agent_run("developer") as run_id:
-        _dev, head_sha = ctx.make_fix(
+        dev, head_sha = ctx.make_fix(
             state["ticket_key"],
             TicketSpec.model_validate(state["spec"]),
             Plan.model_validate(state["plan"]),
@@ -211,7 +232,12 @@ def fix(state: RunState, runtime: Runtime[RunContext]) -> Update:
             state["branch"],
             run_id,
         )
-    return {"head_sha": head_sha, "fixes": state.get("fixes", 0) + 1}
+    update: Update = {"fix_dev": dev.model_dump(), "fixes": state.get("fixes", 0) + 1}
+    return update if dev.problem else {**update, "head_sha": head_sha}
+
+
+def route_after_fix(state: RunState) -> Literal["post_problem", "review"]:
+    return "post_problem" if state["fix_dev"].get("problem") else "review"
 
 
 def post_review(state: RunState, runtime: Runtime[RunContext]) -> Update:
@@ -234,6 +260,7 @@ def build_graph(
     builder.add_node("create_subtasks", create_subtasks)
     builder.add_node("develop", develop)
     builder.add_node("open_pr", open_pr)
+    builder.add_node("post_problem", post_problem)
     builder.add_node("review", review)
     builder.add_node("fix", fix)
     builder.add_node("post_review", post_review)
@@ -245,10 +272,11 @@ def build_graph(
     builder.add_conditional_edges("plan", route_after_plan)
     builder.add_edge("post_conflicts", END)
     builder.add_edge("create_subtasks", "develop")
-    builder.add_edge("develop", "open_pr")
+    builder.add_conditional_edges("develop", route_after_develop)
+    builder.add_edge("post_problem", END)
     builder.add_edge("open_pr", "review")
     builder.add_conditional_edges("review", route_after_review)
-    builder.add_edge("fix", "review")
+    builder.add_conditional_edges("fix", route_after_fix)
     builder.add_edge("post_review", END)
     # The checkpointer saves the state after every node, so a run can resume (step 2).
     return builder.compile(checkpointer=checkpointer)

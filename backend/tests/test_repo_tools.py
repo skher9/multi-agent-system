@@ -45,7 +45,8 @@ def call(tools: RepoTools, name: str, **args: object) -> str:
 def test_definitions_cover_every_tool_with_a_schema() -> None:
     defs = {d["function"]["name"]: d["function"] for d in tool_definitions()}
     assert set(defs) == {
-        "list_files", "search", "read_file", "edit_file", "create_file", "run", "run_tests",
+        "list_files", "search", "read_file", "edit_file", "create_file", "delete_file",
+        "run", "run_tests",
     }  # fmt: skip
     edit = defs["edit_file"]
     assert "exactly once" in edit["description"]
@@ -180,3 +181,12 @@ def test_real_sandbox_run_tests_and_typecheck_after_edit(tmp_path: Path) -> None
     broken = call(tools, "create_file", path="src/bad.ts", content="const n: number = 'text';\n")
     assert "Type-check FAILED" in broken
     assert "src/bad.ts" in broken
+
+
+def test_delete_file_removes_it_and_records_the_change(tools: RepoTools, repo: Path) -> None:
+    (repo / "old.ts").write_text("x")
+    assert call(tools, "delete_file", path="old.ts") == "Deleted old.ts."
+    assert not (repo / "old.ts").exists()
+    assert tools.changed_files == {"old.ts"}
+    assert call(tools, "delete_file", path="old.ts").startswith("ERROR")
+    assert call(tools, "delete_file", path="../outside.ts").startswith("ERROR")

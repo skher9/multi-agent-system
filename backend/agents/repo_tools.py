@@ -82,6 +82,12 @@ class CreateFile(ToolArgs):
     content: str
 
 
+class DeleteFile(ToolArgs):
+    """Delete a file the plan says to remove."""
+
+    path: str
+
+
 class Run(ToolArgs):
     """Run a shell command in the sandbox at the repo root (e.g. "pnpm lint")."""
 
@@ -98,6 +104,7 @@ TOOL_ARGS: dict[str, type[ToolArgs]] = {
     "read_file": ReadFile,
     "edit_file": EditFile,
     "create_file": CreateFile,
+    "delete_file": DeleteFile,
     "run": Run,
     "run_tests": RunTests,
 }
@@ -147,6 +154,7 @@ class RepoTools:
             "read_file": self._read_file,
             "edit_file": self._edit_file,
             "create_file": self._create_file,
+            "delete_file": self._delete_file,
             "run": self._run,
             "run_tests": self._run_tests,
         }
@@ -263,6 +271,14 @@ class RepoTools:
         path.write_text(args.content)
         self.changed_files.add(self._rel(path))
         return f"Created {args.path}." + self._after_edit()
+
+    def _delete_file(self, args: DeleteFile) -> str:
+        path = self._resolve(args.path)
+        if not path.is_file():
+            raise ToolError(f"{args.path!r} is not a file")
+        path.unlink()
+        self.changed_files.add(self._rel(path))
+        return f"Deleted {args.path}." + self._after_edit()
 
     def _after_edit(self) -> str:
         """Type-check after every change (System Design doc), so mistakes surface at once."""
