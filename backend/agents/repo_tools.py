@@ -100,6 +100,11 @@ TOOL_ARGS: dict[str, type[ToolArgs]] = {
 
 def tool_definitions() -> list[dict[str, Any]]:
     """The tools in the format chat() sends to the model."""
+    return definitions(TOOL_ARGS)
+
+
+def definitions(tools: dict[str, type[ToolArgs]]) -> list[dict[str, Any]]:
+    """Tool definitions for chat() from {name: argument model}."""
     return [
         {
             "type": "function",
@@ -109,7 +114,7 @@ def tool_definitions() -> list[dict[str, Any]]:
                 "parameters": _parameters(args),
             },
         }
-        for name, args in TOOL_ARGS.items()
+        for name, args in tools.items()
     ]
 
 
