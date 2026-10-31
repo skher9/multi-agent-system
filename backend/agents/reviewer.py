@@ -10,7 +10,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from agents.loop import run_agent
+from agents.loop import EventSink, ignore_events, run_agent
 from agents.planner import Plan
 from agents.repo_tools import READ_ONLY_TOOLS, TOOL_ARGS, RepoTools, definitions
 from agents.ticket_reader import TicketSpec
@@ -69,6 +69,7 @@ def review_changes(
     agent_run_id: int,
     dev_summary: str,
     previous: Review | None = None,
+    on_event: EventSink = ignore_events,
 ) -> Review:
     """Review everything on the workspace's branch since base_sha (the planned commit).
 
@@ -96,6 +97,7 @@ def review_changes(
         answer=_checked_review(len(spec.acceptance_criteria)),
         max_tool_calls=MAX_TOOL_CALLS,
         max_tokens=MAX_OUTPUT_TOKENS,
+        on_event=on_event,
     )
 
 

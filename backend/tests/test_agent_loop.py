@@ -8,7 +8,8 @@ import httpx2
 import pytest
 from pydantic import BaseModel, Field
 
-from agents.loop import AgentLoopError, run_agent
+from agents.loop import AgentLoopError, EventSink, ignore_events, run_agent
+from db.models import EventKind
 from llm_router.models import Role
 from llm_router.router import LlmRouter
 from services.openrouter import OpenRouterClient
@@ -61,7 +62,7 @@ class Script:
         self.tool_calls.append((name, arguments))
         return f"result of {name}"
 
-    def run(self, max_tool_calls: int = 25) -> Answer:
+    def run(self, max_tool_calls: int = 25, on_event: EventSink = ignore_events) -> Answer:
         return run_agent(
             self.router(),
             role=Role.DEVELOPER,
@@ -72,6 +73,7 @@ class Script:
             handle=self.handle,
             answer=Answer,
             max_tool_calls=max_tool_calls,
+            on_event=on_event,
         )
 
 
@@ -188,3 +190,37 @@ def test_a_rejected_finish_grants_extra_tool_calls() -> None:
     assert script.run(max_tool_calls=1).summary == "fixed"
     assert [name for name, _ in script.tool_calls] == ["read_file", "read_file"]
     assert "5 extra tool calls granted" in script.sent[2]["messages"][-1]["content"]
+
+
+def test_reports_each_step_as_an_event() -> None:
+    events: list[tuple[EventKind, dict[str, Any]]] = []
+    script = Script(
+        reply(call("read_file", {"path": "a.ts"})),
+        reply(call("finish", {"summary": ""})),  # rejected: too short
+        reply(call("finish", {"summary": "done"})),
+    )
+    script.run(on_event=lambda kind, data: events.append((kind, data)))
+    assert [kind for kind, _ in events] == [
+        EventKind.TOOL_CALL,
+        EventKind.FINISH_REJECTED,
+        EventKind.AGENT_FINISHED,
+    ]
+    assert events[0][1] == {
+        "role": Role.DEVELOPER,
+        "tool": "read_file",
+        "n": 1,
+        "limit": 25,
+        "arguments": '{"path": "a.ts"}',
+    }
+    assert "summary" in events[1][1]["error"]
+    assert events[2][1] == {"role": Role.DEVELOPER, "tool_calls": 1}
+
+
+def test_long_tool_arguments_are_shortened_in_events() -> None:
+    events: list[dict[str, Any]] = []
+    script = Script(
+        reply(call("read_file", {"path": "x" * 1000})),
+        reply(call("finish", {"summary": "done"})),
+    )
+    script.run(on_event=lambda _kind, data: events.append(data))
+    assert len(events[0]["arguments"]) == 300

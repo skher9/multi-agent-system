@@ -17,7 +17,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from agents.loop import run_agent
+from agents.loop import EventSink, ignore_events, run_agent
 from agents.planner import Plan, Subtask
 from agents.repo_tools import TEST_FILE, RepoTools, tool_definitions
 from agents.reviewer import Review
@@ -69,6 +69,7 @@ def develop_ticket(
     agent_run_id: int,
     subtask: Subtask | None = None,
     review: Review | None = None,
+    on_event: EventSink = ignore_events,
 ) -> DevResult:
     """Build one subtask of the plan, or (with a review) fix the reviewer's comments."""
     if subtask is not None and review is None:
@@ -94,6 +95,7 @@ def develop_ticket(
         answer=_checked_done(tools, require_test=require_test),
         max_tool_calls=MAX_TOOL_CALLS,
         max_tokens=MAX_OUTPUT_TOKENS,
+        on_event=on_event,
     )
     return DevResult(
         summary=done.summary,

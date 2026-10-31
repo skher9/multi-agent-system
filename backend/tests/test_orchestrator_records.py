@@ -14,7 +14,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from api.config import get_settings
-from db.models import AgentRun, Feature, Project, Task, User
+from db.models import AgentRun, EventKind, Feature, Project, RunEvent, Task, User
 from db.session import make_session_factory
 from orchestrator.checkpoints import postgres_checkpointer
 from orchestrator.records import (
@@ -23,6 +23,7 @@ from orchestrator.records import (
     claim_feature,
     ensure_feature,
     ensure_project,
+    record_event,
     update_feature,
 )
 from orchestrator.runner import AlreadyRunningError, Pipeline, run_ticket
@@ -154,6 +155,27 @@ def test_run_ticket_records_the_whole_run(factory: sessionmaker[Session], projec
         assert feature.title == "KAN-4: Add a contact page"
         task = session.scalars(select(Task).where(Task.feature_id == feature.id)).one()
         assert (task.role, task.status) == ("ticket_reader", "done")
+        assert timeline(session, feature.id) == [
+            ("run_started", {"resumed": False}),
+            ("node_started", {"node": "fetch_ticket"}),
+            ("node_finished", {"node": "fetch_ticket"}),
+            ("node_started", {"node": "read_ticket"}),
+            ("node_finished", {"node": "read_ticket"}),
+            ("node_started", {"node": "post_questions"}),
+            ("node_finished", {"node": "post_questions"}),
+            ("run_ended", {"outcome": "blocked"}),
+        ]
+
+
+def timeline(session: Session, feature_id: int) -> list[tuple[str, dict[str, object]]]:
+    events = session.scalars(
+        select(RunEvent).where(RunEvent.feature_id == feature_id).order_by(RunEvent.id)
+    )
+    return [(e.kind, e.data) for e in events]
+
+
+def test_record_event_never_raises(factory: sessionmaker[Session]) -> None:
+    record_event(factory, -1, EventKind.RUN_STARTED)  # no such feature: insert fails, logged
 
 
 def test_run_ticket_resumes_from_postgres_checkpoint(
@@ -178,5 +200,8 @@ def test_run_ticket_resumes_from_postgres_checkpoint(
             assert fakes.model_calls == 1  # the reader ran once across both runs
             with factory() as session:
                 assert session.get_one(Feature, feature_id).status == "blocked"
+                kinds = [kind for kind, _ in timeline(session, feature_id)]
+                assert kinds.count("run_failed") == 1
+                assert ("run_started", {"resumed": True}) in timeline(session, feature_id)
         finally:
             checkpointer.delete_thread(f"feature-{ensure_feature(factory, project_id, 'KAN-4')}")

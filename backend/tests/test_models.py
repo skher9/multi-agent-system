@@ -51,6 +51,7 @@ def test_all_v1_tables_exist() -> None:
         "approvals",
         "agent_runs",
         "llm_calls",
+        "run_events",
     }
 
 
