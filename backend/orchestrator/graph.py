@@ -6,13 +6,16 @@
                                                         |
                                                        none -> create_subtasks -> develop
                                                                                     |
-                                                                         end <- open_pr
+                               end <- post_review <- approved / out of fixes <- review <- open_pr
+                                                                    |              ^
+                                                                 changes -> fix ---+   (max 2)
 
 Each box is a node: a function that gets the run's state and returns only the keys it
 changes. Routing is plain code (route_after_reader). Agents decide; nodes that act on the
 outside world (like posting to Jira) are separate, so actions stay visible in the graph.
 
-After open_pr the code is in a PR linked from the ticket; the reviewer comes next.
+The run ends "ready_to_merge" (reviewer approved) or "needs_human" (issues left after
+MAX_FIXES rounds). Merging stays a human decision.
 """
 
 from collections.abc import Callable
@@ -27,6 +30,7 @@ from langgraph.runtime import Runtime
 
 from agents.developer import DevResult
 from agents.planner import Plan, conflicts_comment, subtask_description
+from agents.reviewer import Review, review_markdown
 from agents.ticket_reader import TicketSpec, questions_comment, read_ticket
 from llm_router.router import LlmRouter
 from orchestrator.handback import pr_body, pr_comment, pr_title
@@ -36,6 +40,7 @@ from services.jira import JiraClient, JiraTicket
 Update = dict[str, Any]
 # Marks the subtasks we create, so a resumed run finds them instead of making duplicates.
 SUBTASK_LABEL = "mas-agent"
+MAX_FIXES = 2  # review -> fix rounds before a human takes over
 
 
 class RunInput(TypedDict):
@@ -63,6 +68,9 @@ class RunState(RunInput):
     dev: dict[str, Any]  # a DevResult as a dict: summary and changed files
     pr_number: int
     pr_url: str
+    review: dict[str, Any]  # the latest Review as a dict
+    reviews: int  # how many reviews so far
+    fixes: int  # how many fix rounds so far
 
 
 @dataclass(frozen=True)
@@ -82,6 +90,13 @@ class RunContext:
     make_code: Callable[[str, TicketSpec, Plan, str, int], tuple[DevResult, str, str]]
     # open_pr(branch, title, body) -> (number, url); returns the open PR if there is one
     open_pr: Callable[[str, str, str], tuple[int, str]]
+    # make_review(spec, plan, branch, base_sha, agent_run_id) -> Review of the branch
+    make_review: Callable[[TicketSpec, Plan, str, str, int], Review]
+    # make_fix(ticket_key, spec, plan, review, branch, agent_run_id) -> (dev result, head
+    # sha): the developer fixes the issues on the branch, then commits and pushes
+    make_fix: Callable[[str, TicketSpec, Plan, Review, str, int], tuple[DevResult, str]]
+    # comment_pr(number, markdown): posts on the PR's conversation
+    comment_pr: Callable[[int, str], None]
 
 
 def fetch_ticket(state: RunState, runtime: Runtime[RunContext]) -> Update:
@@ -167,6 +182,46 @@ def open_pr(state: RunState, runtime: Runtime[RunContext]) -> Update:
     return {"pr_number": number, "pr_url": url, "outcome": "in_review"}
 
 
+def review(state: RunState, runtime: Runtime[RunContext]) -> Update:
+    ctx = runtime.context
+    with ctx.agent_run("reviewer") as run_id:
+        result = ctx.make_review(
+            TicketSpec.model_validate(state["spec"]),
+            Plan.model_validate(state["plan"]),
+            state["branch"],
+            state["commit_sha"],
+            run_id,
+        )
+    return {"review": result.model_dump(), "reviews": state.get("reviews", 0) + 1}
+
+
+def route_after_review(state: RunState) -> Literal["fix", "post_review"]:
+    wants_changes = state["review"]["verdict"] == "changes"
+    return "fix" if wants_changes and state.get("fixes", 0) < MAX_FIXES else "post_review"
+
+
+def fix(state: RunState, runtime: Runtime[RunContext]) -> Update:
+    ctx = runtime.context
+    with ctx.agent_run("developer") as run_id:
+        _dev, head_sha = ctx.make_fix(
+            state["ticket_key"],
+            TicketSpec.model_validate(state["spec"]),
+            Plan.model_validate(state["plan"]),
+            Review.model_validate(state["review"]),
+            state["branch"],
+            run_id,
+        )
+    return {"head_sha": head_sha, "fixes": state.get("fixes", 0) + 1}
+
+
+def post_review(state: RunState, runtime: Runtime[RunContext]) -> Update:
+    """The final review goes on the PR; the run ends with or without approval."""
+    result = Review.model_validate(state["review"])
+    runtime.context.comment_pr(state["pr_number"], review_markdown(result, state["reviews"]))
+    approved = result.verdict == "approve"
+    return {"outcome": "ready_to_merge" if approved else "needs_human"}
+
+
 def build_graph(
     checkpointer: BaseCheckpointSaver[Any] | None = None,
 ) -> CompiledStateGraph[RunState, RunContext, RunInput, RunState]:
@@ -179,6 +234,9 @@ def build_graph(
     builder.add_node("create_subtasks", create_subtasks)
     builder.add_node("develop", develop)
     builder.add_node("open_pr", open_pr)
+    builder.add_node("review", review)
+    builder.add_node("fix", fix)
+    builder.add_node("post_review", post_review)
 
     builder.add_edge(START, "fetch_ticket")
     builder.add_edge("fetch_ticket", "read_ticket")
@@ -188,6 +246,9 @@ def build_graph(
     builder.add_edge("post_conflicts", END)
     builder.add_edge("create_subtasks", "develop")
     builder.add_edge("develop", "open_pr")
-    builder.add_edge("open_pr", END)
+    builder.add_edge("open_pr", "review")
+    builder.add_conditional_edges("review", route_after_review)
+    builder.add_edge("fix", "review")
+    builder.add_edge("post_review", END)
     # The checkpointer saves the state after every node, so a run can resume (step 2).
     return builder.compile(checkpointer=checkpointer)

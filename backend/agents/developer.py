@@ -5,7 +5,8 @@ run tests. It can't finish until the code is done by the repo's own standard: wh
 it calls finish, our code runs lint, typecheck and the unit tests, and any failure
 goes back to it to fix. It must also have written or changed at least one test.
 
-Committing and pushing happen outside, in runner.make_code, once this returns.
+Given a Review, it fixes the reviewer's issues on the existing branch instead.
+Committing and pushing happen outside, in runner.py, once this returns.
 """
 
 from typing import Self
@@ -15,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from agents.loop import run_agent
 from agents.planner import Plan
 from agents.repo_tools import TEST_FILE, RepoTools, tool_definitions
+from agents.reviewer import Review
 from agents.ticket_reader import TicketSpec
 from llm_router.models import Role
 from llm_router.router import LlmRouter
@@ -44,8 +46,15 @@ class DevResult(BaseModel):
 
 
 def develop_ticket(
-    router: LlmRouter, spec: TicketSpec, plan: Plan, workspace: Workspace, *, agent_run_id: int
+    router: LlmRouter,
+    spec: TicketSpec,
+    plan: Plan,
+    workspace: Workspace,
+    *,
+    agent_run_id: int,
+    review: Review | None = None,
 ) -> DevResult:
+    """Build the plan, or (with a review) fix the reviewer's issues in what's there."""
     tools = RepoTools(workspace)
     if error := tools.install():
         raise DeveloperError(error)
@@ -54,17 +63,18 @@ def develop_ticket(
         role=Role.DEVELOPER,
         agent_run_id=agent_run_id,
         system=SYSTEM_PROMPT,
-        user=_task(spec, plan),
+        user=_task(spec, plan) + (_review_task(review) if review else ""),
         tools=tool_definitions(),
         handle=tools.call,
-        answer=_checked_done(tools),
+        # A fix may not touch tests; building from scratch must add one.
+        answer=_checked_done(tools, require_test=review is None),
         max_tool_calls=MAX_TOOL_CALLS,
         max_tokens=MAX_OUTPUT_TOKENS,
     )
     return DevResult(summary=done.summary, changed_files=sorted(tools.changed_files))
 
 
-def _checked_done(tools: RepoTools) -> type[Done]:
+def _checked_done(tools: RepoTools, *, require_test: bool) -> type[Done]:
     """Done plus the checks that need the repo: they run each time the model calls finish."""
 
     class CheckedDone(Done):
@@ -74,7 +84,7 @@ def _checked_done(tools: RepoTools) -> type[Done]:
         def _code_is_done(self) -> Self:
             if not tools.changed_files:
                 raise ValueError("you haven't changed any files yet")
-            if not any(TEST_FILE.search(path) for path in tools.changed_files):
+            if require_test and not any(TEST_FILE.search(p) for p in tools.changed_files):
                 raise ValueError("write or update at least one test file for this work")
             failures = tools.run_checks()
             if failures:
@@ -110,6 +120,17 @@ Changes:
 Subtasks:
 {subtasks}
 </plan>"""
+
+
+def _review_task(review: Review) -> str:
+    issues = "\n".join(f"- {i.path}: {i.problem} Fix: {i.fix}" for i in review.issues)
+    return f"""
+
+<review>
+The work above is already built, on this branch. A reviewer asked for these fixes:
+{issues}
+</review>
+Fix every issue in the review, keep everything else as it is, then call finish."""
 
 
 SYSTEM_PROMPT = """\

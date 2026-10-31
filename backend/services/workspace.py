@@ -74,6 +74,17 @@ class Workspace:
         """Every file git tracks, as repo-relative paths (no node_modules or build output)."""
         return self._git("ls-files").splitlines()
 
+    def checkout(self, branch: str) -> None:
+        """Switch to an existing remote branch (e.g. the agent's, to review or fix it)."""
+        self._git("check-ref-format", "--branch", branch)
+        self._git("switch", "--quiet", branch)
+
+    def diff(self, base: str) -> str:
+        """Everything changed since commit `base`, as a unified diff."""
+        if not SHA.fullmatch(base):
+            raise ValueError(f"not a commit sha: {base!r}")
+        return self._git("diff", f"{base}..HEAD")
+
     def create_branch(self, name: str, start: str | None = None) -> None:
         """Create and switch to a branch, from `start` (a commit sha) or the current commit."""
         # git's own rules for branch names (no spaces, no "..", etc.)
