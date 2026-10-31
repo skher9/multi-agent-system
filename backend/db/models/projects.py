@@ -21,6 +21,8 @@ class User(IdMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
     email: Mapped[str] = mapped_column(String(320), unique=True)
+    # The Better Auth user (website login) this is; set on their first API call
+    auth_user_id: Mapped[str | None] = mapped_column(String(64), unique=True)
 
 
 class Project(IdMixin, TimestampMixin, Base):

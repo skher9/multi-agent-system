@@ -4,7 +4,17 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-8">
       <h1 className="text-2xl font-semibold">Multi-Agent System</h1>
-      <p className="text-gray-600">Setup phase. Developer pages:</p>
+      <p className="text-gray-600">
+        <Link href="/signup" className="underline">
+          Sign up
+        </Link>{" "}
+        or{" "}
+        <Link href="/login" className="underline">
+          log in
+        </Link>
+        .
+      </p>
+      <p className="text-gray-600">Developer pages:</p>
       <ul className="list-disc pl-6">
         <li>
           <Link href="/status" className="underline">

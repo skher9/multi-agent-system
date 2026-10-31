@@ -13,6 +13,7 @@ from sqlalchemy import create_engine, pool
 import db.models  # noqa: F401  (registers every table on Base.metadata)
 from alembic import context
 from api.config import get_settings
+from db.auth_tables import AUTH_TABLES
 from db.base import Base
 from orchestrator.checkpoints import CHECKPOINT_TABLES
 
@@ -40,9 +41,9 @@ def database_url() -> str:
 
 
 def include_name(name: str | None, type_: str, parent_names: object) -> bool:
-    """Leave LangGraph's checkpoint tables alone: LangGraph creates and migrates them,
-    so autogenerate must not offer to drop them as "unknown" tables."""
-    return not (type_ == "table" and name in CHECKPOINT_TABLES)
+    """Leave tables we have no models for alone, so autogenerate never offers to drop them:
+    LangGraph's checkpoint tables (it migrates them) and Better Auth's login tables."""
+    return not (type_ == "table" and name in CHECKPOINT_TABLES | AUTH_TABLES)
 
 
 def run_migrations_offline() -> None:
