@@ -18,9 +18,9 @@ from services.openrouter import ChatResponse, OpenRouterClient, OpenRouterError
 
 logger = logging.getLogger(__name__)
 
-# Waits before retry 1 and retry 2. Short on purpose: Celery retries the whole job
-# with longer waits if the model is still failing after this.
-RETRY_WAITS_SECONDS = (1, 2)
+# Waits before each retry. About 40s in total: enough to ride out a provider blip
+# (seen live: OpenRouter 502 "upstream error" for a few seconds) without hanging a run.
+RETRY_WAITS_SECONDS = (1, 2, 5, 10, 20)
 
 # llm_calls.cost_inr is Numeric(12, 4)
 PAISA_PRECISION = Decimal("0.0001")

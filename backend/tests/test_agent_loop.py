@@ -137,3 +137,54 @@ def test_gives_up_on_a_model_that_only_talks() -> None:
     script = Script(*[reply(content="hmm") for _ in range(3)])
     with pytest.raises(AgentLoopError, match="stopped calling tools"):
         script.run()
+
+
+def test_lists_wrapped_as_item_objects_are_unwrapped() -> None:
+    from agents.loop import unwrap_lists
+
+    assert unwrap_lists({"criteria": {"item": "2"}}) == {"criteria": ["2"]}
+    assert unwrap_lists({"a": {"item": ["1", "2"]}}) == {"a": ["1", "2"]}
+    assert unwrap_lists({"changes": {"item": {"path": "x", "criteria": {"item": "1"}}}}) == {
+        "changes": [{"path": "x", "criteria": ["1"]}]
+    }
+    assert unwrap_lists({"item": "x", "other": 1}) == {"item": "x", "other": 1}  # not a wrapper
+
+
+def test_finish_with_wrapped_lists_is_accepted() -> None:
+    class Listy(BaseModel):
+        """Answer."""
+
+        numbers: list[int]
+
+    script = Script(reply(call("finish", {"numbers": {"item": "2"}})))
+    answer = run_agent(
+        script.router(),
+        role=Role.PLANNER,
+        agent_run_id=1,
+        system="s",
+        user="u",
+        tools=[],
+        handle=script.handle,
+        answer=Listy,
+    )
+    assert answer.numbers == [2]
+
+
+def test_a_cut_off_reply_gets_told_to_be_shorter() -> None:
+    cut = reply(content=None)
+    cut["choices"][0]["finish_reason"] = "length"
+    script = Script(cut, reply(call("finish", {"summary": "ok"})))
+    assert script.run().summary == "ok"
+    assert "cut off at the output limit" in script.sent[1]["messages"][-1]["content"]
+
+
+def test_a_rejected_finish_grants_extra_tool_calls() -> None:
+    script = Script(
+        reply(call("read_file", {"path": "a"})),  # uses the only call
+        reply(call("finish", {"summary": ""})),  # rejected: +5 calls
+        reply(call("read_file", {"path": "b"})),  # allowed thanks to the grace
+        reply(call("finish", {"summary": "fixed"})),
+    )
+    assert script.run(max_tool_calls=1).summary == "fixed"
+    assert [name for name, _ in script.tool_calls] == ["read_file", "read_file"]
+    assert "5 extra tool calls granted" in script.sent[2]["messages"][-1]["content"]
