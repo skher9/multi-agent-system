@@ -45,13 +45,21 @@ def build_docker_command(
     workspace: Path | None,
     limits: SandboxLimits,
     masked_paths: tuple[str, ...] = (),
+    *,
+    read_only: bool = False,
+    network: str = NETWORK,
+    extra_mounts: tuple[tuple[Path, str], ...] = (),
 ) -> list[str]:
-    """The exact `docker run` invocation. Kept separate so tests can inspect it."""
+    """The exact `docker run` invocation. Kept separate so tests can inspect it.
+
+    read_only mounts the workspace read-only. network="none" cuts off even the npm
+    proxy. extra_mounts are (host folder, container path) pairs, mounted writable.
+    """
     args = [
         "docker", "run",
         "--rm",                                    # delete the container when it exits
         "--name", name,
-        "--network", NETWORK,                      # internal network: npm proxy only
+        "--network", network,                      # default: internal network, npm proxy only
         "--cpus", str(limits.cpus),
         "--memory", limits.memory,
         "--memory-swap", limits.memory,            # same as memory = no swap
@@ -61,11 +69,14 @@ def build_docker_command(
         "--workdir", CONTAINER_WORKDIR,
     ]  # fmt: skip
     if workspace is not None:
-        args += ["--volume", f"{workspace.resolve()}:{CONTAINER_WORKDIR}"]
+        mode = ":ro" if read_only else ""
+        args += ["--volume", f"{workspace.resolve()}:{CONTAINER_WORKDIR}{mode}"]
         # An empty in-memory folder laid over each masked path, e.g. ".git": the
         # container sees an empty folder and can't touch the real one on the host.
         for rel in masked_paths:
             args += ["--mount", f"type=tmpfs,destination={CONTAINER_WORKDIR}/{rel}"]
+    for host, target in extra_mounts:
+        args += ["--volume", f"{host.resolve()}:{target}"]
     return [*args, IMAGE, *command]
 
 
@@ -74,10 +85,23 @@ def run(
     workspace: Path | None = None,
     limits: SandboxLimits = SandboxLimits(),  # noqa: B008  (frozen dataclass: safe default)
     masked_paths: tuple[str, ...] = (),
+    *,
+    read_only: bool = False,
+    network: str = NETWORK,
+    extra_mounts: tuple[tuple[Path, str], ...] = (),
 ) -> SandboxResult:
     """Run `command` (a list, never a shell string) inside a fresh sandbox container."""
     name = f"mas-sandbox-{uuid.uuid4().hex[:12]}"
-    docker_cmd = build_docker_command(command, name, workspace, limits, masked_paths)
+    docker_cmd = build_docker_command(
+        command,
+        name,
+        workspace,
+        limits,
+        masked_paths,
+        read_only=read_only,
+        network=network,
+        extra_mounts=extra_mounts,
+    )
     try:
         done = subprocess.run(  # noqa: S603  (fixed binary, list args, no shell)
             docker_cmd,

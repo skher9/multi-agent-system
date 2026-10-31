@@ -65,6 +65,10 @@ class Workspace:
         finally:
             shutil.rmtree(parent, ignore_errors=True)
 
+    def head_sha(self) -> str:
+        """The full sha of the commit currently checked out."""
+        return self._git("rev-parse", "HEAD").strip()
+
     def create_branch(self, name: str) -> None:
         # git's own rules for branch names (no spaces, no "..", etc.)
         self._git("check-ref-format", "--branch", name)
@@ -86,7 +90,7 @@ class Workspace:
             "-c", f"user.email={author.email}",
             "commit", "--quiet", "--no-verify", "-m", message,
         )  # fmt: skip
-        return self._git("rev-parse", "HEAD").strip()
+        return self.head_sha()
 
     def push(self, branch: str) -> None:
         self._git("push", "--quiet", "origin", f"HEAD:refs/heads/{branch}")
