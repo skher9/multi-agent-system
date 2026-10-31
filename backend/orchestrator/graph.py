@@ -10,8 +10,7 @@ Each box is a node: a function that gets the run's state and returns only the ke
 changes. Routing is plain code (route_after_reader). Agents decide; nodes that act on the
 outside world (like posting to Jira) are separate, so actions stay visible in the graph.
 
-develop is a placeholder until the developer agent exists; reviewer and PR nodes get
-added after it, one at a time.
+After develop the code is on a pushed branch; the PR and reviewer nodes come next.
 """
 
 from collections.abc import Callable
@@ -24,6 +23,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 
+from agents.developer import DevResult
 from agents.planner import Plan, conflicts_comment, subtask_description
 from agents.ticket_reader import TicketSpec, questions_comment, read_ticket
 from llm_router.router import LlmRouter
@@ -55,6 +55,9 @@ class RunState(RunInput):
     plan: dict[str, Any]  # a Plan as a dict
     commit_sha: str  # the commit the plan was made on; the developer builds on it
     subtask_keys: list[str]  # Jira subtasks created from the plan, e.g. ["KAN-12"]
+    branch: str  # where the developer's commit was pushed, e.g. "agent/KAN-4"
+    head_sha: str  # the developer's commit
+    dev: dict[str, Any]  # a DevResult as a dict: summary and changed files
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,9 @@ class RunContext:
     # make_plan(spec, agent_run_id) -> (plan, commit sha): clones the repo, loads its
     # code graph and runs the planner (see runner.py). A function so tests can fake it.
     make_plan: Callable[[TicketSpec, int], tuple[Plan, str]]
+    # make_code(ticket_key, spec, plan, commit_sha, agent_run_id) -> (dev result, branch,
+    # head sha): clones, builds the plan on a new branch, commits and pushes (runner.py)
+    make_code: Callable[[str, TicketSpec, Plan, str, int], tuple[DevResult, str, str]]
 
 
 def fetch_ticket(state: RunState, runtime: Runtime[RunContext]) -> Update:
@@ -125,9 +131,18 @@ def create_subtasks(state: RunState, runtime: Runtime[RunContext]) -> Update:
     return {"subtask_keys": keys}
 
 
-def develop(state: RunState) -> Update:
-    """Placeholder: the developer agent plugs in here next."""
-    return {"outcome": "waiting_for_developer"}
+def develop(state: RunState, runtime: Runtime[RunContext]) -> Update:
+    ctx = runtime.context
+    with ctx.agent_run("developer") as run_id:
+        dev, branch, head_sha = ctx.make_code(
+            state["ticket_key"],
+            TicketSpec.model_validate(state["spec"]),
+            Plan.model_validate(state["plan"]),
+            state["commit_sha"],
+            run_id,
+        )
+    # "pushed" until the PR node exists
+    return {"dev": dev.model_dump(), "branch": branch, "head_sha": head_sha, "outcome": "pushed"}
 
 
 def build_graph(

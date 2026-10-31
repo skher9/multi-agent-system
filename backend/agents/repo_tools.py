@@ -28,6 +28,11 @@ COMMAND_TIMEOUT_SECONDS = 5 * 60
 # Inside node_modules: ignored by git, so the report never ends up in a commit.
 TEST_REPORT = "node_modules/.cache/vitest-report.json"
 
+# What "done" means for code: every one must pass. Commands in the repo's package.json.
+CHECKS = {"lint": "pnpm lint", "typecheck": "pnpm typecheck", "unit tests": "pnpm test"}
+INSTALL = "pnpm install --frozen-lockfile --prefer-offline"
+TEST_FILE = re.compile(r"(\.test\.|\.spec\.|(^|/)__tests__/)")
+
 ANSI_ESCAPES = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")  # terminal colour codes
 
 
@@ -282,6 +287,20 @@ class RepoTools:
             # The tests didn't even start (e.g. a syntax error): show the raw output.
             return f"Tests could not run (exit code {exit_code}):\n{output}"
         return summarise_test_report(json.loads(report.read_text()))
+
+    def install(self) -> str:
+        """Install the repo's packages; return "" on success, else the error output."""
+        exit_code, output = self._sandbox(INSTALL)
+        return "" if exit_code == 0 else f"install failed (exit {exit_code}):\n{output}"
+
+    def run_checks(self) -> list[str]:
+        """Run every check in CHECKS; return the failures with their output (empty: all pass)."""
+        failures = []
+        for name, command in CHECKS.items():
+            exit_code, output = self._sandbox(command)
+            if exit_code != 0:
+                failures.append(f"{name} failed (exit code {exit_code}):\n{output}")
+        return failures
 
     def _sandbox(self, command: str) -> tuple[int, str]:
         result = self._ws.run(

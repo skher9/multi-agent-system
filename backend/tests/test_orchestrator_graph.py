@@ -11,6 +11,7 @@ import pytest
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 
+from agents.developer import DevResult
 from agents.planner import Plan
 from agents.ticket_reader import TicketSpec
 from llm_router.router import LlmRouter
@@ -93,11 +94,19 @@ class Fakes:
             router=router,
             agent_run=self._agent_run,
             make_plan=self._make_plan,
+            make_code=self._make_code,
         )
 
     def _make_plan(self, spec: TicketSpec, agent_run_id: int) -> tuple[Plan, str]:
         self.plans += 1
         return Plan.model_validate(self._plan), "abc123"
+
+    def _make_code(
+        self, key: str, spec: TicketSpec, plan: Plan, sha: str, agent_run_id: int
+    ) -> tuple[DevResult, str, str]:
+        self.built = (key, sha, [c.path for c in plan.changes])
+        dev = DevResult(summary="Added the contact page", changed_files=["src/app/page.tsx"])
+        return dev, f"agent/{key}", "def456"
 
     @contextmanager
     def _agent_run(self, role: str) -> Iterator[int]:
@@ -117,7 +126,9 @@ def test_ready_ticket_is_planned_split_into_subtasks_then_developed() -> None:
         "fetch_ticket", "read_ticket", "plan", "create_subtasks", "develop",
     ]  # fmt: skip
     assert fakes.comments == []
-    assert fakes.agent_runs == ["ticket_reader", "planner"]
+    assert fakes.agent_runs == ["ticket_reader", "planner", "developer"]
+    # The developer built the plan on the commit the planner looked at
+    assert fakes.built == ("KAN-4", "abc123", ["src/app/contact/page.tsx", "src/app/page.tsx"])
     [subtask] = fakes.subtasks
     assert subtask["summary"] == "[FE] Contact page"
     assert subtask["parent"] == {"key": "KAN-4"}
@@ -131,7 +142,9 @@ def test_final_state_holds_plan_commit_and_subtasks() -> None:
     assert final["plan"]["changes"][0]["path"] == "src/app/contact/page.tsx"
     assert final["commit_sha"] == "abc123"
     assert final["subtask_keys"] == ["KAN-11"]
-    assert final["outcome"] == "waiting_for_developer"
+    assert (final["branch"], final["head_sha"]) == ("agent/KAN-4", "def456")
+    assert final["dev"]["summary"] == "Added the contact page"
+    assert final["outcome"] == "pushed"
 
 
 def test_conflicts_go_back_to_jira_and_stop() -> None:
@@ -170,7 +183,7 @@ def test_checkpointer_saves_state_after_every_node() -> None:
     graph.invoke({"ticket_key": "KAN-4"}, config, context=Fakes(READY).context)
 
     saved = graph.get_state(config)
-    assert saved.values["outcome"] == "waiting_for_developer"
+    assert saved.values["outcome"] == "pushed"
     assert saved.next == ()  # nothing left to run
     # One checkpoint per step, so a crashed run could resume from any of them
     assert len(list(graph.get_state_history(config))) >= 4

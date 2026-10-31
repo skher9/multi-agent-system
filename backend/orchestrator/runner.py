@@ -8,13 +8,17 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from sqlalchemy.orm import Session, sessionmaker
 
 from agents.code_graph import Storage, open_code_graph
+from agents.developer import DevResult, develop_ticket
 from agents.planner import Plan, plan_ticket
 from agents.ticket_reader import TicketSpec
 from llm_router.router import LlmRouter
 from orchestrator.graph import RunContext, RunInput, RunState, build_graph
 from orchestrator.records import agent_run, claim_feature, ensure_feature, update_feature
 from services.jira import JiraClient
-from services.workspace import Workspace
+from services.workspace import GitIdentity, Workspace
+
+# Author of the agents' commits. GitHub's noreply domain: no real inbox behind it.
+AGENT_AUTHOR = GitIdentity(name="Agent Dev Team", email="agent-dev-team@users.noreply.github.com")
 
 
 class AlreadyRunningError(Exception):
@@ -51,6 +55,29 @@ def make_plan(pipeline: Pipeline, spec: TicketSpec, agent_run_id: int) -> tuple[
         return plan, graph.commit_sha
 
 
+def make_code(
+    pipeline: Pipeline,
+    ticket_key: str,
+    spec: TicketSpec,
+    plan: Plan,
+    commit_sha: str,
+    agent_run_id: int,
+) -> tuple[DevResult, str, str]:
+    """Clone at the planned commit, build the plan on agent/<ticket>, commit and push."""
+    if not pipeline.repo_url:
+        raise RuntimeError("developing needs the pipeline's repo_url")
+    branch = f"agent/{ticket_key}"
+    with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
+        workspace.create_branch(branch, start=commit_sha)
+        dev = develop_ticket(pipeline.router, spec, plan, workspace, agent_run_id=agent_run_id)
+        head = workspace.commit_all(f"{ticket_key}: {spec.title}\n\n{dev.summary}", AGENT_AUTHOR)
+        if head is None:
+            raise RuntimeError("the developer finished without changing any files")
+        # replace: the branch is ours; a rerun after a crash builds it again from scratch
+        workspace.push(branch, replace=True)
+    return dev, branch, head
+
+
 def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
     """Run the graph for one ticket and save where it ended on the ticket's feature.
 
@@ -66,6 +93,9 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
         router=pipeline.router,
         agent_run=lambda role: agent_run(pipeline.factory, feature_id, role),
         make_plan=lambda spec, run_id: make_plan(pipeline, spec, run_id),
+        make_code=lambda key, spec, plan, sha, run_id: make_code(
+            pipeline, key, spec, plan, sha, run_id
+        ),
     )
     graph = build_graph(pipeline.checkpointer)
     # One thread per feature: every run of this ticket shares its saved state.
