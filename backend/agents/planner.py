@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from agents.code_graph import CodeGraphFiles
 from agents.graph_tools import GRAPH_TOOL_ARGS, GraphTools, graph_tool_definitions
-from agents.loop import run_agent
+from agents.loop import EventSink, ignore_events, run_agent
 from agents.repo_tools import READ_ONLY_TOOLS, TOOL_ARGS, RepoTools, definitions
 from agents.ticket_reader import TicketSpec
 from llm_router.models import Role
@@ -109,6 +109,7 @@ def plan_ticket(
     graph: CodeGraphFiles,
     *,
     agent_run_id: int,
+    on_event: EventSink = ignore_events,
 ) -> Plan:
     repo = RepoTools(workspace, typecheck_after_edit=False)
     # Packages installed so the planner can read library docs in node_modules (the
@@ -136,6 +137,7 @@ def plan_ticket(
         answer=_checked_plan(len(spec.acceptance_criteria), workspace.path),
         max_tool_calls=MAX_TOOL_CALLS,
         max_tokens=MAX_OUTPUT_TOKENS,
+        on_event=on_event,
     )
 
 

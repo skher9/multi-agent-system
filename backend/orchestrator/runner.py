@@ -10,12 +10,20 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from agents.code_graph import Storage, open_code_graph
 from agents.developer import DevResult, develop_ticket
+from agents.loop import EventSink, ignore_events
 from agents.planner import Plan, plan_ticket
 from agents.reviewer import Review, review_changes
 from agents.ticket_reader import TicketSpec
+from db.models import EventKind
 from llm_router.router import LlmRouter
 from orchestrator.graph import RunContext, RunInput, RunState, build_graph
-from orchestrator.records import agent_run, claim_feature, ensure_feature, update_feature
+from orchestrator.records import (
+    agent_run,
+    claim_feature,
+    ensure_feature,
+    record_event,
+    update_feature,
+)
 from services.github import GitHubClient
 from services.jira import JiraClient
 from services.workspace import GitIdentity, Workspace
@@ -60,7 +68,12 @@ def open_pr(pipeline: Pipeline, branch: str, title: str, body: str) -> tuple[int
     return pr.number, pr.url
 
 
-def make_plan(pipeline: Pipeline, spec: TicketSpec, agent_run_id: int) -> tuple[Plan, str]:
+def make_plan(
+    pipeline: Pipeline,
+    spec: TicketSpec,
+    agent_run_id: int,
+    on_event: EventSink = ignore_events,
+) -> tuple[Plan, str]:
     """Clone the repo, load (or build) its code graph, and run the planner on it."""
     if pipeline.storage is None or not pipeline.repo_url:
         raise RuntimeError("planning needs the pipeline's storage and repo_url")
@@ -70,7 +83,9 @@ def make_plan(pipeline: Pipeline, spec: TicketSpec, agent_run_id: int) -> tuple[
             pipeline.factory, pipeline.storage, pipeline.project_id, workspace
         ) as graph,
     ):
-        plan = plan_ticket(pipeline.router, spec, workspace, graph, agent_run_id=agent_run_id)
+        plan = plan_ticket(
+            pipeline.router, spec, workspace, graph, agent_run_id=agent_run_id, on_event=on_event
+        )
         return plan, graph.commit_sha
 
 
@@ -81,6 +96,7 @@ def make_code(
     plan: Plan,
     commit_sha: str,
     agent_run_id: int,
+    on_event: EventSink = ignore_events,
 ) -> tuple[DevResult, str, str]:
     """Clone at the planned commit and build the plan on agent/<ticket>, one subtask at a
     time (BE before FE, as planned), one commit each; then push.
@@ -97,7 +113,13 @@ def make_code(
         workspace.create_branch(branch, start=commit_sha)
         for subtask in plan.subtasks:
             dev = develop_ticket(
-                pipeline.router, spec, plan, workspace, agent_run_id=agent_run_id, subtask=subtask
+                pipeline.router,
+                spec,
+                plan,
+                workspace,
+                agent_run_id=agent_run_id,
+                subtask=subtask,
+                on_event=on_event,
             )
             if dev.problem:
                 return dev, branch, ""
@@ -124,6 +146,7 @@ def make_review(
     dev_summary: str,
     previous: Review | None,
     run_id: int,
+    on_event: EventSink = ignore_events,
 ) -> Review:
     """Clone, switch to the agent's branch, and review it against the planned commit."""
     with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
@@ -137,6 +160,7 @@ def make_review(
             agent_run_id=run_id,
             dev_summary=dev_summary,
             previous=previous,
+            on_event=on_event,
         )
 
 
@@ -148,12 +172,19 @@ def make_fix(
     review: Review,
     branch: str,
     run_id: int,
+    on_event: EventSink = ignore_events,
 ) -> tuple[DevResult, str]:
     """Clone the agent's branch, fix the review's issues, commit on top and push."""
     with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
         workspace.checkout(branch)
         dev = develop_ticket(
-            pipeline.router, spec, plan, workspace, agent_run_id=run_id, review=review
+            pipeline.router,
+            spec,
+            plan,
+            workspace,
+            agent_run_id=run_id,
+            review=review,
+            on_event=on_event,
         )
         if dev.problem:
             return dev, ""  # stopped for a human: nothing to commit
@@ -180,20 +211,28 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
     feature_id = ensure_feature(pipeline.factory, pipeline.project_id, ticket_key)
     if not claim_feature(pipeline.factory, feature_id):
         raise AlreadyRunningError(ticket_key)
+
+    def event(kind: EventKind, data: dict[str, Any], run_id: int | None = None) -> None:
+        record_event(pipeline.factory, feature_id, kind, data, agent_run_id=run_id)
+
+    def agent_events(run_id: int) -> EventSink:
+        """Where one agent's tool calls go: the feature's timeline, tagged with its run."""
+        return lambda kind, data: event(kind, data, run_id)
+
     context = RunContext(
         jira=pipeline.jira,
         router=pipeline.router,
         agent_run=lambda role: agent_run(pipeline.factory, feature_id, role),
-        make_plan=lambda spec, run_id: make_plan(pipeline, spec, run_id),
+        make_plan=lambda spec, run_id: make_plan(pipeline, spec, run_id, agent_events(run_id)),
         make_code=lambda key, spec, plan, sha, run_id: make_code(
-            pipeline, key, spec, plan, sha, run_id
+            pipeline, key, spec, plan, sha, run_id, agent_events(run_id)
         ),
         open_pr=lambda branch, title, body: open_pr(pipeline, branch, title, body),
         make_review=lambda spec, plan, branch, base, summary, previous, run_id: make_review(
-            pipeline, spec, plan, branch, base, summary, previous, run_id
+            pipeline, spec, plan, branch, base, summary, previous, run_id, agent_events(run_id)
         ),
         make_fix=lambda key, spec, plan, review, branch, run_id: make_fix(
-            pipeline, key, spec, plan, review, branch, run_id
+            pipeline, key, spec, plan, review, branch, run_id, agent_events(run_id)
         ),
         comment_pr=lambda number, body: comment_pr(pipeline, number, body),
     )
@@ -206,19 +245,28 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
     # Input None tells LangGraph "continue from the checkpoint" instead of starting over.
     graph_input: RunInput | None = None if unfinished else {"ticket_key": ticket_key}
     final: dict[str, Any] = {}
+    event(EventKind.RUN_STARTED, {"resumed": unfinished})
     try:
-        # "updates" says which box just finished (logged); "values" is the state after it.
+        # "tasks" says a box started (its finish comes as "updates" too); "updates" says
+        # which box just finished; "values" is the state after it.
         for mode, chunk in graph.stream(
-            graph_input, config, context=context, stream_mode=["updates", "values"]
+            graph_input, config, context=context, stream_mode=["tasks", "updates", "values"]
         ):
-            if mode == "updates":
+            if mode == "tasks":
+                task = cast(dict[str, Any], chunk)
+                if "result" not in task:  # a start; results are covered by "updates"
+                    event(EventKind.NODE_STARTED, {"node": task["name"]})
+            elif mode == "updates":
                 for node in cast(dict[str, Any], chunk):
                     logger.info("%s: finished %s", ticket_key, node)
+                    event(EventKind.NODE_FINISHED, {"node": node})
             else:
                 final = cast(dict[str, Any], chunk)
-    except BaseException:
+    except BaseException as exc:
         update_feature(pipeline.factory, feature_id, status="failed")
+        event(EventKind.RUN_FAILED, {"error": type(exc).__name__})
         raise
+    event(EventKind.RUN_ENDED, {"outcome": final["outcome"]})
     update_feature(
         pipeline.factory,
         feature_id,

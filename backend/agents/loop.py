@@ -6,6 +6,9 @@ arguments; a form that doesn't validate goes back to the model as an error to fi
 
 Limits keep a confused model from spending forever: after max_tool_calls, every
 tool except finish is refused, and a few rounds later the loop gives up.
+
+on_event, if given, hears each tool call, rejected finish and the final answer, so a
+run can be watched live (the runner saves them as run_events).
 """
 
 import json
@@ -16,6 +19,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from agents.repo_tools import definitions
+from db.models import EventKind
 from llm_router.models import Role
 from llm_router.router import LlmRouter
 
@@ -29,8 +33,14 @@ GRACE_PER_REJECTION = 5
 MAX_GRACE = 15
 EXTRA_ROUNDS = 3  # rounds allowed after the tool limit for the model to call finish
 MAX_IDLE_ROUNDS = 2  # replies with no tool call before giving up
+EVENT_TEXT_MAX = 300  # arguments and errors are shortened to this in events
 
 ToolHandler = Callable[[str, str], str]  # (tool name, JSON arguments) -> text for the model
+EventSink = Callable[[EventKind, dict[str, Any]], None]  # (kind, data) -> saved somewhere
+
+
+def ignore_events(kind: EventKind, data: dict[str, Any]) -> None:
+    """The EventSink used when nobody is listening."""
 
 
 def unwrap_lists(value: Any) -> Any:
@@ -70,6 +80,7 @@ def run_agent[T: BaseModel](
     answer: type[T],
     max_tool_calls: int = 25,
     max_tokens: int | None = None,
+    on_event: EventSink = ignore_events,
 ) -> T:
     """Run the loop and return the model's validated answer."""
     all_tools = [*tools, *definitions({FINISH: answer})]
@@ -121,9 +132,14 @@ def run_agent[T: BaseModel](
                 try:
                     result_answer = answer.model_validate(json.loads(arguments))
                     logger.info("%s: finished after %d tool calls", role, used)
+                    on_event(EventKind.AGENT_FINISHED, {"role": role, "tool_calls": used})
                     return result_answer
                 except (json.JSONDecodeError, ValidationError) as exc:
                     logger.info("%s: finish rejected: %.3000s", role, exc)
+                    on_event(
+                        EventKind.FINISH_REJECTED,
+                        {"role": role, "error": str(exc)[:EVENT_TEXT_MAX]},
+                    )
                     extra = min(GRACE_PER_REJECTION, MAX_GRACE - grace)
                     grace += extra
                     result = (
@@ -137,6 +153,16 @@ def run_agent[T: BaseModel](
             else:
                 used += 1
                 logger.info("%s: tool %d/%d %s %.120s", role, used, max_tool_calls, name, arguments)
+                on_event(
+                    EventKind.TOOL_CALL,
+                    {
+                        "role": role,
+                        "tool": name,
+                        "n": used,
+                        "limit": max_tool_calls,
+                        "arguments": arguments[:EVENT_TEXT_MAX],
+                    },
+                )
                 result = handle(name, arguments)
                 left = max_tool_calls + grace - used
                 if left <= WARN_WHEN_LEFT:

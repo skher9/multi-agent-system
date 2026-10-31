@@ -1,21 +1,27 @@
 """Database rows for runs: who owns the project, which feature a ticket is, which agent ran.
 
 users -> projects -> features (one per Jira ticket) -> tasks (one per role) -> agent_runs
+features -> run_events (the run's timeline)
 """
 
+import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import func, or_, select, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.models import AgentRun, Feature, Project, ProjectKind, Task, User
+from db.models import AgentRun, EventKind, Feature, Project, ProjectKind, RunEvent, Task, User
 from llm_router.models import Role, model_for
 
 TITLE_MAX = 200  # features.title is String(200)
 # Story runs are capped at 30 minutes, so a run "running" longer than this has died.
 STALE_AFTER = timedelta(minutes=30)
+
+logger = logging.getLogger(__name__)
 
 
 def ensure_project(
@@ -126,3 +132,24 @@ def _finish(factory: sessionmaker[Session], task_id: int, run_id: int, status: s
         run.status = status
         run.ended_at = datetime.now(UTC)
         session.get_one(Task, task_id).status = status
+
+
+def record_event(
+    factory: sessionmaker[Session],
+    feature_id: int,
+    kind: EventKind,
+    data: dict[str, Any] | None = None,
+    *,
+    agent_run_id: int | None = None,
+) -> None:
+    """Add one event to the feature's timeline. Never raises: the timeline is for
+    watching a run, so losing an event must not stop the run itself."""
+    try:
+        with factory.begin() as session:
+            session.add(
+                RunEvent(
+                    feature_id=feature_id, agent_run_id=agent_run_id, kind=kind, data=data or {}
+                )
+            )
+    except SQLAlchemyError:
+        logger.warning("could not record a %s event (feature %d)", kind, feature_id, exc_info=True)
