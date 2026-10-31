@@ -27,6 +27,16 @@ WORKDIR /opt/template
 COPY --chown=pwuser templates/nextjs-starter/package.json templates/nextjs-starter/pnpm-lock.yaml templates/nextjs-starter/pnpm-workspace.yaml ./
 RUN pnpm fetch
 
+# Graphify maps a repo's code into a graph (files, functions, imports) for the
+# planner agent. Installed now, while the build has network: agent runs have none.
+# uv fetches its own Python for it; both versions pinned (14-day rule).
+# --code-only runs parse locally and never call an LLM.
+COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /usr/local/bin/uv
+RUN uv tool install graphifyy==0.9.92 && uv cache clean
+ENV PATH=/home/pwuser/.local/bin:$PATH \
+    # Same input -> same graph: community ids don't reshuffle between runs
+    PYTHONHASHSEED=0
+
 WORKDIR /workspace
 
 # Package downloads go through the npm-only proxy (sandbox/proxy). The sandbox

@@ -37,11 +37,12 @@ def test_project_kind_is_text_with_check_constraint() -> None:
     assert "CONSTRAINT ck_projects_project_kind CHECK (kind IN ('new', 'existing'))" in sql
 
 
-def test_all_eleven_v1_tables_exist() -> None:
+def test_all_v1_tables_exist() -> None:
     assert set(Base.metadata.tables) == {
         "users",
         "projects",
         "documents",
+        "code_graphs",
         "discovery_sessions",
         "questions",
         "chat_messages",
