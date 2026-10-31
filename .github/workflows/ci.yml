@@ -59,6 +59,11 @@ jobs:
       - run: pnpm --filter web lint
       - run: pnpm --filter web typecheck
       - run: pnpm --filter web build
+        env:
+          # Better Auth refuses to build without a secret. A fixed, public value is fine
+          # here: CI only builds, nothing is signed or served. Real ones live in .env.local
+          # and in the hosting platform's settings.
+          BETTER_AUTH_SECRET: ci-build-only-not-a-real-secret-0123456789
       - name: API types match the backend
         run: |
           pnpm --filter web gen:api

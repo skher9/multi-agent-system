@@ -11,8 +11,10 @@
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "better-auth": "1.7.10",
     "next": "16.4.1",
     "openapi-fetch": "^0.17.0",
+    "pg": "^8.23.1",
     "pusher-js": "^8.6.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
@@ -20,6 +22,7 @@
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
