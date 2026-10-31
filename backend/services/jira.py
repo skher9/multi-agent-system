@@ -13,6 +13,8 @@ import httpx2
 
 # Project key, dash, number: "KAN-4". Checked before the key goes into a URL path.
 TICKET_KEY = re.compile(r"[A-Z][A-Z0-9]+-\d+")
+LABEL = re.compile(r"[a-z0-9-]+")  # the labels we set, e.g. "mas-agent"
+SUBTASK_TYPE = "Subtask"  # the issue type's name in team-managed Jira projects
 
 
 class TicketNotFoundError(Exception):
@@ -77,6 +79,36 @@ class JiraClient:
             raise TicketNotFoundError(key)
         response.raise_for_status()
         return response.json()["id"]
+
+    def create_subtask(
+        self, parent_key: str, summary: str, description: dict[str, Any], labels: list[str]
+    ) -> str:
+        """Create a subtask under a ticket (same project); return its key, e.g. "KAN-12"."""
+        if not TICKET_KEY.fullmatch(parent_key):
+            raise ValueError(f"not a Jira ticket key: {parent_key!r}")
+        fields = {
+            "project": {"key": parent_key.split("-")[0]},
+            "parent": {"key": parent_key},
+            "issuetype": {"name": SUBTASK_TYPE},
+            "summary": summary,
+            "description": description,
+            "labels": labels,
+        }
+        response = self._http.post("/rest/api/3/issue", json={"fields": fields})
+        response.raise_for_status()
+        return response.json()["key"]
+
+    def find_subtasks(self, parent_key: str, label: str) -> dict[str, str]:
+        """A ticket's subtasks carrying a label, as {summary: key}."""
+        if not TICKET_KEY.fullmatch(parent_key) or not LABEL.fullmatch(label):
+            raise ValueError(f"bad key or label: {parent_key!r}, {label!r}")
+        # Both checked above, so nothing user-written goes into the JQL query.
+        response = self._http.get(
+            "/rest/api/3/search/jql",
+            params={"jql": f'parent = {parent_key} AND labels = "{label}"', "fields": "summary"},
+        )
+        response.raise_for_status()
+        return {i["fields"]["summary"]: i["key"] for i in response.json().get("issues", [])}
 
     def ping(self) -> None:
         """Raise if the email + token can't sign in. GET /myself reads only the caller."""

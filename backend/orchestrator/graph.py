@@ -2,14 +2,16 @@
 
     fetch_ticket -> read_ticket -> blocked? -> post_questions -> end
                                       |
-                                    ready -> develop (placeholder) -> end
+                                    ready -> plan -> conflicts? -> post_conflicts -> end
+                                                        |
+                                                       none -> create_subtasks -> develop -> end
 
 Each box is a node: a function that gets the run's state and returns only the keys it
 changes. Routing is plain code (route_after_reader). Agents decide; nodes that act on the
 outside world (like posting to Jira) are separate, so actions stay visible in the graph.
 
-Skeleton: develop is a placeholder until the developer agent exists; reviewer and PR
-nodes get added after it, one at a time.
+develop is a placeholder until the developer agent exists; reviewer and PR nodes get
+added after it, one at a time.
 """
 
 from collections.abc import Callable
@@ -22,12 +24,15 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 
+from agents.planner import Plan, conflicts_comment, subtask_description
 from agents.ticket_reader import TicketSpec, questions_comment, read_ticket
 from llm_router.router import LlmRouter
 from services.jira import JiraClient, JiraTicket
 
 # A node returns only the keys it changes; LangGraph merges them into RunState.
 Update = dict[str, Any]
+# Marks the subtasks we create, so a resumed run finds them instead of making duplicates.
+SUBTASK_LABEL = "mas-agent"
 
 
 class RunInput(TypedDict):
@@ -46,7 +51,10 @@ class RunState(RunInput):
     ticket: dict[str, Any]  # a JiraTicket as a dict
     spec: dict[str, Any]  # a TicketSpec as a dict
     outcome: str  # where the run ended: "blocked", "waiting_for_developer", ...
-    comment_id: str  # the Jira comment holding the reader's questions
+    comment_id: str  # the Jira comment holding the reader's or planner's questions
+    plan: dict[str, Any]  # a Plan as a dict
+    commit_sha: str  # the commit the plan was made on; the developer builds on it
+    subtask_keys: list[str]  # Jira subtasks created from the plan, e.g. ["KAN-12"]
 
 
 @dataclass(frozen=True)
@@ -58,6 +66,9 @@ class RunContext:
     # `with agent_run("ticket_reader") as run_id:` records one agent's turn,
     # marking it done or failed when the block ends (see records.agent_run)
     agent_run: Callable[[str], AbstractContextManager[int]]
+    # make_plan(spec, agent_run_id) -> (plan, commit sha): clones the repo, loads its
+    # code graph and runs the planner (see runner.py). A function so tests can fake it.
+    make_plan: Callable[[TicketSpec, int], tuple[Plan, str]]
 
 
 def fetch_ticket(state: RunState, runtime: Runtime[RunContext]) -> Update:
@@ -72,14 +83,46 @@ def read(state: RunState, runtime: Runtime[RunContext]) -> Update:
     return {"spec": spec.model_dump()}
 
 
-def route_after_reader(state: RunState) -> Literal["post_questions", "develop"]:
-    return "post_questions" if state["spec"]["status"] == "blocked" else "develop"
+def route_after_reader(state: RunState) -> Literal["post_questions", "plan"]:
+    return "post_questions" if state["spec"]["status"] == "blocked" else "plan"
 
 
 def post_questions(state: RunState, runtime: Runtime[RunContext]) -> Update:
     spec = TicketSpec.model_validate(state["spec"])
     comment_id = runtime.context.jira.add_comment(state["ticket_key"], questions_comment(spec))
     return {"outcome": "blocked", "comment_id": comment_id}
+
+
+def plan(state: RunState, runtime: Runtime[RunContext]) -> Update:
+    ctx = runtime.context
+    with ctx.agent_run("planner") as run_id:
+        result, commit_sha = ctx.make_plan(TicketSpec.model_validate(state["spec"]), run_id)
+    return {"plan": result.model_dump(), "commit_sha": commit_sha}
+
+
+def route_after_plan(state: RunState) -> Literal["post_conflicts", "create_subtasks"]:
+    return "post_conflicts" if state["plan"]["conflicts"] else "create_subtasks"
+
+
+def post_conflicts(state: RunState, runtime: Runtime[RunContext]) -> Update:
+    comment = conflicts_comment(Plan.model_validate(state["plan"]))
+    comment_id = runtime.context.jira.add_comment(state["ticket_key"], comment)
+    return {"outcome": "blocked", "comment_id": comment_id}
+
+
+def create_subtasks(state: RunState, runtime: Runtime[RunContext]) -> Update:
+    """One Jira subtask per planned subtask. Ones that already exist (an earlier run
+    crashed partway through) are reused, matched by summary."""
+    jira, parent = runtime.context.jira, state["ticket_key"]
+    existing = jira.find_subtasks(parent, SUBTASK_LABEL)
+    keys = []
+    for subtask in Plan.model_validate(state["plan"]).subtasks:
+        summary = f"[{subtask.area}] {subtask.title}"
+        key = existing.get(summary) or jira.create_subtask(
+            parent, summary, subtask_description(subtask), [SUBTASK_LABEL]
+        )
+        keys.append(key)
+    return {"subtask_keys": keys}
 
 
 def develop(state: RunState) -> Update:
@@ -94,12 +137,18 @@ def build_graph(
     builder.add_node("fetch_ticket", fetch_ticket)
     builder.add_node("read_ticket", read)
     builder.add_node("post_questions", post_questions)
+    builder.add_node("plan", plan)
+    builder.add_node("post_conflicts", post_conflicts)
+    builder.add_node("create_subtasks", create_subtasks)
     builder.add_node("develop", develop)
 
     builder.add_edge(START, "fetch_ticket")
     builder.add_edge("fetch_ticket", "read_ticket")
     builder.add_conditional_edges("read_ticket", route_after_reader)
     builder.add_edge("post_questions", END)
+    builder.add_conditional_edges("plan", route_after_plan)
+    builder.add_edge("post_conflicts", END)
+    builder.add_edge("create_subtasks", "develop")
     builder.add_edge("develop", END)
     # The checkpointer saves the state after every node, so a run can resume (step 2).
     return builder.compile(checkpointer=checkpointer)

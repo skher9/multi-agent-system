@@ -148,3 +148,42 @@ def test_adf_ordered_lists_nested_lists_and_breaks() -> None:
 def test_adf_unknown_blocks_keep_their_text() -> None:
     doc = {"type": "doc", "content": [{"type": "panel", "content": [p("inside a panel")]}]}
     assert adf_to_text(doc) == "inside a panel"
+
+
+def test_create_subtask_posts_parent_type_and_labels() -> None:
+    sent: list[dict[str, Any]] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.url.path == "/rest/api/3/issue"
+        sent.append(json.loads(request.content))
+        return httpx2.Response(201, json={"id": "10050", "key": "KAN-12"})
+
+    key = make_client(handler).create_subtask(
+        "KAN-4", "[FE] Contact page", p("Do it"), ["mas-agent"]
+    )
+    assert key == "KAN-12"
+    fields = sent[0]["fields"]
+    assert fields["project"] == {"key": "KAN"}
+    assert fields["parent"] == {"key": "KAN-4"}
+    assert fields["issuetype"] == {"name": "Subtask"}
+    assert fields["labels"] == ["mas-agent"]
+
+
+def test_find_subtasks_maps_summary_to_key() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.url.params["jql"] == 'parent = KAN-4 AND labels = "mas-agent"'
+        issues = [{"key": "KAN-12", "fields": {"summary": "[FE] Contact page"}}]
+        return httpx2.Response(200, json={"issues": issues})
+
+    assert make_client(handler).find_subtasks("KAN-4", "mas-agent") == {
+        "[FE] Contact page": "KAN-12"
+    }
+
+
+@pytest.mark.parametrize(
+    ("key", "label"), [("KAN-4 OR 1=1", "mas-agent"), ("KAN-4", 'x" OR labels = "y')]
+)
+def test_find_subtasks_never_builds_jql_from_bad_input(key: str, label: str) -> None:
+    client = make_client(lambda _r: pytest.fail("no request should be sent"))
+    with pytest.raises(ValueError):
+        client.find_subtasks(key, label)

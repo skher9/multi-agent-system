@@ -13,6 +13,7 @@ from orchestrator.records import ensure_project
 from orchestrator.runner import Pipeline
 from services.jira import JiraClient
 from services.openrouter import OpenRouterClient
+from services.r2 import R2Credentials, R2Storage
 from services.workspace import github_remote
 
 
@@ -39,6 +40,11 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
             ("JIRA_API_TOKEN", settings.jira_api_token),
             ("AGENT_REPO", settings.agent_repo),
             ("AGENT_OWNER_EMAIL", settings.agent_owner_email),
+            ("GITHUB_TOKEN", settings.github_token),
+            ("R2_ACCOUNT_ID", settings.r2_account_id),
+            ("R2_ACCESS_KEY_ID", settings.r2_access_key_id),
+            ("R2_SECRET_ACCESS_KEY", settings.r2_secret_access_key),
+            ("R2_BUCKET", settings.r2_bucket),
         ]
         if not value
     ]
@@ -51,15 +57,29 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
         and settings.jira_api_token
         and settings.agent_repo
         and settings.agent_owner_email
+        and settings.github_token
+        and settings.r2_account_id
+        and settings.r2_access_key_id
+        and settings.r2_secret_access_key
+        and settings.r2_bucket
     ):
         raise NotConfiguredError(", ".join(missing))
 
     factory = make_session_factory(db_url)
+    repo_url = github_remote(settings.agent_repo)
     project_id = ensure_project(
         factory,
         owner_email=settings.agent_owner_email,
         name=settings.agent_repo.split("/")[1],
-        repo_url=github_remote(settings.agent_repo),
+        repo_url=repo_url,
+    )
+    storage = R2Storage(
+        R2Credentials(
+            account_id=settings.r2_account_id,
+            access_key_id=settings.r2_access_key_id.get_secret_value(),
+            secret_access_key=settings.r2_secret_access_key.get_secret_value(),
+            bucket=settings.r2_bucket,
+        )
     )
     jira = JiraClient(
         settings.jira_base_url, settings.jira_email, settings.jira_api_token.get_secret_value()
@@ -74,7 +94,16 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
     )
     try:
         with postgres_checkpointer(db_url) as checkpointer:
-            yield Pipeline(factory, jira, router, project_id, checkpointer)
+            yield Pipeline(
+                factory,
+                jira,
+                router,
+                project_id,
+                checkpointer,
+                storage=storage,
+                repo_url=repo_url,
+                github_token=settings.github_token.get_secret_value(),
+            )
     finally:
         jira.close()
         client.close()

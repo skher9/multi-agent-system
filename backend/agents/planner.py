@@ -10,7 +10,7 @@ any other tool are refused in code, whatever the model asks for.
 """
 
 from pathlib import Path, PurePosixPath
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -104,6 +104,49 @@ def plan_ticket(
         max_tool_calls=MAX_TOOL_CALLS,
         max_tokens=MAX_OUTPUT_TOKENS,
     )
+
+
+def conflicts_comment(plan: Plan) -> dict[str, Any]:
+    """The Jira comment (ADF) that sends a conflicting ticket back with questions."""
+    if not plan.conflicts:
+        raise ValueError("only a plan with conflicts gets a conflicts comment")
+    return _doc(
+        _paragraph("🤖 This ticket clashes with the existing code, so it isn't built yet."),
+        _paragraph("Please answer these in the description, then move the ticket back:"),
+        _ordered([f"{c.description} — {c.question}" for c in plan.conflicts]),
+    )
+
+
+def subtask_description(subtask: Subtask) -> dict[str, Any]:
+    """A Jira subtask's description (ADF): what to do and which files."""
+    return _doc(
+        _paragraph(subtask.description),
+        _paragraph("Files:"),
+        {
+            "type": "bulletList",
+            "content": [
+                {"type": "listItem", "content": [_paragraph(f, code=True)]} for f in subtask.files
+            ],
+        },
+    )
+
+
+def _doc(*content: dict[str, Any]) -> dict[str, Any]:
+    return {"type": "doc", "version": 1, "content": list(content)}
+
+
+def _paragraph(text: str, *, code: bool = False) -> dict[str, Any]:
+    node: dict[str, Any] = {"type": "text", "text": text}
+    if code:
+        node["marks"] = [{"type": "code"}]
+    return {"type": "paragraph", "content": [node]}
+
+
+def _ordered(items: list[str]) -> dict[str, Any]:
+    return {
+        "type": "orderedList",
+        "content": [{"type": "listItem", "content": [_paragraph(i)]} for i in items],
+    }
 
 
 def _checked_plan(criteria_count: int, root: Path) -> type[Plan]:

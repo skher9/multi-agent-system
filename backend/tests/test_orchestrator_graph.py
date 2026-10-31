@@ -11,11 +11,21 @@ import pytest
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 
+from agents.planner import Plan
+from agents.ticket_reader import TicketSpec
 from llm_router.router import LlmRouter
 from orchestrator.graph import RunContext, build_graph
 from services.jira import JiraClient
 from services.openrouter import OpenRouterClient
+from tests.test_planner import GOOD_PLAN
 from tests.test_ticket_reader import BLOCKED, READY, model_reply
+
+CONFLICT_PLAN = {
+    **GOOD_PLAN,
+    "changes": [],
+    "subtasks": [],
+    "conflicts": [{"description": "No backend to send email", "question": "Which service?"}],
+}
 
 ISSUE = {
     "key": "KAN-4",
@@ -32,15 +42,33 @@ ISSUE = {
 class Fakes:
     """A fake Jira and model; records what the graph did to them."""
 
-    def __init__(self, reader_reply: dict[str, Any], fail_posts: int = 0) -> None:
+    def __init__(
+        self,
+        reader_reply: dict[str, Any],
+        fail_posts: int = 0,
+        plan: dict[str, Any] = GOOD_PLAN,
+        existing_subtasks: tuple[str, ...] = (),
+    ) -> None:
         """fail_posts: how many comment posts fail (HTTP 500) before they work, to
-        simulate a run crashing partway."""
+        simulate a run crashing partway. existing_subtasks: summaries already in Jira."""
         self.comments: list[dict[str, Any]] = []
+        self.subtasks: list[dict[str, Any]] = []
         self.agent_runs: list[str] = []
         self.model_calls = 0
+        self.plans = 0
         self._fail_posts = fail_posts
+        self._plan = plan
 
         def jira(request: httpx2.Request) -> httpx2.Response:
+            if request.url.path == "/rest/api/3/search/jql":
+                issues = [
+                    {"key": f"KAN-{50 + i}", "fields": {"summary": summary}}
+                    for i, summary in enumerate(existing_subtasks)
+                ]
+                return httpx2.Response(200, json={"issues": issues})
+            if request.url.path == "/rest/api/3/issue":
+                self.subtasks.append(json.loads(request.content)["fields"])
+                return httpx2.Response(201, json={"key": f"KAN-{10 + len(self.subtasks)}"})
             if request.method == "POST":
                 if self._fail_posts > 0:
                     self._fail_posts -= 1
@@ -64,7 +92,12 @@ class Fakes:
             jira=JiraClient("https://x.atlassian.net", "e", "t", httpx2.MockTransport(jira)),
             router=router,
             agent_run=self._agent_run,
+            make_plan=self._make_plan,
         )
+
+    def _make_plan(self, spec: TicketSpec, agent_run_id: int) -> tuple[Plan, str]:
+        self.plans += 1
+        return Plan.model_validate(self._plan), "abc123"
 
     @contextmanager
     def _agent_run(self, role: str) -> Iterator[int]:
@@ -78,11 +111,42 @@ def nodes_visited(fakes: Fakes) -> list[str]:
     return [node for update in updates for node in update]
 
 
-def test_ready_ticket_goes_to_the_developer() -> None:
+def test_ready_ticket_is_planned_split_into_subtasks_then_developed() -> None:
     fakes = Fakes(READY)
-    assert nodes_visited(fakes) == ["fetch_ticket", "read_ticket", "develop"]
+    assert nodes_visited(fakes) == [
+        "fetch_ticket", "read_ticket", "plan", "create_subtasks", "develop",
+    ]  # fmt: skip
     assert fakes.comments == []
-    assert fakes.agent_runs == ["ticket_reader"]
+    assert fakes.agent_runs == ["ticket_reader", "planner"]
+    [subtask] = fakes.subtasks
+    assert subtask["summary"] == "[FE] Contact page"
+    assert subtask["parent"] == {"key": "KAN-4"}
+    assert subtask["issuetype"] == {"name": "Subtask"}
+    assert subtask["labels"] == ["mas-agent"]
+    assert "src/app/contact/page.tsx" in json.dumps(subtask["description"])
+
+
+def test_final_state_holds_plan_commit_and_subtasks() -> None:
+    final = build_graph().invoke({"ticket_key": "KAN-4"}, context=Fakes(READY).context)
+    assert final["plan"]["changes"][0]["path"] == "src/app/contact/page.tsx"
+    assert final["commit_sha"] == "abc123"
+    assert final["subtask_keys"] == ["KAN-11"]
+    assert final["outcome"] == "waiting_for_developer"
+
+
+def test_conflicts_go_back_to_jira_and_stop() -> None:
+    fakes = Fakes(READY, plan=CONFLICT_PLAN)
+    assert nodes_visited(fakes) == ["fetch_ticket", "read_ticket", "plan", "post_conflicts"]
+    [comment] = fakes.comments
+    assert "No backend to send email — Which service?" in json.dumps(comment, ensure_ascii=False)
+    assert fakes.subtasks == []
+
+
+def test_existing_subtasks_are_reused_not_duplicated() -> None:
+    fakes = Fakes(READY, existing_subtasks=("[FE] Contact page",))
+    final = build_graph().invoke({"ticket_key": "KAN-4"}, context=fakes.context)
+    assert final["subtask_keys"] == ["KAN-50"]
+    assert fakes.subtasks == []
 
 
 def test_blocked_ticket_gets_questions_posted_and_stops() -> None:
