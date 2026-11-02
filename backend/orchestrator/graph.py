@@ -3,8 +3,11 @@
     fetch_ticket -> read_ticket -> blocked? -> post_questions -> end
                                       |
                                     ready -> plan -> conflicts? -> post_conflicts -> end
+                                              ^         |
+                                              |        none (approve_plan? -> post_plan
+                                            revise          -> await_plan_approval -> reject -> end)
                                                         |
-                                                       none -> create_subtasks -> develop
+                                                     approve -> create_subtasks -> develop
                                                                                     |
                                end <- post_review <- approved / out of fixes <- review <- open_pr
                                                                     |              ^
@@ -16,23 +19,30 @@ outside world (like posting to Jira) are separate, so actions stay visible in th
 
 The run ends "ready_to_merge" (reviewer approved) or "needs_human" (issues left after
 MAX_FIXES rounds). Merging stays a human decision.
+
+With approve_plan, the run also pauses after planning: the plan goes on the ticket and
+await_plan_approval stops the graph (LangGraph's interrupt) until a human answers
+approve, revise (with feedback: the planner plans again) or reject. Pausing needs a
+checkpointer, since the answer arrives in a later run that resumes from it.
 """
 
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import asdict, dataclass
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
+from langgraph.types import interrupt
 
 from agents.developer import DevResult
-from agents.planner import Plan, conflicts_comment, subtask_description
+from agents.planner import Plan, conflicts_comment, plan_comment, subtask_description
 from agents.reviewer import Review, review_markdown
 from agents.ticket_reader import TicketSpec, questions_comment, read_ticket
 from llm_router.router import LlmRouter
+from orchestrator.decisions import PlanDecision
 from orchestrator.handback import pr_body, pr_comment, pr_title, problem_comment
 from services.jira import JiraClient, JiraTicket
 
@@ -47,6 +57,7 @@ class RunInput(TypedDict):
     """What a run starts with."""
 
     ticket_key: str
+    approve_plan: NotRequired[bool]  # pause for a human to approve the plan (default: no)
 
 
 class RunState(RunInput):
@@ -72,6 +83,8 @@ class RunState(RunInput):
     review: dict[str, Any]  # the latest Review as a dict
     reviews: int  # how many reviews so far
     fixes: int  # how many fix rounds so far
+    plan_decision: dict[str, Any]  # the latest PlanDecision as a dict
+    plan_feedback: str  # a human's feedback on the previous plan, for the planner
 
 
 @dataclass(frozen=True)
@@ -83,9 +96,10 @@ class RunContext:
     # `with agent_run("ticket_reader") as run_id:` records one agent's turn,
     # marking it done or failed when the block ends (see records.agent_run)
     agent_run: Callable[[str], AbstractContextManager[int]]
-    # make_plan(spec, agent_run_id) -> (plan, commit sha): clones the repo, loads its
-    # code graph and runs the planner (see runner.py). A function so tests can fake it.
-    make_plan: Callable[[TicketSpec, int], tuple[Plan, str]]
+    # make_plan(spec, feedback on the previous plan, agent_run_id) -> (plan, commit sha):
+    # clones the repo, loads its code graph and runs the planner (see runner.py).
+    # A function so tests can fake it.
+    make_plan: Callable[[TicketSpec, str, int], tuple[Plan, str]]
     # make_code(ticket_key, spec, plan, commit_sha, agent_run_id) -> (dev result, branch,
     # head sha): clones, builds the plan on a new branch, commits and pushes (runner.py)
     make_code: Callable[[str, TicketSpec, Plan, str, int], tuple[DevResult, str, str]]
@@ -126,12 +140,41 @@ def post_questions(state: RunState, runtime: Runtime[RunContext]) -> Update:
 def plan(state: RunState, runtime: Runtime[RunContext]) -> Update:
     ctx = runtime.context
     with ctx.agent_run("planner") as run_id:
-        result, commit_sha = ctx.make_plan(TicketSpec.model_validate(state["spec"]), run_id)
+        result, commit_sha = ctx.make_plan(
+            TicketSpec.model_validate(state["spec"]), state.get("plan_feedback", ""), run_id
+        )
     return {"plan": result.model_dump(), "commit_sha": commit_sha}
 
 
-def route_after_plan(state: RunState) -> Literal["post_conflicts", "create_subtasks"]:
-    return "post_conflicts" if state["plan"]["conflicts"] else "create_subtasks"
+def route_after_plan(state: RunState) -> Literal["post_conflicts", "post_plan", "create_subtasks"]:
+    if state["plan"]["conflicts"]:
+        return "post_conflicts"
+    return "post_plan" if state.get("approve_plan") else "create_subtasks"
+
+
+def post_plan(state: RunState, runtime: Runtime[RunContext]) -> Update:
+    """Put the plan on the ticket for a human to approve. Separate from the pause, because
+    a paused node runs again from the top when the answer comes: this posts only once."""
+    comment = plan_comment(Plan.model_validate(state["plan"]))
+    comment_id = runtime.context.jira.add_comment(state["ticket_key"], comment)
+    return {"outcome": "waiting_for_plan_approval", "comment_id": comment_id}
+
+
+def await_plan_approval(state: RunState) -> Update:
+    """Stop here until a human answers. interrupt() saves the run and ends it; resuming
+    with Command(resume={"decision": ...}) makes interrupt() return that answer."""
+    answer = PlanDecision.model_validate(interrupt({"waiting_for": "plan_approval"}))
+    update: Update = {"plan_decision": answer.model_dump(), "plan_feedback": answer.feedback}
+    if answer.decision == "reject":
+        update["outcome"] = "plan_rejected"
+    return update
+
+
+def route_after_approval(state: RunState) -> Literal["create_subtasks", "plan", "__end__"]:
+    decision = state["plan_decision"]["decision"]
+    if decision == "approve":
+        return "create_subtasks"
+    return "plan" if decision == "revise" else "__end__"  # END is that string
 
 
 def post_conflicts(state: RunState, runtime: Runtime[RunContext]) -> Update:
@@ -257,6 +300,8 @@ def build_graph(
     builder.add_node("post_questions", post_questions)
     builder.add_node("plan", plan)
     builder.add_node("post_conflicts", post_conflicts)
+    builder.add_node("post_plan", post_plan)
+    builder.add_node("await_plan_approval", await_plan_approval)
     builder.add_node("create_subtasks", create_subtasks)
     builder.add_node("develop", develop)
     builder.add_node("open_pr", open_pr)
@@ -271,6 +316,8 @@ def build_graph(
     builder.add_edge("post_questions", END)
     builder.add_conditional_edges("plan", route_after_plan)
     builder.add_edge("post_conflicts", END)
+    builder.add_edge("post_plan", "await_plan_approval")
+    builder.add_conditional_edges("await_plan_approval", route_after_approval)
     builder.add_edge("create_subtasks", "develop")
     builder.add_conditional_edges("develop", route_after_develop)
     builder.add_edge("post_problem", END)

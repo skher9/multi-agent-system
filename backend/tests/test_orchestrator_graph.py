@@ -10,6 +10,7 @@ import httpx2
 import pytest
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
 
 from agents.developer import DevResult
 from agents.planner import Plan
@@ -74,6 +75,7 @@ class Fakes:
         self.agent_runs: list[str] = []
         self.model_calls = 0
         self.plans = 0
+        self.plan_feedback: list[str] = []
         self._fail_posts = fail_posts
         self._plan = plan
         self._reviews = list(reviews)
@@ -124,8 +126,9 @@ class Fakes:
             comment_pr=lambda number, body: self.pr_comments.append(body),
         )
 
-    def _make_plan(self, spec: TicketSpec, agent_run_id: int) -> tuple[Plan, str]:
+    def _make_plan(self, spec: TicketSpec, feedback: str, agent_run_id: int) -> tuple[Plan, str]:
         self.plans += 1
+        self.plan_feedback.append(feedback)
         return Plan.model_validate(self._plan), "abc123"
 
     def _make_code(
@@ -332,3 +335,57 @@ def test_a_problem_during_a_fix_also_stops_for_a_human() -> None:
     final = build_graph().invoke({"ticket_key": "KAN-4"}, context=fakes.context)
     assert final["outcome"] == "needs_human"
     assert "asks for a backend" in json.dumps(fakes.comments[-1])
+
+
+def paused_run(fakes: Fakes) -> tuple[Any, RunnableConfig]:
+    """Start a run that waits for plan approval; return the graph and its config."""
+    graph = build_graph(checkpointer=InMemorySaver())
+    config: RunnableConfig = {"configurable": {"thread_id": "approval"}}
+    graph.invoke({"ticket_key": "KAN-4", "approve_plan": True}, config, context=fakes.context)
+    return graph, config
+
+
+def test_approve_plan_pauses_after_posting_the_plan() -> None:
+    fakes = Fakes(READY)
+    graph, config = paused_run(fakes)
+    saved = graph.get_state(config)
+    assert saved.next == ("await_plan_approval",)
+    assert saved.interrupts[0].value == {"waiting_for": "plan_approval"}
+    assert saved.values["outcome"] == "waiting_for_plan_approval"
+    [comment] = fakes.comments
+    text = json.dumps(comment)
+    assert "Nothing is built until it's approved" in text
+    assert "create src/app/contact/page.tsx" in text
+    assert fakes.subtasks == [] and fakes.agent_runs == ["ticket_reader", "planner"]
+
+
+def test_an_approved_plan_is_built() -> None:
+    fakes = Fakes(READY)
+    graph, config = paused_run(fakes)
+    final = graph.invoke(Command(resume={"decision": "approve"}), config, context=fakes.context)
+    assert final["outcome"] == "ready_to_merge"
+    assert len(fakes.comments) == 2  # the plan, then the PR link: the plan posted once
+    assert fakes.plans == 1
+
+
+def test_revise_plans_again_with_the_feedback_then_waits_again() -> None:
+    fakes = Fakes(READY)
+    graph, config = paused_run(fakes)
+    answer = {"decision": "revise", "feedback": "Reuse the Button component"}
+    graph.invoke(Command(resume=answer), config, context=fakes.context)
+    assert fakes.plan_feedback == ["", "Reuse the Button component"]
+    assert graph.get_state(config).next == ("await_plan_approval",)
+    assert len(fakes.comments) == 2  # the revised plan was posted too
+
+
+def test_a_rejected_plan_ends_the_run() -> None:
+    fakes = Fakes(READY)
+    graph, config = paused_run(fakes)
+    final = graph.invoke(Command(resume={"decision": "reject"}), config, context=fakes.context)
+    assert final["outcome"] == "plan_rejected"
+    assert graph.get_state(config).next == ()
+    assert fakes.subtasks == []
+
+
+def test_without_approve_plan_there_is_no_pause() -> None:
+    assert "post_plan" not in nodes_visited(Fakes(READY))

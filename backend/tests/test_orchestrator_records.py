@@ -17,6 +17,7 @@ from api.config import get_settings
 from db.models import AgentRun, EventKind, Feature, Project, RunEvent, Task, User
 from db.session import make_session_factory
 from orchestrator.checkpoints import postgres_checkpointer
+from orchestrator.decisions import PlanDecision
 from orchestrator.records import (
     STALE_AFTER,
     agent_run,
@@ -26,9 +27,9 @@ from orchestrator.records import (
     record_event,
     update_feature,
 )
-from orchestrator.runner import AlreadyRunningError, Pipeline, run_ticket
+from orchestrator.runner import AlreadyRunningError, NotWaitingError, Pipeline, run_ticket
 from tests.test_orchestrator_graph import Fakes
-from tests.test_ticket_reader import BLOCKED
+from tests.test_ticket_reader import BLOCKED, READY
 
 test_db_url = get_settings().database_url_test
 
@@ -205,3 +206,47 @@ def test_run_ticket_resumes_from_postgres_checkpoint(
                 assert ("run_started", {"resumed": True}) in timeline(session, feature_id)
         finally:
             checkpointer.delete_thread(f"feature-{ensure_feature(factory, project_id, 'KAN-4')}")
+
+
+def test_run_ticket_pauses_for_the_plan_then_resumes_with_the_decision(
+    factory: sessionmaker[Session], project_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert test_db_url is not None
+    fakes = Fakes(READY)
+    # run_ticket wires the real planner (clone, code graph); swap in the fake one
+    monkeypatch.setattr(
+        "orchestrator.runner.make_plan",
+        lambda _pipeline, spec, run_id, feedback, _events: fakes._make_plan(spec, feedback, run_id),
+    )
+    with postgres_checkpointer(test_db_url.get_secret_value()) as checkpointer:
+        pipeline = Pipeline(
+            factory, fakes.context.jira, fakes.context.router, project_id, checkpointer
+        )
+        feature_id = ensure_feature(factory, project_id, "KAN-4")
+        try:
+            with pytest.raises(NotWaitingError):  # nothing is waiting yet
+                run_ticket(pipeline, "KAN-4", plan_decision=PlanDecision(decision="approve"))
+
+            paused = run_ticket(pipeline, "KAN-4", approve_plan=True)
+            assert paused["outcome"] == "waiting_for_plan_approval"
+            again = run_ticket(pipeline, "KAN-4")  # no decision: stays paused, runs nothing
+            assert again["outcome"] == "waiting_for_plan_approval"
+            assert fakes.plans == 1
+            with factory() as session:
+                assert session.get_one(Feature, feature_id).status == "waiting_for_plan_approval"
+
+            # reject: ends the run without building (building needs a real repo)
+            final = run_ticket(pipeline, "KAN-4", plan_decision=PlanDecision(decision="reject"))
+
+            assert final["outcome"] == "plan_rejected"
+            with factory() as session:
+                assert session.get_one(Feature, feature_id).status == "plan_rejected"
+                kinds = [kind for kind, _ in timeline(session, feature_id)]
+                assert kinds.count("run_paused") == 1
+                assert ("plan_decided", {"decision": "reject", "feedback": ""}) in timeline(
+                    session, feature_id
+                )
+                assert kinds[-1] == "run_ended"
+                assert "__interrupt__" not in str(timeline(session, feature_id))
+        finally:
+            checkpointer.delete_thread(f"feature-{feature_id}")

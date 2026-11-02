@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.types import Command
 from sqlalchemy.orm import Session, sessionmaker
 
 from agents.code_graph import Storage, open_code_graph
@@ -16,6 +17,7 @@ from agents.reviewer import Review, review_changes
 from agents.ticket_reader import TicketSpec
 from db.models import EventKind
 from llm_router.router import LlmRouter
+from orchestrator.decisions import PlanDecision
 from orchestrator.graph import RunContext, RunInput, RunState, build_graph
 from orchestrator.records import (
     agent_run,
@@ -37,6 +39,10 @@ logger = logging.getLogger(__name__)
 
 class AlreadyRunningError(Exception):
     """Another run of this ticket is in progress; this one did nothing."""
+
+
+class NotWaitingError(Exception):
+    """A plan decision came for a ticket whose run isn't waiting for one."""
 
 
 @dataclass(frozen=True)
@@ -72,6 +78,7 @@ def make_plan(
     pipeline: Pipeline,
     spec: TicketSpec,
     agent_run_id: int,
+    feedback: str = "",
     on_event: EventSink = ignore_events,
 ) -> tuple[Plan, str]:
     """Clone the repo, load (or build) its code graph, and run the planner on it."""
@@ -84,7 +91,13 @@ def make_plan(
         ) as graph,
     ):
         plan = plan_ticket(
-            pipeline.router, spec, workspace, graph, agent_run_id=agent_run_id, on_event=on_event
+            pipeline.router,
+            spec,
+            workspace,
+            graph,
+            agent_run_id=agent_run_id,
+            feedback=feedback,
+            on_event=on_event,
         )
         return plan, graph.commit_sha
 
@@ -201,13 +214,24 @@ def comment_pr(pipeline: Pipeline, number: int, body: str) -> None:
     pipeline.github.comment_on_pull_request(pipeline.repo, number, body)
 
 
-def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
+def run_ticket(
+    pipeline: Pipeline,
+    ticket_key: str,
+    *,
+    approve_plan: bool = False,
+    plan_decision: PlanDecision | None = None,
+) -> RunState:
     """Run the graph for one ticket and save where it ended on the ticket's feature.
 
     If the ticket's last run stopped partway (a crash), this continues from the node
     that didn't finish. Otherwise it starts from the beginning.
-    Raises AlreadyRunningError if another run of the ticket hasn't finished.
+    approve_plan: pause after planning until a human decides; plan_decision is that
+    decision, and resumes the paused run. A paused run given no decision stays paused.
+    Raises AlreadyRunningError if another run of the ticket hasn't finished, and
+    NotWaitingError for a decision when no plan is waiting.
     """
+    if (approve_plan or plan_decision) and pipeline.checkpointer is None:
+        raise ValueError("pausing for plan approval needs a checkpointer")
     feature_id = ensure_feature(pipeline.factory, pipeline.project_id, ticket_key)
     if not claim_feature(pipeline.factory, feature_id):
         raise AlreadyRunningError(ticket_key)
@@ -223,7 +247,9 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
         jira=pipeline.jira,
         router=pipeline.router,
         agent_run=lambda role: agent_run(pipeline.factory, feature_id, role),
-        make_plan=lambda spec, run_id: make_plan(pipeline, spec, run_id, agent_events(run_id)),
+        make_plan=lambda spec, feedback, run_id: make_plan(
+            pipeline, spec, run_id, feedback, agent_events(run_id)
+        ),
         make_code=lambda key, spec, plan, sha, run_id: make_code(
             pipeline, key, spec, plan, sha, run_id, agent_events(run_id)
         ),
@@ -240,10 +266,25 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
     # One thread per feature: every run of this ticket shares its saved state.
     config: RunnableConfig = {"configurable": {"thread_id": f"feature-{feature_id}"}}
 
+    saved = graph.get_state(config) if pipeline.checkpointer is not None else None
     # state.next lists the nodes still waiting to run; non-empty means it stopped partway.
-    unfinished = pipeline.checkpointer is not None and bool(graph.get_state(config).next)
-    # Input None tells LangGraph "continue from the checkpoint" instead of starting over.
-    graph_input: RunInput | None = None if unfinished else {"ticket_key": ticket_key}
+    unfinished = saved is not None and bool(saved.next)
+    waiting = saved is not None and bool(saved.interrupts)  # paused for a plan decision
+    if plan_decision is not None and not waiting:
+        update_feature(pipeline.factory, feature_id, status=_status(saved))
+        raise NotWaitingError(ticket_key)
+    if waiting and plan_decision is None:
+        update_feature(pipeline.factory, feature_id, status="waiting_for_plan_approval")
+        return cast(RunState, saved.values if saved else {})
+    graph_input: RunInput | Command[Any] | None
+    if plan_decision is not None:
+        # The answer becomes what interrupt() returns inside await_plan_approval
+        graph_input = Command(resume=plan_decision.model_dump())
+        event(EventKind.PLAN_DECIDED, plan_decision.model_dump())
+    elif unfinished:
+        graph_input = None  # None tells LangGraph "continue from the checkpoint"
+    else:
+        graph_input = {"ticket_key": ticket_key, "approve_plan": approve_plan}
     final: dict[str, Any] = {}
     event(EventKind.RUN_STARTED, {"resumed": unfinished})
     try:
@@ -258,6 +299,8 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
                     event(EventKind.NODE_STARTED, {"node": task["name"]})
             elif mode == "updates":
                 for node in cast(dict[str, Any], chunk):
+                    if node == "__interrupt__":  # the pause itself, not a box
+                        continue
                     logger.info("%s: finished %s", ticket_key, node)
                     event(EventKind.NODE_FINISHED, {"node": node})
             else:
@@ -266,7 +309,10 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
         update_feature(pipeline.factory, feature_id, status="failed")
         event(EventKind.RUN_FAILED, {"error": type(exc).__name__})
         raise
-    event(EventKind.RUN_ENDED, {"outcome": final["outcome"]})
+    if graph.get_state(config).interrupts if pipeline.checkpointer is not None else False:
+        event(EventKind.RUN_PAUSED, {"waiting_for": "plan_approval"})
+    else:
+        event(EventKind.RUN_ENDED, {"outcome": final["outcome"]})
     update_feature(
         pipeline.factory,
         feature_id,
@@ -274,3 +320,10 @@ def run_ticket(pipeline: Pipeline, ticket_key: str) -> RunState:
         title=f"{ticket_key}: {final['ticket']['summary']}",
     )
     return cast(RunState, final)
+
+
+def _status(saved: Any) -> str:
+    """The feature's status to put back when a call changes nothing."""
+    if saved is None or not saved.values:
+        return "new"
+    return str(saved.values.get("outcome", "failed"))

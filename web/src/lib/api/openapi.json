@@ -163,6 +163,60 @@
           }
         }
       }
+    },
+    "/runs/{ticket}/plan-decision": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Decide Plan",
+        "description": "Answer a run paused for plan approval: approve, revise (with feedback) or reject.\nThe job's result is \"not_waiting\" if no plan was waiting.",
+        "operationId": "decide_plan_runs__ticket__plan_decision_post",
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9]+-\\d+$",
+              "title": "Ticket"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStarted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -246,12 +300,43 @@
         ],
         "title": "JobStatus"
       },
+      "PlanDecision": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "revise",
+              "reject"
+            ],
+            "title": "Decision"
+          },
+          "feedback": {
+            "type": "string",
+            "maxLength": 4000,
+            "title": "Feedback",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "PlanDecision",
+        "description": "A human's answer to a paused plan."
+      },
       "RunRequest": {
         "properties": {
           "ticket": {
             "type": "string",
             "pattern": "^[A-Z][A-Z0-9]+-\\d+$",
             "title": "Ticket"
+          },
+          "approve_plan": {
+            "type": "boolean",
+            "title": "Approve Plan",
+            "default": false
           }
         },
         "type": "object",
