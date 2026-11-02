@@ -214,7 +214,7 @@ def test_planner_can_look_but_not_touch(
     offered = [t["function"]["name"] for t in first["tools"]]
     assert offered == [
         "list_files", "search", "read_file",
-        "graph_query", "graph_explain", "graph_affected", "finish",
+        "graph_query", "graph_explain", "graph_affected", "ask_senior", "finish",
     ]  # fmt: skip
     assert first["model"] == "minimax/minimax-m3"
     assert json.dumps(first).count("edit_file") == 0

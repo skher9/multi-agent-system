@@ -62,7 +62,9 @@ class Script:
         self.tool_calls.append((name, arguments))
         return f"result of {name}"
 
-    def run(self, max_tool_calls: int = 25, on_event: EventSink = ignore_events) -> Answer:
+    def run(
+        self, max_tool_calls: int = 25, on_event: EventSink = ignore_events, senior: bool = False
+    ) -> Answer:
         return run_agent(
             self.router(),
             role=Role.DEVELOPER,
@@ -74,6 +76,7 @@ class Script:
             answer=Answer,
             max_tool_calls=max_tool_calls,
             on_event=on_event,
+            senior=senior,
         )
 
 
@@ -224,3 +227,45 @@ def test_long_tool_arguments_are_shortened_in_events() -> None:
     )
     script.run(on_event=lambda _kind, data: events.append(data))
     assert len(events[0]["arguments"]) == 300
+
+
+def test_ask_senior_sends_the_conversation_to_the_stronger_model() -> None:
+    script = Script(
+        reply(call("read_file", {"path": "a.ts"})),
+        reply(call("ask_senior", {"question": "Why does lint fail?"}, "c2")),
+        reply(content="Check the eslint config in a.ts."),  # the senior's answer
+        reply(call("finish", {"summary": "done"}, "c3")),
+    )
+    assert script.run(senior=True) == Answer(summary="done")
+    asked = script.sent[2]
+    assert asked["model"] == "z-ai/glm-5.2"
+    assert "tools" not in asked
+    question = asked["messages"][1]["content"]
+    assert "[user] task" in question  # the agent's task, in full
+    assert "read_file" in question and "result of read_file" in question
+    assert question.endswith("<question>\nWhy does lint fail?\n</question>")
+    answer = script.sent[3]["messages"][-1]
+    assert answer == {
+        "role": "tool",
+        "tool_call_id": "c2",
+        "content": "Check the eslint config in a.ts.",
+    }
+    assert script.tool_calls == [("read_file", '{"path": "a.ts"}')]  # not a repo tool
+
+
+def test_ask_senior_is_capped_and_off_by_default() -> None:
+    script = Script(
+        reply(call("ask_senior", {"question": "Help?"}, "a1")),
+        reply(content="Senior 1"),
+        reply(call("ask_senior", {"question": "Help?"}, "a2")),
+        reply(content="Senior 2"),
+        reply(call("ask_senior", {"question": "Help?"}, "a3")),
+        reply(call("finish", {"summary": "done"})),
+    )
+    script.run(senior=True)
+    third = script.sent[-1]["messages"][-1]["content"]
+    assert third == "ERROR: you've asked the senior 2 times already."
+
+    plain = Script(reply(call("finish", {"summary": "x"})))
+    plain.run()
+    assert [t["function"]["name"] for t in plain.sent[0]["tools"]] == ["read_file", "finish"]
