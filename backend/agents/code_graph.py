@@ -88,7 +88,7 @@ def open_code_graph(
         else:
             if latest_key is not None:
                 _unpack(storage.download(latest_key), parent)  # seeds Graphify's cache
-            _build(workspace, parent, run_sandbox)
+            build_graph(workspace, parent, run_sandbox)
             key = f"code-graphs/{project_id}/{sha}.tar.gz"
             storage.upload(key, _pack(parent), "application/gzip")
             _save(factory, project_id, sha, key)
@@ -112,7 +112,8 @@ def _find(
     return exact, latest
 
 
-def _build(workspace: Workspace, parent: Path, run_sandbox: RunSandbox) -> None:
+def build_graph(workspace: Workspace, parent: Path, run_sandbox: RunSandbox = sandbox.run) -> None:
+    """Run Graphify on the workspace in the sandbox; graph files land in parent/graphify-out."""
     result = run_sandbox(
         ["sh", "-c", BUILD_COMMAND],
         workspace=workspace.path,

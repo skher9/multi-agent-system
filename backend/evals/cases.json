@@ -1,0 +1,47 @@
+[
+  {
+    "name": "contact-page",
+    "summary": "Add a contact page",
+    "description": "Add a /contact page with a form (name, email, message). After submitting, show a thank-you message. Link to it from the home page.\n\nAcceptance criteria:\n- Visiting /contact shows a form with name, email and message fields\n- Submitting the form shows a thank-you message\n- The home page links to /contact",
+    "status": "ready",
+    "conflicts": false,
+    "creates": [
+      "src/app/contact/page.tsx"
+    ],
+    "modifies": [
+      "src/app/page.tsx"
+    ],
+    "tests": true
+  },
+  {
+    "name": "home-heading",
+    "summary": "Change the home page heading",
+    "description": "The home page heading should say \"Welcome to Acme\" instead of what it says now.\n\nAcceptance criteria:\n- The home page heading reads \"Welcome to Acme\"",
+    "status": "ready",
+    "conflicts": false,
+    "creates": [],
+    "modifies": [
+      "src/app/page.tsx"
+    ],
+    "tests": true
+  },
+  {
+    "name": "vague",
+    "summary": "Make the site better",
+    "description": "It should look nicer and be faster.",
+    "status": "blocked"
+  },
+  {
+    "name": "crm-unnamed",
+    "summary": "Send contact form submissions to our CRM",
+    "description": "When someone submits the contact form, create a lead in our CRM.\n\nAcceptance criteria:\n- Submitting the contact form creates a lead in the CRM",
+    "status": "blocked"
+  },
+  {
+    "name": "login-conflict",
+    "summary": "Show the logged-in user's name in the header",
+    "description": "When a user is logged in, the site header shows their name next to a Log out button.\n\nAcceptance criteria:\n- A logged-in user sees their name in the header\n- Clicking Log out logs them out and the name disappears",
+    "status": "ready",
+    "conflicts": true
+  }
+]
