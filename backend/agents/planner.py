@@ -142,6 +142,7 @@ def plan_ticket(
         max_tool_calls=MAX_TOOL_CALLS,
         max_tokens=MAX_OUTPUT_TOKENS,
         on_event=on_event,
+        senior=True,  # may ask GLM-5.2 for advice when stuck
     )
 
 
