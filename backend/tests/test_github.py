@@ -90,3 +90,34 @@ def test_repo_names_are_checked_before_use() -> None:
     client = make_client(lambda _r: pytest.fail("no request should be sent"))
     with pytest.raises(ValueError):
         client.default_branch("../../user")
+
+
+def test_pull_request_says_whether_it_was_merged() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.url.path == "/repos/skher9/agent-playground/pulls/3"
+        pr = {"title": "KAN-4: Add a contact page", "html_url": "https://gh/pr/3"}
+        return httpx2.Response(200, json={**pr, "merged_at": "2026-11-02T10:00:00Z"})
+
+    info = make_client(handler).pull_request("skher9/agent-playground", 3)
+    assert (info.title, info.url, info.merged) == (
+        "KAN-4: Add a contact page",
+        "https://gh/pr/3",
+        True,
+    )
+
+
+def test_human_comments_leave_out_the_pipelines_own() -> None:
+    pages = {
+        "/repos/o/r/issues/3/comments": [
+            {"body": "### 🤖 Review 1: ✅ Approved"},
+            {"body": "Please always use the shared Button."},
+        ],
+        "/repos/o/r/pulls/3/reviews": [{"body": ""}, {"body": "Looks good, one nit."}],
+        "/repos/o/r/pulls/3/comments": [{"path": "src/a.tsx", "body": "Use formatDate here"}],
+    }
+    client = make_client(lambda request: httpx2.Response(200, json=pages[request.url.path]))
+    assert client.human_comments("o/r", 3) == [
+        "Please always use the shared Button.",
+        "Looks good, one nit.",
+        "src/a.tsx: Use formatDate here",
+    ]

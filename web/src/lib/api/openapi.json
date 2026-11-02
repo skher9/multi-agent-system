@@ -101,6 +101,47 @@
         }
       }
     },
+    "/learn": {
+      "post": {
+        "tags": [
+          "learn"
+        ],
+        "summary": "Learn",
+        "operationId": "learn_learn_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LearnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStarted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/realtime/test": {
       "post": {
         "tags": [
@@ -299,6 +340,21 @@
           "status"
         ],
         "title": "JobStatus"
+      },
+      "LearnRequest": {
+        "properties": {
+          "pr": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Pr",
+            "description": "Pull request number in the agent's repo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pr"
+        ],
+        "title": "LearnRequest"
       },
       "PlanDecision": {
         "properties": {

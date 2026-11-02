@@ -208,6 +208,7 @@ def test_make_verify_fixes_then_tests_then_pushes(
     gates = [GateResult(passed={"lint": False, "secrets": True}, failures=["lint failed"])]
     monkeypatch.setattr(RepoTools, "install", lambda self: "")
     monkeypatch.setattr(runner, "run_gate", lambda tools, ws, base: gates.pop(0))
+    monkeypatch.setattr(runner, "project_rules", lambda factory, project_id: [])  # no database
 
     def fake_fixer(*args: Any, **kwargs: Any) -> DevResult:
         assert kwargs["failures"] == ["lint failed"]

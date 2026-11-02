@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from agents.code_graph import Storage, open_code_graph
 from agents.developer import DevResult, develop_ticket
 from agents.gate import GateResult, VerifyResult, run_gate
+from agents.learner import learn_rules
 from agents.loop import AgentLoopError, EventSink, ignore_events
 from agents.planner import Plan, plan_ticket
 from agents.qa import qa_ticket
@@ -29,11 +30,13 @@ from orchestrator.records import (
     agent_run,
     claim_feature,
     ensure_feature,
+    project_rules,
     record_event,
+    save_rules,
     update_feature,
 )
 from services.github import GitHubClient
-from services.jira import JiraClient
+from services.jira import TICKET_KEY, JiraClient
 from services.workspace import GitIdentity, Workspace
 
 # Author of the agents' commits. GitHub's noreply domain: no real inbox behind it.
@@ -103,6 +106,7 @@ def make_plan(
             graph,
             agent_run_id=agent_run_id,
             feedback=feedback,
+            rules=project_rules(pipeline.factory, pipeline.project_id),
             on_event=on_event,
         )
         return plan, graph.commit_sha
@@ -138,6 +142,7 @@ def make_code(
                 workspace,
                 agent_run_id=agent_run_id,
                 subtask=subtask,
+                rules=project_rules(pipeline.factory, pipeline.project_id),
                 on_event=on_event,
             )
             if dev.problem:
@@ -179,6 +184,7 @@ def make_review(
             agent_run_id=run_id,
             dev_summary=dev_summary,
             previous=previous,
+            rules=project_rules(pipeline.factory, pipeline.project_id),
             on_event=on_event,
         )
 
@@ -203,6 +209,7 @@ def make_fix(
             workspace,
             agent_run_id=run_id,
             review=review,
+            rules=project_rules(pipeline.factory, pipeline.project_id),
             on_event=on_event,
         )
         if dev.problem:
@@ -248,6 +255,7 @@ def make_verify(
                     failures=gate.failures,
                     check=lambda: run_gate(tools, workspace, base_sha).failures,
                     role=Role.FIXER,
+                    rules=project_rules(pipeline.factory, pipeline.project_id),
                     on_event=events(run_id),
                 )
             if dev.problem:
@@ -279,6 +287,33 @@ def make_verify(
         return VerifyResult(
             checks=gate.passed, fixer_summary=fixer_summary, qa=qa, head_sha=workspace.head_sha()
         )
+
+
+class NotMergedError(Exception):
+    """Rules are learned only from merged PRs: what a human finally accepted."""
+
+
+def learn_from_pr(pipeline: Pipeline, number: int) -> list[str]:
+    """Turn people's comments on a merged agent PR into rules for this project; return
+    the new ones. The model call is charged to the PR's ticket (from its title)."""
+    if pipeline.github is None or not pipeline.repo:
+        raise RuntimeError("learning needs the pipeline's github client and repo")
+    pr = pipeline.github.pull_request(pipeline.repo, number)
+    if not pr.merged:
+        raise NotMergedError(f"PR #{number} isn't merged")
+    key = TICKET_KEY.match(pr.title)
+    if key is None:
+        raise ValueError(f"PR #{number}'s title doesn't start with a ticket key: {pr.title!r}")
+    comments = pipeline.github.human_comments(pipeline.repo, number)
+    if not comments:
+        return []
+    feature_id = ensure_feature(pipeline.factory, pipeline.project_id, key.group(0))
+    existing = project_rules(pipeline.factory, pipeline.project_id)
+    with agent_run(pipeline.factory, feature_id, Role.LEARNER) as run_id:
+        rules = learn_rules(pipeline.router, comments, existing, agent_run_id=run_id)
+    pairs = [(r.rule, r.why) for r in rules]
+    save_rules(pipeline.factory, pipeline.project_id, pairs, pr.url)
+    return [r.rule for r in rules]
 
 
 def comment_pr(pipeline: Pipeline, number: int, body: str) -> None:

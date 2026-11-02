@@ -7,6 +7,7 @@ to every row it created.
 import uuid
 from collections.abc import Iterator
 from datetime import timedelta
+from typing import cast
 
 import httpx2
 import pytest
@@ -24,7 +25,9 @@ from orchestrator.records import (
     claim_feature,
     ensure_feature,
     ensure_project,
+    project_rules,
     record_event,
+    save_rules,
     update_feature,
 )
 from orchestrator.runner import AlreadyRunningError, NotWaitingError, Pipeline, run_ticket
@@ -250,3 +253,50 @@ def test_run_ticket_pauses_for_the_plan_then_resumes_with_the_decision(
                 assert "__interrupt__" not in str(timeline(session, feature_id))
         finally:
             checkpointer.delete_thread(f"feature-{feature_id}")
+
+
+def test_rules_are_saved_once_and_read_newest_first(
+    factory: sessionmaker[Session], project_id: int
+) -> None:
+    assert save_rules(factory, project_id, [("Use A", "why A"), ("Use B", "why B")], "pr/1") == 2
+    assert save_rules(factory, project_id, [("Use B", "again"), ("Use C", "why C")], "pr/2") == 1
+    assert project_rules(factory, project_id) == ["Use C (why C)", "Use B (why B)", "Use A (why A)"]
+
+
+def test_learn_from_pr_saves_rules_from_human_comments(
+    factory: sessionmaker[Session], project_id: int
+) -> None:
+    from types import SimpleNamespace
+
+    from orchestrator.runner import NotMergedError, learn_from_pr
+    from services.github import GitHubClient, PullRequestInfo
+    from services.jira import JiraClient
+    from tests.test_agent_loop import Script, call, reply
+
+    merged = {"value": False}
+    github = SimpleNamespace(
+        pull_request=lambda repo, n: PullRequestInfo(
+            "KAN-4: Add a contact page", "https://gh/pr/3", merged["value"]
+        ),
+        human_comments=lambda repo, n: ["Use the shared Button, not <button>"],
+    )
+    rule = {"rule": "Use the shared Button", "why": "Reviewer on PR 3"}
+    script = Script(reply(call("finish", {"rules": [rule]})))
+    pipeline = Pipeline(
+        factory,
+        cast(JiraClient, None),  # learning never touches Jira
+        script.router(),
+        project_id,
+        github=cast(GitHubClient, github),
+        repo="o/r",
+    )
+    with pytest.raises(NotMergedError):
+        learn_from_pr(pipeline, 3)
+    merged["value"] = True
+
+    assert learn_from_pr(pipeline, 3) == ["Use the shared Button"]
+    assert project_rules(factory, project_id) == ["Use the shared Button (Reviewer on PR 3)"]
+    with factory() as session:
+        feature_id = ensure_feature(factory, project_id, "KAN-4")
+        task = session.scalars(select(Task).where(Task.feature_id == feature_id)).one()
+        assert (task.role, task.status) == ("learner", "done")

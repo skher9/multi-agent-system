@@ -17,6 +17,7 @@ class Role(StrEnum):
     REVIEWER = "reviewer"
     FIXER = "fixer"  # a fresh developer that fixes what the gate found, nothing else
     QA = "qa"  # writes and runs browser tests per acceptance criterion
+    LEARNER = "learner"  # turns human review comments into rules for the repo
 
 
 MODELS: dict[Role, str] = {
@@ -28,6 +29,7 @@ MODELS: dict[Role, str] = {
     Role.REVIEWER: "minimax/minimax-m3",
     Role.FIXER: "minimax/minimax-m3",
     Role.QA: "minimax/minimax-m3",
+    Role.LEARNER: "minimax/minimax-m3",
 }
 
 # Used only when a task has failed twice (System Design doc), for any role.

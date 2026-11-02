@@ -11,15 +11,27 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, or_, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.models import AgentRun, EventKind, Feature, Project, ProjectKind, RunEvent, Task, User
+from db.models import (
+    AgentRun,
+    EventKind,
+    Feature,
+    Project,
+    ProjectKind,
+    RepoRule,
+    RunEvent,
+    Task,
+    User,
+)
 from llm_router.models import Role, model_for
 
 TITLE_MAX = 200  # features.title is String(200)
 # Story runs are capped at 30 minutes, so a run "running" longer than this has died.
 STALE_AFTER = timedelta(minutes=30)
+MAX_RULES = 20  # rules agents read per project: the newest, so the prompt stays short
 
 logger = logging.getLogger(__name__)
 
@@ -153,3 +165,37 @@ def record_event(
             )
     except SQLAlchemyError:
         logger.warning("could not record a %s event (feature %d)", kind, feature_id, exc_info=True)
+
+
+def project_rules(factory: sessionmaker[Session], project_id: int) -> list[str]:
+    """The project's newest rules learned from human reviews, as "rule (why)" lines."""
+    with factory() as session:
+        rules = session.scalars(
+            select(RepoRule)
+            .where(RepoRule.project_id == project_id)
+            .order_by(RepoRule.id.desc())
+            .limit(MAX_RULES)
+        )
+        return [f"{r.rule} ({r.why})" for r in rules]
+
+
+def save_rules(
+    factory: sessionmaker[Session], project_id: int, rules: list[tuple[str, str]], source: str
+) -> int:
+    """Save (rule, why) pairs; a rule the project already has is skipped. Returns how
+    many were new."""
+    if not rules:
+        return 0
+    with factory.begin() as session:
+        added = session.scalars(
+            insert(RepoRule)
+            .values(
+                [
+                    {"project_id": project_id, "rule": rule, "why": why, "source": source}
+                    for rule, why in rules
+                ]
+            )
+            .on_conflict_do_nothing(constraint="uq_repo_rules_project_id_rule")
+            .returning(RepoRule.id)
+        ).all()
+        return len(added)
