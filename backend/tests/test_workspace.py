@@ -122,3 +122,15 @@ def test_sandbox_cannot_change_the_real_git_folder(origin: str) -> None:
         ws.run(["bash", "-c", "mkdir -p .git/hooks && echo evil > .git/hooks/pre-commit"])
         assert not (ws.path / ".git" / "hooks" / "pre-commit").exists()
         assert (ws.path / ".git" / "HEAD").exists()  # real .git untouched
+
+
+def test_discard_changes_drops_edits_and_new_files(origin: str) -> None:
+    with Workspace.clone(origin) as ws:
+        tracked = ws.tracked_files()[0]
+        before = (ws.path / tracked).read_text()
+        (ws.path / tracked).write_text("changed\n")
+        (ws.path / "e2e").mkdir()
+        (ws.path / "e2e/half.spec.ts").write_text("half\n")
+        ws.discard_changes()
+        assert (ws.path / tracked).read_text() == before
+        assert not (ws.path / "e2e").exists()

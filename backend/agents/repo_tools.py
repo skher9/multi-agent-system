@@ -25,6 +25,8 @@ MAX_SEARCH_MATCHES = 100
 MAX_READ_LINES = 400
 MAX_OUTPUT_LINES = 80  # long command output is cut to its last lines, where errors usually are
 COMMAND_TIMEOUT_SECONDS = 5 * 60
+E2E_TIMEOUT_SECONDS = 12 * 60  # a production build, a server start, then a browser
+E2E = "pnpm test:e2e"
 # Inside node_modules: ignored by git, so the report never ends up in a commit.
 TEST_REPORT = "node_modules/.cache/vitest-report.json"
 
@@ -318,12 +320,18 @@ class RepoTools:
                 failures.append(f"{name} failed (exit code {exit_code}):\n{output}")
         return failures
 
-    def _sandbox(self, command: str) -> tuple[int, str]:
+    def run_e2e(self) -> tuple[int, str]:
+        """The browser tests (Playwright): exit code and output."""
+        return self._sandbox(E2E, timeout_seconds=E2E_TIMEOUT_SECONDS)
+
+    def _sandbox(
+        self, command: str, timeout_seconds: int = COMMAND_TIMEOUT_SECONDS
+    ) -> tuple[int, str]:
         result = self._ws.run(
-            ["bash", "-c", command], SandboxLimits(timeout_seconds=COMMAND_TIMEOUT_SECONDS)
+            ["bash", "-c", command], SandboxLimits(timeout_seconds=timeout_seconds)
         )
         if result.timed_out:
-            return -1, f"timed out after {COMMAND_TIMEOUT_SECONDS // 60} minutes"
+            return -1, f"timed out after {timeout_seconds // 60} minutes"
         return result.exit_code, clean_output(result.stdout + result.stderr)
 
 

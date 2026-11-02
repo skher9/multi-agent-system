@@ -8,6 +8,8 @@
                                             revise          -> await_plan_approval -> reject -> end)
                                                         |
                                                      approve -> create_subtasks -> develop
+                                                          develop -> verify -> open_pr
+    (develop and verify each go to post_problem -> end if a human must look)
                                                                                     |
                                end <- post_review <- approved / out of fixes <- review <- open_pr
                                                                     |              ^
@@ -38,6 +40,7 @@ from langgraph.runtime import Runtime
 from langgraph.types import interrupt
 
 from agents.developer import DevResult
+from agents.gate import VerifyResult
 from agents.planner import Plan, conflicts_comment, plan_comment, subtask_description
 from agents.reviewer import Review, review_markdown
 from agents.ticket_reader import TicketSpec, questions_comment, read_ticket
@@ -78,6 +81,7 @@ class RunState(RunInput):
     head_sha: str  # the developer's commit
     dev: dict[str, Any]  # the build's DevResult as a dict: summary, changed files, problem
     fix_dev: dict[str, Any]  # the latest fix round's DevResult
+    verify: dict[str, Any]  # the VerifyResult: gate, fixer, QA report
     pr_number: int
     pr_url: str
     review: dict[str, Any]  # the latest Review as a dict
@@ -113,6 +117,10 @@ class RunContext:
     make_fix: Callable[[str, TicketSpec, Plan, Review, str, int], tuple[DevResult, str]]
     # comment_pr(number, markdown): posts on the PR's conversation
     comment_pr: Callable[[int, str], None]
+    # make_verify(ticket_key, spec, plan, branch, base_sha) -> VerifyResult: the gate on the
+    # finished branch, the fixer if it fails, then QA's browser tests; commits and pushes.
+    # Records its own agent runs (fixer, qa), since it may start one or two.
+    make_verify: Callable[[str, TicketSpec, Plan, str, str], VerifyResult]
 
 
 def fetch_ticket(state: RunState, runtime: Runtime[RunContext]) -> Update:
@@ -211,13 +219,34 @@ def develop(state: RunState, runtime: Runtime[RunContext]) -> Update:
     return {"dev": dev.model_dump(), "branch": branch, "head_sha": head_sha, "outcome": "pushed"}
 
 
-def route_after_develop(state: RunState) -> Literal["post_problem", "open_pr"]:
-    return "post_problem" if state["dev"].get("problem") else "open_pr"
+def route_after_develop(state: RunState) -> Literal["post_problem", "verify"]:
+    return "post_problem" if state["dev"].get("problem") else "verify"
+
+
+def verify(state: RunState, runtime: Runtime[RunContext]) -> Update:
+    """Check the finished branch before anyone sees it: gate, fixer, QA."""
+    result = runtime.context.make_verify(
+        state["ticket_key"],
+        TicketSpec.model_validate(state["spec"]),
+        Plan.model_validate(state["plan"]),
+        state["branch"],
+        state["commit_sha"],
+    )
+    update: Update = {"verify": result.model_dump()}
+    return update if result.problem else {**update, "head_sha": result.head_sha}
+
+
+def route_after_verify(state: RunState) -> Literal["post_problem", "open_pr"]:
+    return "post_problem" if state["verify"].get("problem") else "open_pr"
 
 
 def post_problem(state: RunState, runtime: Runtime[RunContext]) -> Update:
-    """The developer stopped because the plan can't be built as is: tell the ticket."""
-    problem = state.get("fix_dev", {}).get("problem") or state["dev"]["problem"]
+    """An agent stopped because the work can't be finished as planned: tell the ticket."""
+    problem = (
+        state.get("fix_dev", {}).get("problem")
+        or state.get("verify", {}).get("problem")
+        or state["dev"]["problem"]
+    )
     comment = problem_comment(problem)
     comment_id = runtime.context.jira.add_comment(state["ticket_key"], comment)
     return {"outcome": "needs_human", "comment_id": comment_id}
@@ -233,6 +262,7 @@ def open_pr(state: RunState, runtime: Runtime[RunContext]) -> Update:
         Plan.model_validate(state["plan"]),
         DevResult.model_validate(state["dev"]),
         state["subtask_keys"],
+        VerifyResult.model_validate(state["verify"]) if "verify" in state else None,
     )
     number, url = ctx.open_pr(state["branch"], pr_title(key, spec), body)
     ctx.jira.add_comment(key, pr_comment(url))
@@ -245,6 +275,10 @@ def review(state: RunState, runtime: Runtime[RunContext]) -> Update:
         previous = state.get("review")
         # The developer's summaries only, never its conversation: an independent review
         summary = state["dev"]["summary"]
+        qa = state.get("verify", {}).get("qa")
+        if qa and qa["bugs"]:
+            bugs = "\n".join(f"- criterion {b['criterion']}: {b['problem']}" for b in qa["bugs"])
+            summary += f"\n\nBrowser tests (QA agent) found app bugs:\n{bugs}"
         if "fix_dev" in state:
             summary += f"\n\nLatest fixes:\n{state['fix_dev']['summary']}"
         result = ctx.make_review(
@@ -304,6 +338,7 @@ def build_graph(
     builder.add_node("await_plan_approval", await_plan_approval)
     builder.add_node("create_subtasks", create_subtasks)
     builder.add_node("develop", develop)
+    builder.add_node("verify", verify)
     builder.add_node("open_pr", open_pr)
     builder.add_node("post_problem", post_problem)
     builder.add_node("review", review)
@@ -320,6 +355,7 @@ def build_graph(
     builder.add_conditional_edges("await_plan_approval", route_after_approval)
     builder.add_edge("create_subtasks", "develop")
     builder.add_conditional_edges("develop", route_after_develop)
+    builder.add_conditional_edges("verify", route_after_verify)
     builder.add_edge("post_problem", END)
     builder.add_edge("open_pr", "review")
     builder.add_conditional_edges("review", route_after_review)

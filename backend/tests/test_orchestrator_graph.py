@@ -13,7 +13,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from agents.developer import DevResult
+from agents.gate import VerifyResult
 from agents.planner import Plan
+from agents.qa import QaReport
 from agents.reviewer import Review
 from agents.ticket_reader import TicketSpec
 from llm_router.router import LlmRouter
@@ -67,6 +69,8 @@ class Fakes:
         reviews: tuple[dict[str, Any], ...] = (APPROVE,),
         dev_problem: str = "",
         fix_problem: str = "",
+        verify_problem: str = "",
+        qa_bugs: tuple[dict[str, Any], ...] = (),
     ) -> None:
         """fail_posts: how many comment posts fail (HTTP 500) before they work, to
         simulate a run crashing partway. existing_subtasks: summaries already in Jira."""
@@ -84,6 +88,8 @@ class Fakes:
         self._dev_problem = dev_problem
         self._fix_problem = fix_problem
         self.pr_comments: list[str] = []
+        self._verify_problem = verify_problem
+        self._qa_bugs = list(qa_bugs)
 
         def jira(request: httpx2.Request) -> httpx2.Response:
             if request.url.path == "/rest/api/3/search/jql":
@@ -124,6 +130,7 @@ class Fakes:
             make_review=self._make_review,
             make_fix=self._make_fix,
             comment_pr=lambda number, body: self.pr_comments.append(body),
+            make_verify=self._make_verify,
         )
 
     def _make_plan(self, spec: TicketSpec, feedback: str, agent_run_id: int) -> tuple[Plan, str]:
@@ -168,6 +175,20 @@ class Fakes:
         dev = DevResult(summary="Added thanks", changed_files=[], problem=self._fix_problem)
         return dev, f"fix{len(self.fixed)}"
 
+    def _make_verify(
+        self, key: str, spec: TicketSpec, plan: Plan, branch: str, base: str
+    ) -> VerifyResult:
+        assert (branch, base) == ("agent/KAN-4", "abc123")
+        checks = {"lint": True, "typecheck": True, "unit tests": True, "secrets": True}
+        if self._verify_problem:
+            return VerifyResult(checks={**checks, "lint": False}, problem=self._verify_problem)
+        qa = QaReport(
+            summary="One browser test per criterion",
+            results=[{"number": 1, "test": "e2e/contact.spec.ts: shows the form", "passed": True}],  # type: ignore[list-item]
+            bugs=self._qa_bugs,  # type: ignore[arg-type]
+        )
+        return VerifyResult(checks=checks, qa=qa, head_sha="ver789")
+
     @contextmanager
     def _agent_run(self, role: str) -> Iterator[int]:
         self.agent_runs.append(role)
@@ -183,7 +204,7 @@ def nodes_visited(fakes: Fakes) -> list[str]:
 def test_ready_ticket_is_planned_split_into_subtasks_then_developed() -> None:
     fakes = Fakes(READY)
     assert nodes_visited(fakes) == [
-        "fetch_ticket", "read_ticket", "plan", "create_subtasks", "develop", "open_pr",
+        "fetch_ticket", "read_ticket", "plan", "create_subtasks", "develop", "verify", "open_pr",
         "review", "post_review",
     ]  # fmt: skip
     assert fakes.agent_runs == ["ticket_reader", "planner", "developer", "reviewer"]
@@ -206,7 +227,8 @@ def test_final_state_holds_plan_commit_and_subtasks() -> None:
     assert final["plan"]["changes"][0]["path"] == "src/app/contact/page.tsx"
     assert final["commit_sha"] == "abc123"
     assert final["subtask_keys"] == ["KAN-11"]
-    assert (final["branch"], final["head_sha"]) == ("agent/KAN-4", "def456")
+    # verify's commit (browser tests) is the head the PR and review see
+    assert (final["branch"], final["head_sha"]) == ("agent/KAN-4", "ver789")
     assert final["dev"]["summary"] == "Added the contact page"
     assert final["pr_url"] == "https://github.com/skher9/agent-playground/pull/7"
     assert final["outcome"] == "ready_to_merge"
@@ -389,3 +411,30 @@ def test_a_rejected_plan_ends_the_run() -> None:
 
 def test_without_approve_plan_there_is_no_pause() -> None:
     assert "post_plan" not in nodes_visited(Fakes(READY))
+
+
+def test_the_pr_shows_the_checks_and_browser_tests() -> None:
+    fakes = Fakes(READY)
+    build_graph().invoke({"ticket_key": "KAN-4"}, context=fakes.context)
+    body = fakes.pr[2]
+    assert "| lint | ✅ |" in body
+    assert "| secrets | ✅ |" in body
+    assert (
+        "| 1. Visiting /contact shows a form | ✅ | e2e/contact.spec.ts: shows the form |" in body
+    )
+
+
+def test_a_gate_the_fixer_cannot_fix_stops_for_a_human() -> None:
+    fakes = Fakes(READY, verify_problem="Lint rule conflicts with the plan")
+    assert nodes_visited(fakes)[-3:] == ["develop", "verify", "post_problem"]
+    assert "Lint rule conflicts with the plan" in json.dumps(fakes.comments[-1])
+    assert not hasattr(fakes, "pr")
+
+
+def test_bugs_qa_found_go_to_the_reviewer() -> None:
+    bug = {"criterion": 1, "problem": "Submit does nothing", "test": "e2e/contact.spec.ts"}
+    fakes = Fakes(READY, qa_bugs=(bug,))
+    build_graph().invoke({"ticket_key": "KAN-4"}, context=fakes.context)
+    summary, _previous = fakes.review_inputs[0]
+    assert "Browser tests (QA agent) found app bugs:\n- criterion 1: Submit does nothing" in summary
+    assert "**Bugs found:**" in fakes.pr[2]
