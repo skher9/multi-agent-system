@@ -99,6 +99,12 @@ class Workspace:
             command, workspace=self.path, limits=limits or SandboxLimits(), masked_paths=(".git",)
         )
 
+    def discard_changes(self) -> None:
+        """Throw away every uncommitted change and new file (ignored ones like
+        node_modules stay)."""
+        self._git("reset", "--hard", "--quiet")
+        self._git("clean", "-d", "--force", "--quiet")
+
     def commit_all(self, message: str, author: GitIdentity) -> str | None:
         """Commit every change; return the new commit's sha, or None if nothing changed."""
         self._git("add", "--all")

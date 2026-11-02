@@ -1,6 +1,8 @@
 """run_ticket(): one full pipeline run for a ticket, with its database records."""
 
 import logging
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -11,11 +13,15 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from agents.code_graph import Storage, open_code_graph
 from agents.developer import DevResult, develop_ticket
-from agents.loop import EventSink, ignore_events
+from agents.gate import GateResult, VerifyResult, run_gate
+from agents.loop import AgentLoopError, EventSink, ignore_events
 from agents.planner import Plan, plan_ticket
+from agents.qa import qa_ticket
+from agents.repo_tools import RepoTools
 from agents.reviewer import Review, review_changes
 from agents.ticket_reader import TicketSpec
 from db.models import EventKind
+from llm_router.models import Role
 from llm_router.router import LlmRouter
 from orchestrator.decisions import PlanDecision
 from orchestrator.graph import RunContext, RunInput, RunState, build_graph
@@ -208,6 +214,73 @@ def make_fix(
     return dev, head
 
 
+def make_verify(
+    pipeline: Pipeline,
+    ticket_key: str,
+    spec: TicketSpec,
+    plan: Plan,
+    branch: str,
+    base_sha: str,
+    start_agent: Callable[[str], AbstractContextManager[int]],
+    events: Callable[[int], EventSink],
+) -> VerifyResult:
+    """Clone the agent's branch and check it before a PR opens (see agents/gate.py):
+    1. the gate (lint, typecheck, unit tests, placeholder and secret scans);
+    2. if it fails, the fixer agent, whose finish must pass the gate;
+    3. the QA agent's browser tests, one or more per criterion.
+    Each agent's work is its own commit; then one push.
+    """
+    with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
+        workspace.checkout(branch)
+        tools = RepoTools(workspace, typecheck_after_edit=False)
+        if error := tools.install():
+            raise RuntimeError(error)
+        gate = run_gate(tools, workspace, base_sha)
+        fixer_summary = ""
+        if not gate.ok:
+            with start_agent(Role.FIXER) as run_id:
+                dev = develop_ticket(
+                    pipeline.router,
+                    spec,
+                    plan,
+                    workspace,
+                    agent_run_id=run_id,
+                    failures=gate.failures,
+                    check=lambda: run_gate(tools, workspace, base_sha).failures,
+                    role=Role.FIXER,
+                    on_event=events(run_id),
+                )
+            if dev.problem:
+                return VerifyResult(checks=gate.passed, problem=dev.problem)
+            fixer_summary = dev.summary
+            workspace.commit_all(
+                f"{ticket_key}: fix the final checks\n\n{dev.summary}", AGENT_AUTHOR
+            )
+            # The fixer's finish only passes when the whole gate does
+            gate = GateResult(passed=dict.fromkeys(gate.passed, True), failures=[])
+        qa = None
+        try:
+            with start_agent(Role.QA) as run_id:
+                qa, qa_files = qa_ticket(
+                    pipeline.router,
+                    spec,
+                    plan,
+                    workspace,
+                    agent_run_id=run_id,
+                    on_event=events(run_id),
+                )
+            if qa_files:
+                workspace.commit_all(f"{ticket_key}: browser tests\n\n{qa.summary}", AGENT_AUTHOR)
+        except AgentLoopError:
+            # QA is evidence, not a gate: the PR opens and says QA couldn't finish
+            logger.warning("%s: QA didn't finish", ticket_key, exc_info=True)
+            workspace.discard_changes()
+        workspace.push(branch)
+        return VerifyResult(
+            checks=gate.passed, fixer_summary=fixer_summary, qa=qa, head_sha=workspace.head_sha()
+        )
+
+
 def comment_pr(pipeline: Pipeline, number: int, body: str) -> None:
     if pipeline.github is None or not pipeline.repo:
         raise RuntimeError("commenting needs the pipeline's github client and repo")
@@ -261,6 +334,16 @@ def run_ticket(
             pipeline, key, spec, plan, review, branch, run_id, agent_events(run_id)
         ),
         comment_pr=lambda number, body: comment_pr(pipeline, number, body),
+        make_verify=lambda key, spec, plan, branch, base: make_verify(
+            pipeline,
+            key,
+            spec,
+            plan,
+            branch,
+            base,
+            lambda role: agent_run(pipeline.factory, feature_id, role),
+            agent_events,
+        ),
     )
     graph = build_graph(pipeline.checkpointer)
     # One thread per feature: every run of this ticket shares its saved state.

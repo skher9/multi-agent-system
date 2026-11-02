@@ -15,6 +15,8 @@ class Role(StrEnum):
     PLANNER = "planner"  # read-only tools: understands the code, plans the changes
     DEVELOPER = "developer"
     REVIEWER = "reviewer"
+    FIXER = "fixer"  # a fresh developer that fixes what the gate found, nothing else
+    QA = "qa"  # writes and runs browser tests per acceptance criterion
 
 
 MODELS: dict[Role, str] = {
@@ -24,6 +26,8 @@ MODELS: dict[Role, str] = {
     Role.PLANNER: "minimax/minimax-m3",
     Role.DEVELOPER: "minimax/minimax-m3",
     Role.REVIEWER: "minimax/minimax-m3",
+    Role.FIXER: "minimax/minimax-m3",
+    Role.QA: "minimax/minimax-m3",
 }
 
 # Used only when a task has failed twice (System Design doc), for any role.
