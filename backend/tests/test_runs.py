@@ -43,6 +43,18 @@ def test_plan_decision_queues_the_answer(monkeypatch: pytest.MonkeyPatch) -> Non
     assert sent == [("decide_plan", ["KAN-4", body])]
 
 
+def test_learn_queues_the_pr(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[tuple[str, list[Any]]] = []
+    monkeypatch.setattr(
+        celery_app,
+        "send_task",
+        lambda name, args: sent.append((name, args)) or SimpleNamespace(id="j"),
+    )
+    assert client.post("/learn", json={"pr": 3}).status_code == 202
+    assert client.post("/learn", json={"pr": 0}).status_code == 422
+    assert sent == [("learn_from_pr", [3])]
+
+
 @pytest.mark.parametrize(
     ("ticket", "body"),
     [("kan-4", {"decision": "approve"}), ("KAN-4", {"decision": "maybe"})],

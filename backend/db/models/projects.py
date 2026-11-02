@@ -72,3 +72,21 @@ class CodeGraph(IdMixin, TimestampMixin, Base):
     commit_sha: Mapped[str] = mapped_column(String(40))  # full git SHA-1
     r2_key: Mapped[str] = mapped_column(Text)  # zipped graphify-out folder
     graphify_version: Mapped[str] = mapped_column(String(32))  # rebuild if this changes
+
+
+class RepoRule(IdMixin, TimestampMixin, Base):
+    """A lesson from a human's review of an agent PR on this project, e.g. "Use the
+    shared Button, never a plain <button>". The planner, developer and reviewer read
+    them on every later ticket, so the same comment never has to be made twice.
+    """
+
+    __tablename__ = "repo_rules"
+    # The same lesson once per project. Also serves as the project_id index.
+    __table_args__ = (UniqueConstraint("project_id", "rule", name="uq_repo_rules_project_id_rule"),)
+
+    project_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("projects.id", ondelete="CASCADE")
+    )
+    rule: Mapped[str] = mapped_column(String(300))
+    why: Mapped[str] = mapped_column(String(300))
+    source: Mapped[str] = mapped_column(String(200))  # where it was learned, e.g. a PR link

@@ -20,6 +20,17 @@ class PullRequest:
     url: str  # the PR's page on github.com
 
 
+@dataclass(frozen=True)
+class PullRequestInfo:
+    title: str
+    url: str
+    merged: bool
+
+
+# Comments our own pipeline posts start with this; they're not human feedback
+AGENT_MARK = "🤖"
+
+
 class GitHubClient:
     def __init__(self, token: str, org: str, transport: httpx2.BaseTransport | None = None) -> None:
         self.org = org
@@ -82,6 +93,32 @@ class GitHubClient:
         )
         response.raise_for_status()
         return response.text
+
+    def pull_request(self, repo: str, number: int) -> PullRequestInfo:
+        response = self._http.get(f"/repos/{_checked(repo)}/pulls/{number}")
+        response.raise_for_status()
+        pr = response.json()
+        return PullRequestInfo(pr["title"], pr["html_url"], bool(pr.get("merged_at")))
+
+    def human_comments(self, repo: str, number: int) -> list[str]:
+        """Every comment people left on a PR: the conversation, review summaries, and
+        comments on lines of code (with their file). Our pipeline's own comments
+        (starting with 🤖, e.g. "### 🤖 Review 1") are left out."""
+        base = f"/repos/{_checked(repo)}"
+        found: list[str] = []
+        for path, has_file in (
+            (f"{base}/issues/{number}/comments", False),
+            (f"{base}/pulls/{number}/reviews", False),
+            (f"{base}/pulls/{number}/comments", True),
+        ):
+            response = self._http.get(path, params={"per_page": 100})
+            response.raise_for_status()
+            for item in response.json():
+                body = (item.get("body") or "").strip()
+                if not body or body.lstrip("# ").startswith(AGENT_MARK):
+                    continue
+                found.append(f"{item['path']}: {body}" if has_file else body)
+        return found
 
     def comment_on_pull_request(self, repo: str, number: int, body: str) -> None:
         # A PR is an issue too; this is the PR's main conversation thread.

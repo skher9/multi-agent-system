@@ -2,7 +2,13 @@ from typing import Any
 
 from api.config import get_settings
 from orchestrator.decisions import PlanDecision
-from orchestrator.runner import AlreadyRunningError, NotWaitingError, run_ticket
+from orchestrator.runner import (
+    AlreadyRunningError,
+    NotMergedError,
+    NotWaitingError,
+    learn_from_pr,
+    run_ticket,
+)
 from orchestrator.wiring import open_pipeline
 from workers.celery_app import celery_app
 
@@ -34,3 +40,13 @@ def decide_plan_task(ticket_key: str, decision: dict[str, Any]) -> str:
             return "already_running"
         except NotWaitingError:
             return "not_waiting"
+
+
+@celery_app.task(name="learn_from_pr")
+def learn_from_pr_task(pr_number: int) -> list[str] | str:
+    """Rules learned from a merged agent PR's review comments."""
+    with open_pipeline(get_settings()) as pipeline:
+        try:
+            return learn_from_pr(pipeline, pr_number)
+        except NotMergedError:
+            return "not_merged"

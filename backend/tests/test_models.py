@@ -52,6 +52,7 @@ def test_all_v1_tables_exist() -> None:
         "agent_runs",
         "llm_calls",
         "run_events",
+        "repo_rules",
     }
 
 
