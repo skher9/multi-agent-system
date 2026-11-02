@@ -28,7 +28,30 @@ def test_start_run_queues_the_ticket(monkeypatch: pytest.MonkeyPatch) -> None:
     response = client.post("/runs", json={"ticket": "KAN-4"})
     assert response.status_code == 202
     assert response.json() == {"job_id": "job-9"}
-    assert sent == [("run_ticket", ["KAN-4"])]
+    assert sent == [("run_ticket", ["KAN-4", False])]
+
+
+def test_plan_decision_queues_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[tuple[str, list[Any]]] = []
+    monkeypatch.setattr(
+        celery_app,
+        "send_task",
+        lambda name, args: sent.append((name, args)) or SimpleNamespace(id="j"),
+    )
+    body = {"decision": "revise", "feedback": "Use the existing Button"}
+    assert client.post("/runs/KAN-4/plan-decision", json=body).status_code == 202
+    assert sent == [("decide_plan", ["KAN-4", body])]
+
+
+@pytest.mark.parametrize(
+    ("ticket", "body"),
+    [("kan-4", {"decision": "approve"}), ("KAN-4", {"decision": "maybe"})],
+)
+def test_plan_decision_rejects_bad_input(
+    monkeypatch: pytest.MonkeyPatch, ticket: str, body: dict[str, str]
+) -> None:
+    monkeypatch.setattr(celery_app, "send_task", lambda *a, **k: pytest.fail("queued"))
+    assert client.post(f"/runs/{ticket}/plan-decision", json=body).status_code == 422
 
 
 @pytest.mark.parametrize("ticket", ["kan-4", "KAN-4\n", "KAN-4/../x", "", "KAN"])
@@ -43,8 +66,10 @@ def test_run_ticket_task_returns_the_outcome(monkeypatch: pytest.MonkeyPatch) ->
         yield "pipeline"
 
     monkeypatch.setattr(tasks, "open_pipeline", fake_open)
-    monkeypatch.setattr(tasks, "run_ticket", lambda p, key: {"outcome": f"{p}:{key}"})
-    assert tasks.run_ticket_task("KAN-4") == "pipeline:KAN-4"
+    monkeypatch.setattr(
+        tasks, "run_ticket", lambda p, key, approve_plan: {"outcome": f"{p}:{key}:{approve_plan}"}
+    )
+    assert tasks.run_ticket_task("KAN-4", True) == "pipeline:KAN-4:True"
 
 
 def test_run_ticket_task_skips_when_already_running(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -52,7 +77,7 @@ def test_run_ticket_task_skips_when_already_running(monkeypatch: pytest.MonkeyPa
     def fake_open(settings: Any):
         yield "pipeline"
 
-    def busy(pipeline: Any, key: str) -> None:
+    def busy(pipeline: Any, key: str, **_: Any) -> None:
         raise AlreadyRunningError(key)
 
     monkeypatch.setattr(tasks, "open_pipeline", fake_open)

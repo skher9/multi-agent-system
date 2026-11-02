@@ -63,6 +63,8 @@ class EventKind(StrEnum):
     TOOL_CALL = "tool_call"  # data: role, tool, n, limit, arguments (shortened)
     FINISH_REJECTED = "finish_rejected"  # data: role, error (shortened)
     AGENT_FINISHED = "agent_finished"  # data: role, tool_calls
+    RUN_PAUSED = "run_paused"  # data: waiting_for ("plan_approval")
+    PLAN_DECIDED = "plan_decided"  # data: decision, feedback
     RUN_ENDED = "run_ended"  # data: outcome
     RUN_FAILED = "run_failed"  # data: error (the exception's type)
 
