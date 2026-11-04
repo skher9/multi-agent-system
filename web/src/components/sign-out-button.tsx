@@ -2,21 +2,23 @@
 
 import { useRouter } from "next/navigation";
 
+import { Button } from "@/components/site";
 import { authClient } from "@/lib/auth-client";
 
 export function SignOutButton() {
   const router = useRouter();
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       onClick={async () => {
         await authClient.signOut();
         router.push("/login");
         router.refresh();
       }}
-      className="rounded border px-3 py-1 text-sm"
     >
       Log out
-    </button>
+    </Button>
   );
 }
