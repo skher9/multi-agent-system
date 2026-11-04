@@ -46,7 +46,12 @@ export function AuthForm({ mode, providers }: { mode: Mode; providers: SocialPro
     const callbackURL = "/dashboard";
     const { error } =
       mode === "signup"
-        ? await authClient.signUp.email({ name: String(form.get("name")), email, password, callbackURL })
+        ? await authClient.signUp.email({
+            name: String(form.get("name")),
+            email,
+            password,
+            callbackURL,
+          })
         : await authClient.signIn.email({ email, password, callbackURL });
     setPending(false);
     if (error?.code === "EMAIL_NOT_VERIFIED") {
@@ -76,8 +81,8 @@ export function AuthForm({ mode, providers }: { mode: Mode; providers: SocialPro
         }
       >
         <p className="mt-4 text-sm text-muted">
-          We sent a confirmation link to <span className="text-ink">{verifyEmail}</span>. Click
-          it to finish setting up your account. It works for 1 hour.
+          We sent a confirmation link to <span className="text-ink">{verifyEmail}</span>. Click it
+          to finish setting up your account. It works for 1 hour.
         </p>
       </AuthShell>
     );

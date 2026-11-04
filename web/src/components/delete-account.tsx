@@ -45,13 +45,7 @@ export function DeleteAccount() {
         This deletes your account and logins for good. It can&apos;t be undone.
       </p>
       <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="danger"
-          size="sm"
-          disabled={pending}
-          onClick={remove}
-        >
+        <Button type="button" variant="danger" size="sm" disabled={pending} onClick={remove}>
           {pending ? "Deleting…" : "Yes, delete my account"}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={() => setConfirming(false)}>
