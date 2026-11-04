@@ -53,6 +53,14 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-muted">
         <span>Built by Shravani Kher</span>
         <span className="font-mono text-xs">LangGraph · FastAPI · Next.js · Playwright</span>
+        <span className="flex gap-4">
+          <Link href="/privacy" className="hover:text-ink">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-ink">
+            Terms
+          </Link>
+        </span>
       </div>
     </footer>
   );

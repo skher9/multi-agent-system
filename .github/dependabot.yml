@@ -1,0 +1,31 @@
+# Dependabot: weekly PRs for outdated packages; security fixes come as soon as published.
+# cooldown matches the setup rule (pnpm-workspace.yaml): no versions newer than 14 days.
+# Security updates ignore cooldown.
+version: 2
+updates:
+  - package-ecosystem: npm # pnpm workspace (web/)
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    groups:
+      web-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: uv
+    directory: /backend
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    groups:
+      backend-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
