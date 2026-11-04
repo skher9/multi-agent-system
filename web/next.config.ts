@@ -2,8 +2,17 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV === "development";
 
-// Content Security Policy: which sources the browser may load from. Everything is
-// same-origin (fonts are self-hosted by next/font). Scripts keep 'unsafe-inline' because
+// The browser talks to our Python API and to Pusher (live run events), nothing else.
+const apiOrigin = process.env.NEXT_PUBLIC_API_URL
+  ? new URL(process.env.NEXT_PUBLIC_API_URL).origin
+  : "http://localhost:8000";
+const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
+const pusherHosts = pusherCluster
+  ? `wss://ws-${pusherCluster}.pusher.com https://sockjs-${pusherCluster}.pusher.com`
+  : "";
+
+// Content Security Policy: which sources the browser may load from. Pages, scripts and
+// fonts are same-origin (next/font self-hosts fonts). Scripts keep 'unsafe-inline' because
 // nonces need every page rendered per request, which rules out Partial Prerendering
 // (Next.js CSP guide, "Without Nonces"). React escapes rendered text, and we never use
 // dangerouslySetInnerHTML, so inline-script injection has no way in.
@@ -13,7 +22,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self'",
-  "connect-src 'self'",
+  `connect-src 'self' ${apiOrigin} ${pusherHosts}`.trim(),
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
