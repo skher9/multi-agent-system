@@ -167,6 +167,19 @@ export function AuthForm({ mode, providers }: { mode: Mode; providers: SocialPro
         <Button type="submit" disabled={pending} className="mt-2 w-full">
           {pending ? "Please wait…" : copy.button}
         </Button>
+        {mode === "signup" && (
+          <p className="text-center text-xs text-muted">
+            By signing up you agree to the{" "}
+            <Link href="/terms" className="underline underline-offset-2 hover:text-ink">
+              terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">
+              privacy policy
+            </Link>
+            .
+          </p>
+        )}
       </form>
     </AuthShell>
   );
