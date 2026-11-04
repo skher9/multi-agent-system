@@ -61,6 +61,7 @@ export function SiteFooter() {
 const BUTTON = {
   primary: "bg-accent text-accent-ink hover:brightness-110",
   ghost: "border border-line bg-surface text-ink hover:border-muted/60",
+  danger: "bg-red-500 text-white hover:bg-red-400",
 };
 const SIZE = { sm: "h-8 px-3 text-sm", md: "h-11 px-5" };
 
