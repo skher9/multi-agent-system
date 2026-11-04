@@ -19,6 +19,9 @@ export default function DashboardPage() {
           <Suspense>
             <UserEmail />
           </Suspense>
+          <Link href="/settings" className="text-sm text-muted hover:text-ink">
+            Settings
+          </Link>
           <SignOutButton />
         </div>
       </SiteNav>

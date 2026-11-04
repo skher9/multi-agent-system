@@ -32,6 +32,7 @@ export function AuthForm({ mode, providers }: { mode: Mode; providers: SocialPro
   const router = useRouter();
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [verifyEmail, setVerifyEmail] = useState(""); // set once a confirm link is sent
   const copy = COPY[mode];
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -41,17 +42,50 @@ export function AuthForm({ mode, providers }: { mode: Mode; providers: SocialPro
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email"));
     const password = String(form.get("password"));
+    // The confirm link lands here once clicked, already logged in
+    const callbackURL = "/dashboard";
     const { error } =
       mode === "signup"
-        ? await authClient.signUp.email({ name: String(form.get("name")), email, password })
-        : await authClient.signIn.email({ email, password });
+        ? await authClient.signUp.email({
+            name: String(form.get("name")),
+            email,
+            password,
+            callbackURL,
+          })
+        : await authClient.signIn.email({ email, password, callbackURL });
     setPending(false);
+    if (error?.code === "EMAIL_NOT_VERIFIED") {
+      setVerifyEmail(email); // Better Auth has sent a fresh link (sendOnSignIn)
+      return;
+    }
     if (error) {
       setError(error.message ?? "Something went wrong. Please try again.");
       return;
     }
+    if (mode === "signup") {
+      setVerifyEmail(email); // no session until the email is confirmed
+      return;
+    }
     router.push("/dashboard");
     router.refresh();
+  }
+
+  if (verifyEmail) {
+    return (
+      <AuthShell
+        title="Check your email"
+        footer={
+          <Link href="/login" className="text-ink underline-offset-4 hover:underline">
+            Back to log in
+          </Link>
+        }
+      >
+        <p className="mt-4 text-sm text-muted">
+          We sent a confirmation link to <span className="text-ink">{verifyEmail}</span>. Click it
+          to finish setting up your account. It works for 1 hour.
+        </p>
+      </AuthShell>
+    );
   }
 
   async function social(provider: SocialProvider) {

@@ -6,4 +6,4 @@ every table. They have no SQLAlchemy models, so autogenerate must ignore them.
 Our own `users` row links to a Better Auth user through users.auth_user_id.
 """
 
-AUTH_TABLES = frozenset({"user", "session", "account", "verification", "jwks"})
+AUTH_TABLES = frozenset({"user", "session", "account", "verification", "jwks", "rateLimit"})
