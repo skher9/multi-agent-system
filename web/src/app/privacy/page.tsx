@@ -63,7 +63,7 @@ export default function PrivacyPage() {
             <strong>Vercel:</strong> hosts the website.
           </li>
           <li>
-            <strong>Neon:</strong> the Postgres database, in the United States (AWS us-east-2).
+            <strong>Neon:</strong> the Postgres database, in Singapore (AWS ap-southeast-1).
           </li>
           <li>
             <strong>Google and GitHub:</strong> only if you log in with them.
