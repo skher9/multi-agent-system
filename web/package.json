@@ -31,7 +31,7 @@
     "eslint-config-next": "16.4.1",
     "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^7"
   },
   "packageManager": "pnpm@10.30.1"
 }
