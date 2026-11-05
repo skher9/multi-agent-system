@@ -60,7 +60,9 @@ export function RunsList() {
         <span className="text-xs text-muted">Newest first</span>
       </header>
       {runs === null && !error && <p className="px-5 py-4 text-sm text-muted">Loading runs…</p>}
-      {error && <p className="px-5 py-4 text-sm text-red-400">Couldn&apos;t load runs. Retrying…</p>}
+      {error && (
+        <p className="px-5 py-4 text-sm text-red-400">Couldn&apos;t load runs. Retrying…</p>
+      )}
       {runs?.length === 0 && (
         <p className="px-5 py-4 text-sm text-muted">
           No runs yet. Start one, or{" "}
