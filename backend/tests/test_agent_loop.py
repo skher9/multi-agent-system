@@ -283,3 +283,18 @@ def test_file_writes_carry_their_code_for_the_run_window() -> None:
     assert edited == {"code": {"path": "b.ts", "old_text": "1", "new_text": "2"}}
     assert _code_for_event("read_file", json.dumps({"path": "a.tsx"})) == {}
     assert _code_for_event("create_file", "not json") == {}
+
+
+def test_the_models_reasoning_becomes_a_thought_before_its_actions() -> None:
+    events: list[tuple[EventKind, dict[str, Any]]] = []
+    thinking = reply(call("read_file", {"path": "a.ts"}))
+    thinking["choices"][0]["message"]["reasoning"] = "  The home page needs a link. " + "x" * 3000
+    script = Script(thinking, reply(call("finish", {"summary": "done"})))
+    script.run(on_event=lambda kind, data: events.append((kind, data)))
+    assert [kind for kind, _ in events][:2] == [EventKind.AGENT_THOUGHT, EventKind.TOOL_CALL]
+    thought = events[0][1]
+    assert thought["role"] == Role.DEVELOPER
+    assert thought["text"].startswith("The home page needs a link.")
+    assert len(thought["text"]) == 1500
+    # A reply without reasoning adds no thought
+    assert [kind for kind, _ in events].count(EventKind.AGENT_THOUGHT) == 1

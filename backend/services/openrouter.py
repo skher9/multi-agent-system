@@ -46,6 +46,9 @@ class ChatResponse:
     tool_calls: list[dict[str, Any]]
     finish_reason: str  # stop, tool_calls, length, or content_filter
     usage: ChatUsage
+    # The model's own reasoning before it answered, for models that think (MiniMax M3
+    # does). Already paid for; the run window shows it as the agent's thoughts.
+    reasoning: str | None = None
 
 
 @dataclass(frozen=True)
@@ -97,6 +100,7 @@ def _parse_chat(data: dict[str, Any]) -> ChatResponse:
             completion_tokens=usage["completion_tokens"],
             cost_usd=Decimal(str(usage["cost"])),
         ),
+        reasoning=message.get("reasoning") or None,
     )
 
 

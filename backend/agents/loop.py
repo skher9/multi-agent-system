@@ -42,6 +42,7 @@ EVENT_TEXT_MAX = 300  # arguments and errors are shortened to this in events
 # The run window shows code as it is written: for file-writing tools the event also
 # carries the code itself, up to this many characters per part
 EVENT_CODE_MAX = 20_000
+EVENT_THOUGHT_MAX = 1500  # the model's reasoning, shown as the agent's thoughts
 CODE_TOOLS = {"create_file": ("content",), "edit_file": ("old_text", "new_text")}
 ASK_SENIOR = "ask_senior"
 MAX_SENIOR_CALLS = 2  # per agent run
@@ -154,6 +155,11 @@ def run_agent[T: BaseModel](
             tools=all_tools,
             max_tokens=max_tokens,
         )
+        if response.reasoning and response.reasoning.strip():
+            on_event(
+                EventKind.AGENT_THOUGHT,
+                {"role": role, "text": response.reasoning.strip()[:EVENT_THOUGHT_MAX]},
+            )
         messages.append(
             {"role": "assistant", "content": response.content, "tool_calls": response.tool_calls}
             if response.tool_calls
