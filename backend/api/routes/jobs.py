@@ -7,12 +7,14 @@ message on the queue. Heavy agent code will live in the worker process alone.
 from typing import Any, Literal
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
 
+from api.auth import current_user
 from workers.celery_app import celery_app
 
-router = APIRouter(prefix="/jobs", tags=["jobs"])
+# Logged-in website users only (api/auth.py)
+router = APIRouter(prefix="/jobs", tags=["jobs"], dependencies=[Depends(current_user)])
 
 
 class JobStarted(BaseModel):

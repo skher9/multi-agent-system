@@ -11,6 +11,9 @@ removed afterwards. Defence in layers:
 
 Requires: `docker compose up -d` (for npm-proxy) and, from the repo root,
 `docker build -t mas-sandbox -f sandbox/Dockerfile .`
+
+Where Docker isn't available (Railway), the worker turns on the E2B backend
+(services/sandbox_e2b.py) and run() hands every command to it instead.
 """
 
 import subprocess
@@ -91,6 +94,18 @@ def run(
     extra_mounts: tuple[tuple[Path, str], ...] = (),
 ) -> SandboxResult:
     """Run `command` (a list, never a shell string) inside a fresh sandbox container."""
+    from services import sandbox_e2b  # imported here: it imports this module
+
+    if sandbox_e2b.enabled():  # hosts without Docker (Railway) use E2B's microVMs
+        return sandbox_e2b.run(
+            command,
+            workspace,
+            limits,
+            masked_paths,
+            read_only=read_only,
+            network=network,
+            extra_mounts=extra_mounts,
+        )
     name = f"mas-sandbox-{uuid.uuid4().hex[:12]}"
     docker_cmd = build_docker_command(
         command,

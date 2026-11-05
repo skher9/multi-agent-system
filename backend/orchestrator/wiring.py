@@ -5,12 +5,13 @@ from contextlib import contextmanager
 
 from api.config import Settings
 from db.session import make_session_factory
-from llm_router.budget import db_story_spend
+from llm_router.budget import db_daily_spend, db_story_spend
 from llm_router.recorder import db_recorder
 from llm_router.router import LlmRouter
 from orchestrator.checkpoints import postgres_checkpointer
 from orchestrator.records import ensure_project
 from orchestrator.runner import Pipeline
+from services import sandbox_e2b
 from services.github import GitHubClient
 from services.jira import JiraClient
 from services.openrouter import OpenRouterClient
@@ -65,6 +66,12 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
         and settings.r2_bucket
     ):
         raise NotConfiguredError(", ".join(missing))
+    if settings.sandbox_backend == "e2b":
+        if not settings.e2b_api_key:
+            raise NotConfiguredError("E2B_API_KEY (SANDBOX_BACKEND is e2b)")
+        sandbox_e2b.configure(sandbox_e2b.Config(settings.e2b_api_key.get_secret_value()))
+    else:
+        sandbox_e2b.configure(None)
 
     factory = make_session_factory(db_url)
     repo_url = github_remote(settings.agent_repo)
@@ -96,6 +103,8 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
         settings.usd_to_inr,
         db_story_spend(factory),
         settings.story_budget_inr,
+        daily_spend=db_daily_spend(factory),
+        daily_budget_inr=settings.daily_budget_inr,
     )
     try:
         with postgres_checkpointer(db_url) as checkpointer:

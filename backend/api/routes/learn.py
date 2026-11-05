@@ -4,13 +4,15 @@ on later tickets. The work happens in a worker.
 The job's result is the new rules, or "not_merged" if the PR isn't merged yet.
 """
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
 
+from api.auth import current_user
 from api.routes.jobs import JobStarted
 from workers.celery_app import celery_app
 
-router = APIRouter(prefix="/learn", tags=["learn"])
+# Logged-in website users only (api/auth.py)
+router = APIRouter(prefix="/learn", tags=["learn"], dependencies=[Depends(current_user)])
 
 
 class LearnRequest(BaseModel):

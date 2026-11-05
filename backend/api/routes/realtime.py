@@ -6,11 +6,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
+from api.auth import current_user
 from api.config import Settings, get_settings
 from api.health import NotConfiguredError
 from api.health_checks import realtime_from_settings
 
-router = APIRouter(prefix="/realtime", tags=["realtime"])
+# Logged-in website users only (api/auth.py)
+router = APIRouter(prefix="/realtime", tags=["realtime"], dependencies=[Depends(current_user)])
 
 TEST_CHANNEL = "setup-test"
 TEST_EVENT = "ping"
