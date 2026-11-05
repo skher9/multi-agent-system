@@ -117,11 +117,9 @@ def plan_ticket(
 ) -> Plan:
     """Plan the ticket. feedback: a human's notes on the previous plan, when they asked
     for changes instead of approving it."""
+    # Packages install the first time the planner looks into node_modules (library docs
+    # the repo's AGENTS.md may point to), not up front: most plans never need them.
     repo = RepoTools(workspace, typecheck_after_edit=False)
-    # Packages installed so the planner can read library docs in node_modules (the
-    # template's AGENTS.md points there). Planning still works if it fails.
-    if error := repo.install():
-        logger.warning("planner: package install failed, planning without: %.300s", error)
     graph_tools = GraphTools(graph)
 
     def handle(name: str, arguments: str) -> str:

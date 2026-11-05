@@ -204,6 +204,55 @@
         }
       }
     },
+    "/project": {
+      "get": {
+        "tags": [
+          "project"
+        ],
+        "summary": "Get Project",
+        "operationId": "get_project_project_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectLinks"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/realtime/test": {
       "post": {
         "tags": [
@@ -671,6 +720,75 @@
         "title": "PlanDecision",
         "description": "A human's answer to a paused plan."
       },
+      "ProjectLinks": {
+        "properties": {
+          "repo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo"
+          },
+          "repo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Url"
+          },
+          "jira_site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jira Site"
+          },
+          "jira_project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jira Project"
+          },
+          "board_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Board Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "repo",
+          "repo_url",
+          "jira_site",
+          "jira_project",
+          "board_url"
+        ],
+        "title": "ProjectLinks",
+        "description": "Where a run's work lives, so the run window can link to it."
+      },
       "RunRequest": {
         "properties": {
           "ticket": {
@@ -752,6 +870,31 @@
             "type": "string",
             "title": "Title"
           },
+          "ticket_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket Url"
+          },
+          "branch_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch Url"
+          },
+          "project": {
+            "$ref": "#/components/schemas/ProjectLinks"
+          },
           "status": {
             "type": "string",
             "title": "Status"
@@ -783,6 +926,9 @@
         "required": [
           "ticket",
           "title",
+          "ticket_url",
+          "branch_url",
+          "project",
           "status",
           "pr_url",
           "cost_inr",

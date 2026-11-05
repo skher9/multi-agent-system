@@ -12,9 +12,10 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import func, select
 
 from api.auth import current_user
+from api.config import get_settings
 from api.db import SessionFactory
 from api.routes.jobs import JobStarted
-from db.models import AgentRun, Feature, LlmCall, RunEvent, Task
+from db.models import AgentRun, EventKind, Feature, LlmCall, RunEvent, Task
 from orchestrator.decisions import PlanDecision
 from services.jira import TICKET_KEY
 from workers.celery_app import celery_app
@@ -102,13 +103,41 @@ class EventOut(BaseModel):
     created_at: datetime
 
 
+class ProjectLinks(BaseModel):
+    """Where a run's work lives, so the run window can link to it."""
+
+    repo: str | None  # owner/name
+    repo_url: str | None
+    jira_site: str | None
+    jira_project: str | None
+    board_url: str | None
+
+
 class RunTimeline(BaseModel):
     ticket: str
     title: str
+    ticket_url: str | None
+    branch_url: str | None  # once the developer has pushed (agent/<ticket>)
+    project: ProjectLinks
     status: str  # the feature's status, e.g. running, in_review, ready_to_merge
     pr_url: str | None
     cost_inr: float  # every model call of this ticket so far
     events: list[EventOut]  # newer than `after`, oldest first
+
+
+def project_links(jira_project: str | None = None) -> ProjectLinks:
+    """The demo project's GitHub repo and Jira board, from settings."""
+    settings = get_settings()
+    site = (settings.jira_base_url or "").rstrip("/") or None
+    key = settings.jira_project_key or jira_project
+    repo = settings.agent_repo
+    return ProjectLinks(
+        repo=repo,
+        repo_url=f"https://github.com/{repo}" if repo else None,
+        jira_site=site,
+        jira_project=key,
+        board_url=f"{site}/jira/software/projects/{key}/boards" if site and key else None,
+    )
 
 
 @router.get("/{ticket}/events")
@@ -144,9 +173,24 @@ def run_events(
             .order_by(RunEvent.id.desc())
             .limit(1)
         )
+        links = project_links(ticket.split("-")[0])
+        developed = session.scalar(
+            select(func.count())
+            .select_from(RunEvent)
+            .where(
+                RunEvent.feature_id == feature.id,
+                RunEvent.kind == EventKind.NODE_FINISHED,
+                RunEvent.data["node"].astext == "develop",
+            )
+        )
         return RunTimeline(
             ticket=ticket,
-            title=feature.title,
+            title=feature.title.removeprefix(f"{ticket}: "),
+            ticket_url=f"{links.jira_site}/browse/{ticket}" if links.jira_site else None,
+            branch_url=f"{links.repo_url}/tree/agent/{ticket}"
+            if links.repo_url and developed
+            else None,
+            project=links,
             status=feature.status,
             pr_url=pr_url,
             cost_inr=float(cost or 0),

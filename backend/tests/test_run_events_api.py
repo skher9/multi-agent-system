@@ -75,3 +75,21 @@ def test_recent_runs_lists_the_ticket_with_its_pr(
     mine = next(r for r in runs if r["ticket"] == key)
     assert mine["pr_url"] == url
     assert mine["cost_inr"] == 0
+
+
+def test_timeline_links_to_ticket_repo_and_branch(
+    ticket: tuple[str, int], factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = get_settings()
+    monkeypatch.setattr(settings, "jira_base_url", "https://site.atlassian.net/")
+    monkeypatch.setattr(settings, "agent_repo", "o/r")
+    monkeypatch.setattr(settings, "jira_project_key", None)
+    key, feature_id = ticket
+    body = client.get(f"/runs/{key}/events").json()
+    assert body["ticket_url"] == f"https://site.atlassian.net/browse/{key}"
+    assert body["branch_url"] is None  # nothing pushed yet
+    project = key.split("-")[0]
+    assert body["project"]["board_url"].endswith(f"/projects/{project}/boards")
+    record_event(factory, feature_id, EventKind.NODE_FINISHED, {"node": "develop"})
+    after = client.get(f"/runs/{key}/events").json()
+    assert after["branch_url"] == f"https://github.com/o/r/tree/agent/{key}"

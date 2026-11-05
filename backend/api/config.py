@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     # v1 pipeline: the one repo agents work on, and who owns its project in the database
     agent_repo: str | None = None  # GitHub owner/name, e.g. skher9/agent-playground
     agent_owner_email: str | None = None
+    # The Jira project the demo's tickets live in, e.g. KAN (for board links)
+    jira_project_key: str | None = None
 
     # LLM costs. OpenRouter bills in USD; we log and limit in ₹.
     # Rate from the Services doc (July 2026); update by hand when it drifts.

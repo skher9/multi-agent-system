@@ -6,6 +6,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { FormError, INPUT } from "@/components/auth-form";
 import { Button } from "@/components/site";
 import { api } from "@/lib/api/client";
+import type { components } from "@/lib/api/schema";
+
+type Project = components["schemas"]["ProjectLinks"];
 
 const POLL_MS = 5000;
 
@@ -17,6 +20,11 @@ export function StartRun() {
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [project, setProject] = useState<Project | null>(null);
+
+  useEffect(() => {
+    api.GET("/project").then(({ data }) => data && setProject(data));
+  }, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,6 +69,7 @@ export function StartRun() {
       <p className="mt-1 text-sm text-muted">
         Enter a Jira ticket. The agents read it, plan, build, test and open a pull request.
       </p>
+      {project && <ProjectCard project={project} />}
       <form onSubmit={onSubmit} className="mt-5 space-y-3">
         <input
           name="ticket"
@@ -101,4 +110,45 @@ function describe(job: Job): string {
   if (job.status === "SUCCESS") return `finished: ${String(job.result).replaceAll("_", " ")}`;
   if (job.status === "STARTED") return "running…";
   return "queued…";
+}
+
+/** Which repo and Jira project runs work on, with links to both. */
+function ProjectCard({ project }: { project: Project }) {
+  return (
+    <dl className="mt-4 grid grid-cols-[4.5rem_1fr] gap-y-1.5 rounded-lg border border-line bg-canvas p-3 text-xs">
+      <dt className="text-muted">GitHub</dt>
+      <dd className="truncate">
+        {project.repo_url ? (
+          <a
+            href={project.repo_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-ink hover:underline"
+          >
+            {project.repo} ↗
+          </a>
+        ) : (
+          "not set"
+        )}
+      </dd>
+      <dt className="text-muted">Jira</dt>
+      <dd className="truncate">
+        {project.board_url ? (
+          <a
+            href={project.board_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-ink hover:underline"
+          >
+            {project.jira_project} board ↗
+          </a>
+        ) : (
+          (project.jira_project ?? "not set")
+        )}
+        {project.jira_site && (
+          <span className="text-muted"> · {new URL(project.jira_site).hostname}</span>
+        )}
+      </dd>
+    </dl>
+  );
 }
