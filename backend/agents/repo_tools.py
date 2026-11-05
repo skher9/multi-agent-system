@@ -9,12 +9,14 @@ File tools work on the host, locked to the repo folder. Commands run in the sand
 
 import json
 import re
+import shlex
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from services import sandbox_e2b
 from services.sandbox import SandboxLimits
 from services.workspace import Workspace
 
@@ -150,6 +152,7 @@ class RepoTools:
         self._root = workspace.path.resolve()
         self._typecheck_after_edit = typecheck_after_edit
         self.changed_files: set[str] = set()  # for the handoff: what the agent touched
+        self._installed = False  # packages: installed on first need (see _needs_packages)
         self._handlers: dict[str, Callable[[Any], str]] = {
             "list_files": self._list_files,
             "search": self._search,
@@ -200,15 +203,37 @@ class RepoTools:
             return [start]
         found = []
         for path in sorted(start.rglob("*")):
-            if SKIP_DIRS.intersection(path.relative_to(self._root).parts):
+            # Skip generated folders below the start, but not the start itself, so asking
+            # for node_modules/next/dist/docs directly works
+            if SKIP_DIRS.intersection(path.relative_to(start).parts):
                 continue
             found.append(path)
         return found
+
+    def _sandbox_only(self, path: Path) -> bool:
+        """True for paths that exist only in the E2B sandbox (node_modules, .next): there,
+        packages are installed in the sandbox and not copied back to the host."""
+        parts = path.relative_to(self._root).parts
+        return bool(parts) and parts[0] in sandbox_e2b.SANDBOX_ONLY and sandbox_e2b.enabled()
+
+    def _in_sandbox(self, command: str) -> str:
+        exit_code, output = self._sandbox(command, timeout_seconds=60)
+        if exit_code != 0 and not output:
+            raise ToolError("not found")
+        return output
 
     # --- Looking around ----------------------------------------------------
 
     def _list_files(self, args: ListFiles) -> str:
         start = self._resolve(args.path)
+        self._needs_packages(start)
+        if self._sandbox_only(start):
+            rel = shlex.quote(self._rel(start))
+            return self._in_sandbox(
+                f"test -d {rel} || {{ echo {rel} is not a folder; exit 1; }}; "
+                f"find {rel} -mindepth 1 -maxdepth 2 -not -path '*/node_modules/*/node_modules/*'"
+                f" | sort | head -n {MAX_LIST_ENTRIES}"
+            )
         if not start.is_dir():
             raise ToolError(f"{args.path!r} is not a folder")
         entries = [self._rel(p) + ("/" if p.is_dir() else "") for p in self._walk(start)]
@@ -219,6 +244,15 @@ class RepoTools:
 
     def _search(self, args: Search) -> str:
         start = self._resolve(args.path)
+        self._needs_packages(start)
+        if self._sandbox_only(start):
+            return (
+                self._in_sandbox(
+                    f"grep -rnIF -- {shlex.quote(args.text)} {shlex.quote(self._rel(start))}"
+                    f" | cut -c1-300 | head -n {MAX_SEARCH_MATCHES}"
+                )
+                or "no matches"
+            )
         matches = []
         for path in self._walk(start):
             if not path.is_file():
@@ -236,6 +270,16 @@ class RepoTools:
 
     def _read_file(self, args: ReadFile) -> str:
         path = self._resolve(args.path)
+        self._needs_packages(path)
+        if self._sandbox_only(path):
+            end = args.end_line or args.start_line + MAX_READ_LINES - 1
+            end = min(end, args.start_line + MAX_READ_LINES - 1)
+            rel = shlex.quote(self._rel(path))
+            return self._in_sandbox(
+                f"test -f {rel} || {{ echo {rel} is not a file; exit 1; }}; "
+                f"awk 'NR>={args.start_line} && NR<={end}"
+                f' {{ printf "%5d  %s\\n", NR, $0 }}\' {rel}'
+            )
         if not path.is_file():
             raise ToolError(f"{args.path!r} is not a file")
         try:
@@ -309,7 +353,16 @@ class RepoTools:
     def install(self) -> str:
         """Install the repo's packages; return "" on success, else the error output."""
         exit_code, output = self._sandbox(INSTALL)
+        self._installed = exit_code == 0
         return "" if exit_code == 0 else f"install failed (exit {exit_code}):\n{output}"
+
+    def _needs_packages(self, path: Path) -> None:
+        """Install packages the first time an agent looks inside node_modules, instead of
+        always up front: most plans never open library code, and installing takes time."""
+        parts = path.relative_to(self._root).parts
+        if not self._installed and parts and parts[0] == "node_modules":
+            if error := self.install():
+                raise ToolError(f"packages couldn't be installed: {error[-300:]}")
 
     def run_checks(self) -> list[str]:
         """Run every check in CHECKS; return the failures with their output (empty: all pass)."""

@@ -63,6 +63,7 @@ class EventKind(StrEnum):
     TOOL_CALL = "tool_call"  # data: role, tool, n, limit, arguments (shortened), code (file writes)
     FINISH_REJECTED = "finish_rejected"  # data: role, error (shortened)
     AGENT_FINISHED = "agent_finished"  # data: role, tool_calls
+    STEP = "step"  # data: role, text: plain-words progress between tool calls ("Cloning the repo")
     AGENT_THOUGHT = "agent_thought"  # data: role, text (the model's reasoning, shortened)
     RUN_PAUSED = "run_paused"  # data: waiting_for ("plan_approval")
     PLAN_DECIDED = "plan_decided"  # data: decision, feedback

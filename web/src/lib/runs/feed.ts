@@ -1,7 +1,7 @@
 /**
- * Turns one event into one line of the live feed on the right of the run window.
- * Returns null for events the feed doesn't show (box starts and finishes: the
- * pipeline on the left shows those).
+ * Turns one event into one line of the live feed in the run window, in plain words:
+ * box starts ("The planner is planning"), steps ("Cloning the repo"), thoughts, tool
+ * calls and results. Returns null for events the feed doesn't show.
  */
 
 import type { RunEvent } from "./types";
@@ -31,6 +31,50 @@ const TOOLS: Record<string, { label: string; argument?: string }> = {
   ask_senior: { label: "Asked the senior model:", argument: "question" },
 };
 
+// Each graph node (backend/orchestrator/graph.py): who does it and what it is, in words
+export const NODES: Record<string, { role: string; doing: string }> = {
+  fetch_ticket: { role: "reader", doing: "Fetching the ticket from Jira" },
+  read_ticket: { role: "reader", doing: "Reading the ticket" },
+  post_questions: { role: "reader", doing: "Posting questions on the ticket" },
+  plan: { role: "planner", doing: "Planning the change" },
+  post_conflicts: { role: "planner", doing: "Posting conflicts on the ticket" },
+  post_plan: { role: "planner", doing: "Posting the plan on the ticket" },
+  await_plan_approval: { role: "planner", doing: "Waiting for your approval" },
+  create_subtasks: { role: "planner", doing: "Creating Jira subtasks" },
+  develop: { role: "developer", doing: "Writing the code" },
+  verify: { role: "qa", doing: "Running checks and browser tests" },
+  open_pr: { role: "run", doing: "Opening the pull request" },
+  review: { role: "reviewer", doing: "Reviewing the changes" },
+  fix: { role: "developer", doing: "Fixing the review comments" },
+  post_review: { role: "reviewer", doing: "Posting the review on the PR" },
+  post_problem: { role: "run", doing: "Posting the problem on the ticket" },
+};
+
+function finishedLine(data: Record<string, unknown>): { title: string; detail: string } | null {
+  switch (data.node) {
+    case "fetch_ticket":
+      return { title: "Fetched the ticket", detail: String(data.summary ?? "") };
+    case "read_ticket":
+      return data.ticket_status === "ready"
+        ? { title: `Ticket is clear: ${data.criteria} acceptance criteria`, detail: "" }
+        : { title: `Ticket is unclear: ${data.questions} questions for the author`, detail: "" };
+    case "plan":
+      return { title: "Plan ready", detail: "" };
+    case "create_subtasks":
+      return { title: "Subtasks created in Jira", detail: "" };
+    case "develop":
+      return { title: "Code written and pushed", detail: "" };
+    case "verify":
+      return { title: "Checks and browser tests done", detail: "" };
+    case "open_pr":
+      return { title: "Pull request opened", detail: String(data.pr_url ?? "") };
+    case "review":
+      return { title: "Review done", detail: "" };
+    default:
+      return null;
+  }
+}
+
 // Final outcomes, from backend/orchestrator/graph.py
 const OUTCOMES: Record<string, string> = {
   ready_to_merge: "Done: PR reviewed and ready to merge",
@@ -51,6 +95,19 @@ export function feedItem(event: RunEvent): FeedItem | null {
   const role = String(event.data.role ?? "run");
   const base = { id: event.id, role, at: event.createdAt };
   switch (event.kind) {
+    case "node_started": {
+      const node = NODES[String(event.data.node)];
+      return node
+        ? { ...base, role: node.role, tone: "info", title: `${node.doing}…`, detail: "" }
+        : null;
+    }
+    case "node_finished": {
+      const line = finishedLine(event.data);
+      const node = NODES[String(event.data.node)];
+      return line ? { ...base, role: node?.role ?? "run", tone: "good", ...line } : null;
+    }
+    case "step":
+      return { ...base, tone: "info", title: `${String(event.data.text ?? "")}…`, detail: "" };
     case "agent_thought":
       return { ...base, tone: "thought", title: String(event.data.text ?? ""), detail: "" };
     case "tool_call": {

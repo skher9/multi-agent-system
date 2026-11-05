@@ -162,9 +162,12 @@ def test_run_ticket_records_the_whole_run(factory: sessionmaker[Session], projec
         assert timeline(session, feature.id) == [
             ("run_started", {"resumed": False}),
             ("node_started", {"node": "fetch_ticket"}),
-            ("node_finished", {"node": "fetch_ticket"}),
+            ("node_finished", {"node": "fetch_ticket", "summary": "Add a contact page"}),
             ("node_started", {"node": "read_ticket"}),
-            ("node_finished", {"node": "read_ticket"}),
+            (
+                "node_finished",
+                {"node": "read_ticket", "ticket_status": "blocked", "criteria": 0, "questions": 2},
+            ),
             ("node_started", {"node": "post_questions"}),
             ("node_finished", {"node": "post_questions"}),
             ("run_ended", {"outcome": "blocked"}),

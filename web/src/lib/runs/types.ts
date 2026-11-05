@@ -14,6 +14,7 @@ export type EventKind =
   | "finish_rejected"
   | "agent_finished"
   | "agent_thought"
+  | "step"
   | "run_paused"
   | "plan_decided"
   | "run_ended"
@@ -27,10 +28,19 @@ export type RunEvent = {
   createdAt: string; // ISO time
 };
 
+export type RunLinks = {
+  ticketUrl: string | null;
+  boardUrl: string | null;
+  repo: string | null;
+  repoUrl: string | null;
+  branchUrl: string | null;
+};
+
 export type RunView = {
   ticket: string; // Jira key, e.g. KAN-12
   title: string;
   prUrl: string | null;
+  links?: RunLinks; // live runs only; the sample has none
   costInr: number; // every model call of this run so far
   events: RunEvent[];
 };

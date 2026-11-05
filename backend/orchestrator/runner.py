@@ -83,6 +83,11 @@ def open_pr(pipeline: Pipeline, branch: str, title: str, body: str) -> tuple[int
     return pr.number, pr.url
 
 
+def step(on_event: EventSink, role: str, text: str) -> None:
+    """A plain-words progress line for the run window, for work that has no tool calls."""
+    on_event(EventKind.STEP, {"role": role, "text": text})
+
+
 def make_plan(
     pipeline: Pipeline,
     spec: TicketSpec,
@@ -93,23 +98,24 @@ def make_plan(
     """Clone the repo, load (or build) its code graph, and run the planner on it."""
     if pipeline.storage is None or not pipeline.repo_url:
         raise RuntimeError("planning needs the pipeline's storage and repo_url")
-    with (
-        Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace,
-        open_code_graph(
+    step(on_event, Role.PLANNER, "Cloning the repo")
+    with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
+        step(on_event, Role.PLANNER, "Loading the code map (files, functions, imports)")
+        with open_code_graph(
             pipeline.factory, pipeline.storage, pipeline.project_id, workspace
-        ) as graph,
-    ):
-        plan = plan_ticket(
-            pipeline.router,
-            spec,
-            workspace,
-            graph,
-            agent_run_id=agent_run_id,
-            feedback=feedback,
-            rules=project_rules(pipeline.factory, pipeline.project_id),
-            on_event=on_event,
-        )
-        return plan, graph.commit_sha
+        ) as graph:
+            step(on_event, Role.PLANNER, "Reading the code to plan the change")
+            plan = plan_ticket(
+                pipeline.router,
+                spec,
+                workspace,
+                graph,
+                agent_run_id=agent_run_id,
+                feedback=feedback,
+                rules=project_rules(pipeline.factory, pipeline.project_id),
+                on_event=on_event,
+            )
+            return plan, graph.commit_sha
 
 
 def make_code(
@@ -132,9 +138,16 @@ def make_code(
     summaries: list[str] = []
     changed: set[str] = set()
     head = ""
+    step(on_event, Role.DEVELOPER, "Cloning the repo")
     with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
         workspace.create_branch(branch, start=commit_sha)
-        for subtask in plan.subtasks:
+        for number, subtask in enumerate(plan.subtasks, start=1):
+            step(
+                on_event,
+                Role.DEVELOPER,
+                f"Building subtask {number} of {len(plan.subtasks)}:"
+                f" [{subtask.area}] {subtask.title}",
+            )
             dev = develop_ticket(
                 pipeline.router,
                 spec,
@@ -157,6 +170,7 @@ def make_code(
         if not head:
             raise RuntimeError("the developer finished without changing any files")
         # replace: the branch is ours; a rerun after a crash builds it again from scratch
+        step(on_event, Role.DEVELOPER, f"Pushing the branch {branch}")
         workspace.push(branch, replace=True)
     return DevResult(summary="\n\n".join(summaries), changed_files=sorted(changed)), branch, head
 
@@ -173,6 +187,7 @@ def make_review(
     on_event: EventSink = ignore_events,
 ) -> Review:
     """Clone, switch to the agent's branch, and review it against the planned commit."""
+    step(on_event, Role.REVIEWER, f"Reading the changes on {branch}")
     with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
         workspace.checkout(branch)
         return review_changes(
@@ -200,6 +215,7 @@ def make_fix(
     on_event: EventSink = ignore_events,
 ) -> tuple[DevResult, str]:
     """Clone the agent's branch, fix the review's issues, commit on top and push."""
+    step(on_event, Role.DEVELOPER, f"Fixing {len(review.issues)} review comment(s)")
     with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
         workspace.checkout(branch)
         dev = develop_ticket(
@@ -422,8 +438,16 @@ def run_ticket(
                     logger.info("%s: finished %s", ticket_key, node)
                     finished: dict[str, Any] = {"node": node}
                     update = cast(dict[str, Any], chunk)[node]
-                    if isinstance(update, dict) and update.get("pr_url"):
-                        finished["pr_url"] = update["pr_url"]  # the run window links to it
+                    if isinstance(update, dict):
+                        finished |= _what_the_window_shows(update)
+                        if ticket := update.get("ticket"):
+                            # The title shows from the start, not only once the run ends
+                            update_feature(
+                                pipeline.factory,
+                                feature_id,
+                                status="running",
+                                title=f"{ticket_key}: {ticket['summary']}",
+                            )
                     event(EventKind.NODE_FINISHED, finished)
             else:
                 final = cast(dict[str, Any], chunk)
@@ -449,3 +473,18 @@ def _status(saved: Any) -> str:
     if saved is None or not saved.values:
         return "new"
     return str(saved.values.get("outcome", "failed"))
+
+
+def _what_the_window_shows(update: dict[str, Any]) -> dict[str, Any]:
+    """The few facts from a finished box that the run window prints: the ticket's
+    title, the reader's verdict, the PR's address."""
+    shown: dict[str, Any] = {}
+    if ticket := update.get("ticket"):
+        shown["summary"] = ticket["summary"]
+    if spec := update.get("spec"):
+        shown["ticket_status"] = spec["status"]
+        shown["criteria"] = len(spec["acceptance_criteria"])
+        shown["questions"] = len(spec["questions"])
+    if update.get("pr_url"):
+        shown["pr_url"] = update["pr_url"]
+    return shown

@@ -78,6 +78,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Project */
+        get: operations["get_project_project_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/realtime/test": {
         parameters: {
             query?: never;
@@ -241,6 +258,22 @@ export interface components {
              */
             feedback: string;
         };
+        /**
+         * ProjectLinks
+         * @description Where a run's work lives, so the run window can link to it.
+         */
+        ProjectLinks: {
+            /** Repo */
+            repo: string | null;
+            /** Repo Url */
+            repo_url: string | null;
+            /** Jira Site */
+            jira_site: string | null;
+            /** Jira Project */
+            jira_project: string | null;
+            /** Board Url */
+            board_url: string | null;
+        };
         /** RunRequest */
         RunRequest: {
             /** Ticket */
@@ -280,6 +313,11 @@ export interface components {
             ticket: string;
             /** Title */
             title: string;
+            /** Ticket Url */
+            ticket_url: string | null;
+            /** Branch Url */
+            branch_url: string | null;
+            project: components["schemas"]["ProjectLinks"];
             /** Status */
             status: string;
             /** Pr Url */
@@ -448,6 +486,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_project_project_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectLinks"];
                 };
             };
             /** @description Validation Error */

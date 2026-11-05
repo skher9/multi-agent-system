@@ -23,13 +23,19 @@ const ROLE_STYLE: Record<string, string> = {
 const RUN_STYLE = "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
 
 /** What the agents think and do, oldest at the top; keeps the newest line in view. */
-export function Feed({ items }: { items: FeedItem[] }) {
+export function Feed({
+  items,
+  thinkingRole = null,
+}: {
+  items: FeedItem[];
+  thinkingRole?: string | null; // live runs: who is working now, shown as typing dots
+}) {
   const box = useRef<HTMLOListElement>(null);
 
   useEffect(() => {
     const el = box.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [items.length]);
+  }, [items.length, thinkingRole]);
 
   return (
     <ol
@@ -70,6 +76,24 @@ export function Feed({ items }: { items: FeedItem[] }) {
           </span>
         </li>
       ))}
+      {thinkingRole && (
+        <li className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted">
+          <span aria-hidden className="w-5 shrink-0 text-center">
+            💭
+          </span>
+          <span
+            className={`rounded px-1.5 py-0.5 text-xs font-medium ${ROLE_STYLE[thinkingRole] ?? RUN_STYLE}`}
+          >
+            {thinkingRole}
+          </span>
+          <span>is working</span>
+          <span className="flex gap-0.5" aria-hidden>
+            <span className="size-1 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
+            <span className="size-1 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
+            <span className="size-1 animate-bounce rounded-full bg-current" />
+          </span>
+        </li>
+      )}
     </ol>
   );
 }

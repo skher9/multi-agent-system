@@ -190,3 +190,49 @@ def test_delete_file_removes_it_and_records_the_change(tools: RepoTools, repo: P
     assert tools.changed_files == {"old.ts"}
     assert call(tools, "delete_file", path="old.ts").startswith("ERROR")
     assert call(tools, "delete_file", path="../outside.ts").startswith("ERROR")
+
+
+def test_listing_inside_node_modules_directly_works(tools: RepoTools) -> None:
+    tools._installed = True  # this fixture's node_modules is already on disk
+    assert tools.call("list_files", '{"path": "node_modules/pkg"}') == "node_modules/pkg/index.js"
+    # From the root, node_modules is still skipped
+    assert "node_modules" not in tools.call("list_files", '{"path": "."}')
+
+
+def test_with_e2b_node_modules_is_read_in_the_sandbox(
+    tools: RepoTools, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from services import sandbox_e2b
+
+    sent: list[str] = []
+
+    def fake_sandbox(command: str, timeout_seconds: int = 60) -> tuple[int, str]:
+        sent.append(command)
+        return 0, "    1  docs here"
+
+    monkeypatch.setattr(sandbox_e2b, "enabled", lambda: True)
+    monkeypatch.setattr(tools, "_sandbox", fake_sandbox)
+    out = tools.call("read_file", '{"path": "node_modules/next/dist/docs/x.md", "start_line": 1}')
+    assert out == "    1  docs here"
+    assert sent[0].startswith("pnpm install")  # installed on first look, not up front
+    assert "node_modules/next/dist/docs/x.md" in sent[1]
+    tools.call("search", '{"text": "a; rm -rf /", "path": "node_modules"}')
+    assert "'a; rm -rf /'" in sent[2]  # quoted, never run as shell
+    # Normal repo files still come from the host, and nothing installs twice
+    assert "Hi" in tools.call("read_file", '{"path": "src/app/page.tsx"}')
+    assert len(sent) == 3
+
+
+def test_packages_install_only_when_node_modules_is_opened(
+    tools: RepoTools, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    installs: list[str] = []
+    monkeypatch.setattr(
+        tools, "_sandbox", lambda c, timeout_seconds=0: installs.append(c) or (0, "")
+    )
+    tools.call("read_file", '{"path": "src/app/page.tsx"}')
+    tools.call("list_files", '{"path": "src"}')
+    assert installs == []
+    tools.call("list_files", '{"path": "node_modules/pkg"}')
+    tools.call("read_file", '{"path": "node_modules/pkg/index.js"}')
+    assert installs == ["pnpm install --frozen-lockfile --prefer-offline"]

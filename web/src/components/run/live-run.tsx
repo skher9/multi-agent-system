@@ -53,8 +53,15 @@ export function LiveRun() {
       }));
       current = {
         ticket: data.ticket,
-        title: data.title === data.ticket ? "" : data.title.replace(`${data.ticket}: `, ""),
+        title: data.title === data.ticket ? "" : data.title,
         prUrl: data.pr_url ?? null,
+        links: {
+          ticketUrl: data.ticket_url ?? null,
+          boardUrl: data.project.board_url ?? null,
+          repo: data.project.repo ?? null,
+          repoUrl: data.project.repo_url ?? null,
+          branchUrl: data.branch_url ?? null,
+        },
         costInr: data.cost_inr,
         events: [...(current?.events ?? []), ...fresh],
       };
@@ -73,6 +80,15 @@ export function LiveRun() {
     };
   }, [ticket]);
 
+  // The browser tab says how the run is doing, so it can be watched from another tab
+  const tabTitle =
+    state.kind !== "run"
+      ? `${ticket} · Agent Dev Team`
+      : `${state.stopped ? endMark(state.run) : "● Running"} · ${ticket}`;
+  useEffect(() => {
+    document.title = tabTitle;
+  }, [tabTitle]);
+
   if (state.kind === "loading") return <p className="text-sm text-muted">Loading the run…</p>;
   if (state.kind === "waiting")
     return (
@@ -86,7 +102,7 @@ export function LiveRun() {
     <div className="space-y-3">
       <p className="flex items-center gap-2 text-sm text-muted">
         {state.stopped ? (
-          <>Run finished.</>
+          <>Run stopped. Scroll the feed to see every step.</>
         ) : (
           <>
             <span className="size-2 animate-pulse rounded-full bg-accent" /> Live: updates every 2
@@ -97,7 +113,14 @@ export function LiveRun() {
           All runs
         </Link>
       </p>
-      <RunWindow run={state.run} live />
+      <RunWindow run={state.run} live stopped={state.stopped} />
     </div>
   );
+}
+
+function endMark(run: RunView): string {
+  const end = [...run.events].reverse().find((e) => STOPPED.includes(e.kind));
+  if (end?.kind === "run_failed") return "✗ Failed";
+  if (end?.kind === "run_paused") return "⏸ Needs approval";
+  return end?.data.outcome === "ready_to_merge" ? "✓ PR ready" : "! Needs you";
 }

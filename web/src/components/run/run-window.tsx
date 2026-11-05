@@ -8,6 +8,8 @@ import type { RunView } from "@/lib/runs/types";
 
 import { CodePanel } from "./code-panel";
 import { Feed } from "./feed";
+import { NowBar } from "./now-bar";
+import { ResultCard } from "./result-card";
 import { Pipeline } from "./pipeline";
 
 // Replay pacing: real gaps are minutes long, so squeeze each into this range.
@@ -40,19 +42,23 @@ export function RunWindow({
   run,
   replay = false,
   live = false,
+  stopped = false,
 }: {
   run: RunView;
   replay?: boolean;
   live?: boolean;
+  stopped?: boolean; // live runs: it ended, failed or paused
 }) {
   const total = run.events.length;
   const [shown, setShown] = useState(replay ? 0 : total);
 
   useEffect(() => {
     if (shown >= total) return;
-    const timer = setTimeout(() => setShown((n) => n + 1), delayBefore(run, shown));
+    // Live: show what arrived at once (a short stagger keeps it readable); replay: paced
+    const wait = live ? 60 : delayBefore(run, shown);
+    const timer = setTimeout(() => setShown((n) => n + 1), wait);
     return () => clearTimeout(timer);
-  }, [run, shown, total]);
+  }, [run, shown, total, live]);
 
   const events = useMemo(() => run.events.slice(0, shown), [run, shown]);
   const stages = useMemo(() => stagesFrom(events), [events]);
@@ -61,14 +67,20 @@ export function RunWindow({
     [events],
   );
   const finished = shown >= total;
+  const working = live && !stopped;
+  const thinkingRole = working ? lastRole(events) : null;
   const showNumbers = finished || live;
 
   return (
     <section className="space-y-4">
       <header className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-800">
-        <h1 className="mr-auto text-lg font-semibold">
-          <span className="font-mono text-gray-500">{run.ticket}</span> {run.title}
-        </h1>
+        <div className="mr-auto min-w-0">
+          <h1 className="text-lg font-semibold">
+            <span className="font-mono text-gray-500">{run.ticket}</span>{" "}
+            {run.title || (live ? "Fetching the ticket…" : "")}
+          </h1>
+          {run.links && <RunLinksRow run={run} />}
+        </div>
         <Stat label="Cost">{showNumbers ? `₹${run.costInr.toFixed(2)}` : "…"}</Stat>
         <Stat label="Time">{duration(run, shown)}</Stat>
         <Stat label="PR">
@@ -102,9 +114,12 @@ export function RunWindow({
         )}
       </header>
 
+      {working && <NowBar events={events} />}
+      {live && stopped && <ResultCard run={run} events={events} />}
+
       <div className="grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)_minmax(0,1.2fr)]">
         <Pipeline stages={stages} />
-        <Feed items={items} />
+        <Feed items={items} thinkingRole={thinkingRole} />
         <div className="md:col-span-2 xl:col-span-1">
           <CodePanel events={events} />
         </div>
@@ -119,5 +134,41 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
       <span className="text-gray-500">{label} </span>
       <span className="font-medium tabular-nums">{children}</span>
     </span>
+  );
+}
+
+function lastRole(events: RunView["events"]): string {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const role = events[i]?.data.role;
+    if (typeof role === "string") return role;
+  }
+  return "reader";
+}
+
+/** Where the work lives: the Jira ticket and board, the repo, the agent's branch. */
+function RunLinksRow({ run }: { run: RunView }) {
+  const links = run.links;
+  if (!links) return null;
+  const items = [
+    { label: "Jira ticket", href: links.ticketUrl },
+    { label: "Board", href: links.boardUrl },
+    { label: links.repo ?? "Repo", href: links.repoUrl },
+    { label: `Branch agent/${run.ticket}`, href: links.branchUrl },
+    { label: "Pull request", href: run.prUrl },
+  ].filter((item): item is { label: string; href: string } => Boolean(item.href));
+  return (
+    <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+      {items.map((item) => (
+        <a
+          key={item.label}
+          href={item.href}
+          target="_blank"
+          rel="noreferrer"
+          className="text-muted underline-offset-4 hover:text-ink hover:underline"
+        >
+          {item.label} ↗
+        </a>
+      ))}
+    </p>
   );
 }
