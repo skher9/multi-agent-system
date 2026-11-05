@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { LiveRun } from "@/components/run/live-run";
-import { SiteFooter, SiteNav } from "@/components/site";
+import { AppNav } from "@/components/app-nav";
+import { SiteFooter } from "@/components/site";
 
 export const metadata: Metadata = { title: "Live run" };
 
@@ -10,7 +11,7 @@ export const metadata: Metadata = { title: "Live run" };
 export default function LiveRunPage() {
   return (
     <>
-      <SiteNav />
+      <AppNav />
       <main className="mx-auto max-w-6xl space-y-4 px-4 py-10">
         <Suspense fallback={<p className="text-sm text-muted">Loading the run…</p>}>
           <LiveRun />

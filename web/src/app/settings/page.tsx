@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 
+import { AppNav } from "@/components/app-nav";
 import { DeleteAccount } from "@/components/delete-account";
-import { SignOutButton } from "@/components/sign-out-button";
-import { SiteNav } from "@/components/site";
 import { verifySession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -13,14 +11,7 @@ export const metadata: Metadata = { title: "Settings" };
 export default function SettingsPage() {
   return (
     <>
-      <SiteNav>
-        <div className="ml-auto flex items-center gap-4">
-          <Link href="/dashboard" className="text-sm text-muted hover:text-ink">
-            Dashboard
-          </Link>
-          <SignOutButton />
-        </div>
-      </SiteNav>
+      <AppNav />
       <main className="mx-auto max-w-2xl space-y-6 px-4 py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <Suspense fallback={<div className="h-28 animate-pulse rounded-2xl bg-surface" />}>

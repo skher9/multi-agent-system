@@ -93,8 +93,8 @@ export function LiveRun() {
             seconds
           </>
         )}
-        <Link href="/dashboard" className="ml-auto hover:text-ink">
-          Back to dashboard
+        <Link href="/runs" className="ml-auto hover:text-ink">
+          All runs
         </Link>
       </p>
       <RunWindow run={state.run} live />

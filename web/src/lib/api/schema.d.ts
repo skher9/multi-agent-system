@@ -102,7 +102,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Recent Runs
+         * @description The latest runs, newest first, for the dashboard.
+         */
+        get: operations["recent_runs_runs_get"];
         put?: never;
         /**
          * Start Run
@@ -246,6 +250,29 @@ export interface components {
              * @default false
              */
             approve_plan: boolean;
+        };
+        /** RunSummary */
+        RunSummary: {
+            /** Ticket */
+            ticket: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Pr Url */
+            pr_url: string | null;
+            /** Cost Inr */
+            cost_inr: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** RunTimeline */
         RunTimeline: {
@@ -452,6 +479,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TestEventSent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recent_runs_runs_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunSummary"][];
                 };
             };
             /** @description Validation Error */

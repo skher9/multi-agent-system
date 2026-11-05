@@ -311,6 +311,58 @@
             }
           }
         }
+      },
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Recent Runs",
+        "description": "The latest runs, newest first, for the dashboard.",
+        "operationId": "recent_runs_runs_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunSummary"
+                  },
+                  "title": "Response Recent Runs Runs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/runs/{ticket}/events": {
@@ -637,6 +689,58 @@
           "ticket"
         ],
         "title": "RunRequest"
+      },
+      "RunSummary": {
+        "properties": {
+          "ticket": {
+            "type": "string",
+            "title": "Ticket"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "pr_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pr Url"
+          },
+          "cost_inr": {
+            "type": "number",
+            "title": "Cost Inr"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticket",
+          "title",
+          "status",
+          "pr_url",
+          "cost_inr",
+          "started_at",
+          "updated_at"
+        ],
+        "title": "RunSummary"
       },
       "RunTimeline": {
         "properties": {

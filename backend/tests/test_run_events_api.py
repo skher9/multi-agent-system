@@ -63,3 +63,15 @@ def test_unknown_ticket_is_404(factory: sessionmaker[Session]) -> None:
 
 def test_bad_ticket_key_is_422() -> None:
     assert client.get("/runs/not-a-key/events").status_code == 422
+
+
+def test_recent_runs_lists_the_ticket_with_its_pr(
+    ticket: tuple[str, int], factory: sessionmaker[Session]
+) -> None:
+    key, feature_id = ticket
+    url = "https://github.com/o/r/pull/3"
+    record_event(factory, feature_id, EventKind.NODE_FINISHED, {"node": "open_pr", "pr_url": url})
+    runs = client.get("/runs").json()
+    mine = next(r for r in runs if r["ticket"] == key)
+    assert mine["pr_url"] == url
+    assert mine["cost_inr"] == 0
