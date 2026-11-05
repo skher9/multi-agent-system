@@ -21,7 +21,7 @@ from llm_router.budget import (
     DailySpendLookup,
     SpendLookup,
 )
-from llm_router.models import Role, model_for
+from llm_router.models import REASONING_EFFORT, Role, model_for
 from services.openrouter import ChatResponse, OpenRouterClient, OpenRouterError
 
 logger = logging.getLogger(__name__)
@@ -117,6 +117,7 @@ class LlmRouter:
                     response_format=response_format,
                     session_id=f"agent-run-{agent_run_id}",
                     max_tokens=max_tokens,
+                    reasoning_effort=None if escalate else REASONING_EFFORT.get(role),
                 )
                 break
             except OpenRouterError as exc:

@@ -215,10 +215,10 @@ def test_planner_can_look_but_not_touch(
     assert "1. src/app/page.tsx: Home()" in task  # ranked from graph.json
     offered = [t["function"]["name"] for t in first["tools"]]
     assert offered == [
-        "list_files", "search", "read_file",
+        "list_files", "search", "read_file", "load_skill",
         "graph_query", "graph_explain", "graph_affected", "ask_senior", "finish",
     ]  # fmt: skip
-    assert first["model"] == "minimax/minimax-m3"
+    assert first["model"] == "deepseek/deepseek-v4.1-flash"
     assert json.dumps(first).count("edit_file") == 0
 
 

@@ -121,3 +121,42 @@ def test_an_agent_turn_stops_at_its_role_cap() -> None:
     )
     with pytest.raises(AgentBudgetExceededError, match="developer budget used"):
         router.complete(role=Role.DEVELOPER, messages=[], agent_run_id=1)
+
+
+def test_skills_catalog_and_loading(repo: Path) -> None:
+    (repo / "package.json").write_text(json.dumps({"devDependencies": {"vitest": "5"}}))
+    text = project_context(repo, ["package.json"])
+    assert "<skills>" in text and "testing-unit" in text
+    assert "nextjs-app-router" not in text  # next isn't in this package.json
+    t = tools(repo)
+    assert "afterEach(cleanup)" in t.call("load_skill", '{"name": "testing-unit"}')
+    assert "already loaded" in t.call("load_skill", '{"name": "testing-unit"}')
+    assert "no skill" in t.call("load_skill", '{"name": "nextjs-app-router"}')
+
+
+def test_files_handed_over_count_as_read(repo: Path) -> None:
+    t = tools(repo)
+    t.mark_given(["src/page.tsx"])
+    assert "given to you in full above" in t.call("read_file", '{"path": "src/page.tsx"}')
+    (repo / "src" / "page.tsx").write_text("changed since\n")
+    assert "changed since" in t.call("read_file", '{"path": "src/page.tsx"}')
+
+
+def test_each_role_sends_its_reasoning_effort() -> None:
+    sent: list[dict[str, Any]] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        sent.append(json.loads(request.content))
+        return httpx2.Response(200, json=reply())
+
+    router = LlmRouter(
+        OpenRouterClient("k", transport=httpx2.MockTransport(handler)),
+        lambda _record: None,
+        Decimal("96.5"),
+        story_spend=lambda _id: Decimal("0"),
+        story_budget_inr=Decimal("50"),
+    )
+    router.complete(role=Role.DEVELOPER, messages=[], agent_run_id=1)
+    router.complete(role=Role.PLANNER, messages=[], agent_run_id=1)
+    router.complete(role=Role.PLANNER, messages=[], agent_run_id=1, escalate=True)
+    assert [s.get("reasoning") for s in sent] == [{"effort": "low"}, {"effort": "medium"}, None]

@@ -16,6 +16,8 @@ Files listed in CONTEXT_FILES are answered from here when an agent asks to read 
 import json
 from pathlib import Path
 
+from agents import skills
+
 # Small files that describe the project rather than implement it
 CONTEXT_FILES = (
     "AGENTS.md",
@@ -56,6 +58,8 @@ def project_context(root: Path, tracked_files: list[str]) -> str:
     if len(tracked_files) > MAX_TREE_FILES:
         tree += f"\n... ({len(tracked_files) - MAX_TREE_FILES} more; use list_files)"
     parts.append(f"<file_tree>\n{tree}\n</file_tree>")
+    if catalog := skills.catalog(root):
+        parts.append(catalog)
     parts.append("</project_context>")
     return "\n\n".join(parts)
 

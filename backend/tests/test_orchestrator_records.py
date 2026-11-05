@@ -91,7 +91,7 @@ def test_agent_run_marks_done_and_counts_attempts(
         assert task.status == "done"
         run = session.get_one(AgentRun, first_run)
         assert run.status == "done"
-        assert run.model == "minimax/minimax-m3"
+        assert run.model == "deepseek/deepseek-v4.1-flash"
         assert run.ended_at is not None and run.started_at is not None
 
 

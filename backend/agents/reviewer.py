@@ -80,6 +80,7 @@ def review_changes(
     review starts from a clean, independent view. previous: the last review, on a
     re-review after fixes."""
     repo = RepoTools(workspace, typecheck_after_edit=False, context_given=True)
+    repo.mark_given(changed_paths(workspace.diff(base_sha)))
 
     def handle(name: str, arguments: str) -> str:
         if name in READ_ONLY_TOOLS:

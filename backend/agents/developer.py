@@ -100,6 +100,7 @@ def develop_ticket(
         require_test = False
     # Has <project_context>; browser tests are QA's job
     tools = RepoTools(workspace, browser_tests=False, context_given=True)
+    tools.mark_given(given_paths(workspace.path, plan))
     if error := tools.install():
         raise DeveloperError(error)
     done = run_agent(
@@ -291,6 +292,10 @@ Stay inside the plan:
 def plan_files(root: Path, plan: Plan) -> str:
     """The plan's files as they are now: the developer starts with them instead of reading
     each one (the planner already did, and earlier subtasks may have made some)."""
-    # Every planned file that exists now: the originals, and files earlier subtasks made
-    paths = [c.path for c in plan.changes if c.action != "delete" and (root / c.path).is_file()]
+    paths = given_paths(root, plan)
     return "<plan_files>\n" + (file_blocks(root, paths) or "(none yet)") + "\n</plan_files>"
+
+
+def given_paths(root: Path, plan: Plan) -> list[str]:
+    """Every planned file that exists now: the originals, and files earlier subtasks made."""
+    return [c.path for c in plan.changes if c.action != "delete" and (root / c.path).is_file()]

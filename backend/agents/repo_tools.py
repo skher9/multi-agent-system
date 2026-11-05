@@ -17,6 +17,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from agents import skills
 from agents.project_context import context_files
 from services import sandbox_e2b
 from services.sandbox import SandboxLimits
@@ -109,6 +110,13 @@ class Run(ToolArgs):
     command: str
 
 
+class LoadSkill(ToolArgs):
+    """Load a skill from <skills>: short, checked know-how for this repo (e.g. how unit
+    tests work here). Cheaper and more exact than reading library docs."""
+
+    name: str
+
+
 class RunTests(ToolArgs):
     """Run the unit tests and get a pass/fail list with failure messages."""
 
@@ -122,12 +130,13 @@ TOOL_ARGS: dict[str, type[ToolArgs]] = {
     "delete_file": DeleteFile,
     "run": Run,
     "run_tests": RunTests,
+    "load_skill": LoadSkill,
 }
 
 
 # The tools that only look: what the planner gets. RepoTools.call runs any tool, so
 # the planner's dispatcher checks names against this before calling it.
-READ_ONLY_TOOLS = ("list_files", "search", "read_file")
+READ_ONLY_TOOLS = ("list_files", "search", "read_file", "load_skill")
 
 
 def tool_definitions() -> list[dict[str, Any]]:
@@ -177,6 +186,7 @@ class RepoTools:
         self._reads: dict[str, tuple[int, str]] = {}  # path -> (call number, content hash)
         self._calls = 0
         self._library_reads = 0
+        self._skills_loaded: set[str] = set()
         self.changed_files: set[str] = set()  # for the handoff: what the agent touched
         self._installed = False  # packages: installed on first need (see _needs_packages)
         self._handlers: dict[str, Callable[[Any], str]] = {
@@ -188,6 +198,7 @@ class RepoTools:
             "delete_file": self._delete_file,
             "run": self._run,
             "run_tests": self._run_tests,
+            "load_skill": self._load_skill,
         }
 
     def call(self, name: str, arguments: str) -> str:
@@ -236,6 +247,14 @@ class RepoTools:
                 continue
             found.append(path)
         return found
+
+    def mark_given(self, paths: list[str]) -> None:
+        """Files handed to the agent in its task (e.g. <plan_files>, <changed_files>):
+        reading them again while unchanged is answered with "given above"."""
+        for rel in paths:
+            path = self._root / rel
+            if path.is_file():
+                self._reads[rel] = (0, hashlib.sha256(path.read_bytes()).hexdigest())
 
     def _sandbox_only(self, path: Path) -> bool:
         """True for paths that exist only in the E2B sandbox (node_modules, .next): there,
@@ -308,6 +327,8 @@ class RepoTools:
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             seen = self._reads.get(rel)
             if seen and seen[1] == digest:
+                if seen[0] == 0:
+                    return f"{rel} was given to you in full above, unchanged since: use that."
                 return (
                     f"{rel} is unchanged since you read it in full at tool call {seen[0]}: "
                     "it is still above in this conversation, use that copy."
@@ -334,6 +355,16 @@ class RepoTools:
         shown = [f"{n:>5}  {lines[n - 1]}" for n in range(args.start_line, end + 1)]
         footer = f"\n(lines {args.start_line}-{end} of {len(lines)})" if end < len(lines) else ""
         return ("\n".join(shown) or "(empty file)") + footer
+
+    def _load_skill(self, args: LoadSkill) -> str:
+        if args.name in self._skills_loaded:
+            return f"The {args.name} skill is already loaded above in this conversation."
+        try:
+            body = skills.load(self._root, args.name)
+        except KeyError as exc:
+            raise ToolError(str(exc.args[0])) from exc
+        self._skills_loaded.add(args.name)
+        return body
 
     # --- Changing files ----------------------------------------------------
 

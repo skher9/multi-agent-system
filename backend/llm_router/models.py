@@ -35,6 +35,20 @@ MODELS: dict[Role, str] = {
 }
 
 # Used only when a task has failed twice (System Design doc), for any role.
+# How long each role thinks per call. Reasoning is billed as output, ~40% of the cost in
+# the benchmark. DeepSeek ignores a reasoning token cap but honours effort: "low" cut a
+# planning answer's reasoning from 5,893 to 1,914 tokens with an equally complete
+# answer. Judgment-heavy roles keep "medium". The escalation model uses its default.
+REASONING_EFFORT: dict[Role, str] = {
+    Role.TICKET_READER: "low",
+    Role.PLANNER: "medium",
+    Role.DEVELOPER: "low",
+    Role.REVIEWER: "medium",
+    Role.FIXER: "low",
+    Role.QA: "low",
+    Role.LEARNER: "low",
+}
+
 # The strongest DeepSeek model: when a task failed twice, and for ask_senior
 ESCALATION_MODEL = "deepseek/deepseek-v4-pro"
 
