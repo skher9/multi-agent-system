@@ -8,6 +8,7 @@ Secrets use SecretStr so they never appear in logs, errors, or repr().
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,8 +23,11 @@ class Settings(BaseSettings):
         extra="ignore",  # ignore unknown variables instead of failing
     )
 
-    # Browser origins allowed to call the API (the Next.js dev server)
+    # Browser origins allowed to call the API (the Next.js dev server; the live site in production)
     cors_origins: list[str] = ["http://localhost:3000"]
+    # The website whose login tokens the API accepts (api/auth.py), e.g.
+    # https://agent-dev-team-jade.vercel.app. Unset = protected endpoints refuse everyone.
+    website_url: str | None = None
 
     # Neon Postgres (connection strings contain the password)
     database_url: SecretStr | None = None
@@ -51,6 +55,11 @@ class Settings(BaseSettings):
     # OpenRouter
     openrouter_api_key: SecretStr | None = None
 
+    # Where agent code runs: "docker" (local, default) or "e2b" (cloud microVMs, for
+    # hosts without Docker such as Railway). E2B needs its API key.
+    sandbox_backend: Literal["docker", "e2b"] = "docker"
+    e2b_api_key: SecretStr | None = None
+
     # Jira Cloud: where v1 tickets come from (basic auth: account email + API token)
     jira_base_url: str | None = None  # e.g. https://your-site.atlassian.net
     jira_email: str | None = None
@@ -65,6 +74,8 @@ class Settings(BaseSettings):
     usd_to_inr: Decimal = Decimal("96.5")
     # Budget guard: a story run (one feature, all its tasks together) stops past this.
     story_budget_inr: Decimal = Decimal("50")
+    # All runs together, last 24 hours. Hidden from visitors; protects the bill.
+    daily_budget_inr: Decimal = Decimal("300")
 
 
 @lru_cache

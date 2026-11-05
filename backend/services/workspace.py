@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from services import sandbox
+from services import sandbox, sandbox_e2b
 from services.sandbox import SandboxLimits, SandboxResult
 
 SHA = re.compile(r"[0-9a-f]{40}")  # a full git commit id
@@ -64,6 +64,7 @@ class Workspace:
             workspace._git("clone", "--quiet", remote_url, str(workspace.path), cwd=parent)
             yield workspace
         finally:
+            sandbox_e2b.close(parent / "repo")  # its cloud sandbox, if E2B is on
             shutil.rmtree(parent, ignore_errors=True)
 
     def head_sha(self) -> str:

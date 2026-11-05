@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { SignOutButton } from "@/components/sign-out-button";
+import { StartRun } from "@/components/start-run";
 import { SiteNav } from "@/components/site";
 import { verifySession } from "@/lib/session";
 
@@ -93,38 +94,6 @@ function RunsList() {
       <p className="border-t border-line px-5 py-4 text-sm text-muted">
         Your own runs will show up here once you start one.
       </p>
-    </section>
-  );
-}
-
-function StartRun() {
-  return (
-    <section className="h-fit rounded-2xl border border-line bg-surface p-5">
-      <h2 className="font-medium">Start a run</h2>
-      <p className="mt-1 text-sm text-muted">
-        Describe a small change to the demo repo. Agents take it from there.
-      </p>
-      <form className="mt-5 space-y-3">
-        <input
-          disabled
-          placeholder="Title, e.g. Add a dark mode toggle"
-          className="h-10 w-full rounded-lg border border-line bg-canvas px-3 text-sm placeholder:text-muted disabled:opacity-60"
-        />
-        <textarea
-          disabled
-          rows={4}
-          placeholder="What should it do? One criterion per line."
-          className="w-full resize-none rounded-lg border border-line bg-canvas px-3 py-2 text-sm placeholder:text-muted disabled:opacity-60"
-        />
-        <button
-          type="button"
-          disabled
-          className="h-10 w-full rounded-lg bg-accent font-medium text-accent-ink opacity-50"
-        >
-          Start run
-        </button>
-      </form>
-      <p className="mt-3 text-xs text-muted">Coming soon: the backend is being deployed.</p>
     </section>
   );
 }

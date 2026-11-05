@@ -8,7 +8,7 @@ from typing import Any
 import httpx2
 import pytest
 
-from llm_router.budget import BudgetExceededError
+from llm_router.budget import BudgetExceededError, DailyBudgetExceededError
 from llm_router.models import Role
 from llm_router.router import CallRecord, LlmRouter
 from services.openrouter import OpenRouterClient, OpenRouterError
@@ -62,6 +62,41 @@ def test_allows_calls_just_under_budget() -> None:
     router, records, _ = make_router(
         lambda _: httpx2.Response(200, json=reply()), spent_inr=Decimal("49.9999")
     )
+    router.complete(role=Role.DEVELOPER, messages=[], agent_run_id=1)
+    assert len(records) == 1
+
+
+def daily_router(spent_today: Decimal) -> tuple[LlmRouter, list[CallRecord]]:
+    records: list[CallRecord] = []
+    client = OpenRouterClient(
+        "fake-key", transport=httpx2.MockTransport(lambda _: httpx2.Response(200, json=reply()))
+    )
+    router = LlmRouter(
+        client,
+        records.append,
+        Decimal("96.5"),
+        story_spend=lambda _run_id: Decimal("0"),
+        story_budget_inr=Decimal("50"),
+        daily_spend=lambda: spent_today,
+        daily_budget_inr=Decimal("300"),
+    )
+    return router, records
+
+
+def test_refuses_calls_once_daily_budget_is_used() -> None:
+    router, records = daily_router(Decimal("300"))
+    with pytest.raises(DailyBudgetExceededError, match="daily budget used"):
+        router.complete(role=Role.DEVELOPER, messages=[], agent_run_id=1)
+    assert records == []
+
+
+def test_daily_budget_stop_is_a_budget_stop() -> None:
+    # Code that already handles a story budget stop handles the daily one too
+    assert issubclass(DailyBudgetExceededError, BudgetExceededError)
+
+
+def test_allows_calls_under_daily_budget() -> None:
+    router, records = daily_router(Decimal("299.99"))
     router.complete(role=Role.DEVELOPER, messages=[], agent_run_id=1)
     assert len(records) == 1
 

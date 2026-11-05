@@ -6,15 +6,17 @@ Check on it with GET /jobs/{job_id}; its result is where the run ended (e.g. "bl
 
 from typing import Annotated
 
-from fastapi import APIRouter, Path, status
+from fastapi import APIRouter, Depends, Path, status
 from pydantic import BaseModel, StringConstraints
 
+from api.auth import current_user
 from api.routes.jobs import JobStarted
 from orchestrator.decisions import PlanDecision
 from services.jira import TICKET_KEY
 from workers.celery_app import celery_app
 
-router = APIRouter(prefix="/runs", tags=["runs"])
+# Logged-in website users only (api/auth.py)
+router = APIRouter(prefix="/runs", tags=["runs"], dependencies=[Depends(current_user)])
 
 
 # Checked here too, so a bad key gets a 422 now instead of a failed job later

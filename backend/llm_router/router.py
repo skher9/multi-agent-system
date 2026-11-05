@@ -12,7 +12,12 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
-from llm_router.budget import BudgetExceededError, SpendLookup
+from llm_router.budget import (
+    BudgetExceededError,
+    DailyBudgetExceededError,
+    DailySpendLookup,
+    SpendLookup,
+)
 from llm_router.models import Role, model_for
 from services.openrouter import ChatResponse, OpenRouterClient, OpenRouterError
 
@@ -51,6 +56,8 @@ class LlmRouter:
         story_spend: SpendLookup,
         story_budget_inr: Decimal,
         sleep: Callable[[float], None] = time.sleep,  # tests pass a no-op
+        daily_spend: DailySpendLookup | None = None,
+        daily_budget_inr: Decimal | None = None,
     ) -> None:
         self._client = client
         self._record = record
@@ -58,6 +65,8 @@ class LlmRouter:
         self._story_spend = story_spend
         self._story_budget_inr = story_budget_inr
         self._sleep = sleep
+        self._daily_spend = daily_spend
+        self._daily_budget_inr = daily_budget_inr
 
     def complete(
         self,
@@ -72,6 +81,10 @@ class LlmRouter:
     ) -> ChatResponse:
         # Checked before each call, so the call that crosses the budget finishes
         # and the next one is refused.
+        if self._daily_spend is not None and self._daily_budget_inr is not None:
+            today = self._daily_spend()
+            if today >= self._daily_budget_inr:
+                raise DailyBudgetExceededError(today, self._daily_budget_inr)
         spent = self._story_spend(agent_run_id)
         if spent >= self._story_budget_inr:
             raise BudgetExceededError(spent, self._story_budget_inr)
