@@ -45,8 +45,10 @@ EVENT_CODE_MAX = 20_000
 # Stuck detector (like OpenHands'): the same call this many times in a row is refused
 MAX_SAME_CALL = 3
 # Old tool results are cleared, in one batch, once the conversation passes this size;
-# the newest few stay. Batches keep the cached prompt prefix stable between clears.
-CLEAR_ABOVE_CHARS = 80_000  # ~20k tokens
+# the newest few stay. Set high on purpose: in the ctx-1 benchmark, clearing at ~20k
+# tokens made the developer re-read the files it was working on, and with 90%+ of the
+# history cached, resending it is cheap. This only guards against very long runs.
+CLEAR_ABOVE_CHARS = 240_000  # ~60k tokens
 KEEP_TOOL_RESULTS = 6
 CLEARED = "[earlier tool result cleared to save space; call the tool again if you need it]"
 EVENT_THOUGHT_MAX = 1500  # the model's reasoning, shown as the agent's thoughts

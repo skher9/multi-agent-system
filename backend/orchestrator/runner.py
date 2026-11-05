@@ -159,6 +159,7 @@ def make_code(
                 agent_run_id=agent_run_id,
                 subtask=subtask,
                 rules=project_rules(pipeline.factory, pipeline.project_id),
+                earlier=list(summaries),
                 on_event=on_event,
             )
             if dev.problem:

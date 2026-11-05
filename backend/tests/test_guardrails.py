@@ -59,9 +59,11 @@ def test_context_files_are_answered_from_the_context(repo: Path) -> None:
 def test_repeat_read_of_unchanged_file_is_refused(repo: Path) -> None:
     t = tools(repo)
     assert "Page" in t.call("read_file", '{"path": "src/page.tsx"}')
-    assert "unchanged since you read it at tool call 1" in t.call(
+    assert "unchanged since you read it in full at tool call 1" in t.call(
         "read_file", '{"path": "src/page.tsx"}'
     )
+    ranged = '{"path": "src/page.tsx", "start_line": 1, "end_line": 5}'
+    assert "unchanged" in t.call("read_file", ranged)  # a part of it doesn't slip past
     (repo / "src" / "page.tsx").write_text("changed\n")
     assert "changed" in t.call("read_file", '{"path": "src/page.tsx"}')
 
@@ -71,6 +73,9 @@ def test_shell_reads_and_developer_e2e_are_redirected(repo: Path) -> None:
     assert "use read_file" in t.call("run", '{"command": "cd /workspace && cat src/page.tsx"}')
     assert "use read_file" in t.call("run", '{"command": "ls -la src"}')
     assert "QA's job" in t.call("run", '{"command": "pnpm test:e2e"}')
+    assert "don't build" in t.call("run", '{"command": "pnpm build"}')
+    assert "don't build" in t.call("run", '{"command": "curl -s localhost:3000"}')
+    assert "git isn't available" in t.call("run", '{"command": "cd /workspace && git status"}')
 
 
 def test_library_reads_are_capped(repo: Path) -> None:
@@ -88,7 +93,7 @@ def test_handoff_blocks_and_changed_paths(repo: Path) -> None:
 
 def test_old_tool_results_are_cleared_in_one_batch() -> None:
     messages: list[dict[str, Any]] = [{"role": "user", "content": "task"}]
-    messages += [{"role": "tool", "content": "x" * 10_000} for _ in range(10)]
+    messages += [{"role": "tool", "content": "x" * 30_000} for _ in range(10)]
     _clear_old_tool_results(messages)
     contents = [m["content"] for m in messages if m["role"] == "tool"]
     assert contents[:4] == [CLEARED] * 4 and all(c.startswith("x") for c in contents[4:])

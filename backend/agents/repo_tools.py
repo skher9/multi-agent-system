@@ -24,10 +24,15 @@ from services.workspace import Workspace
 
 # Never listed or searched: generated, huge, or not ours to read.
 SKIP_DIRS = {".git", "node_modules", ".next", "test-results", "playwright-report"}
-MAX_LIBRARY_READS = 6  # looks into node_modules per agent run
+MAX_LIBRARY_READS = 3  # looks into node_modules per agent run
 # `run` used to read files: the read tools do that (and their output is cut to fit)
 SHELL_READ = re.compile(r"^(cd \S+ && )?(cat|head|tail|less|more|sed -n|ls|find|grep|tree|wc)\b")
 E2E_COMMAND = re.compile(r"test:e2e|playwright test|\bplaywright\b")
+# Running the app is QA's job and the final checks build it: not the developer's
+APP_RUN = re.compile(
+    r"\bpnpm (run )?(build|start|dev)\b|\bnext (build|start|dev)\b|\bcurl\b|\bpkill\b"
+)
+GIT_COMMAND = re.compile(r"(^|[;&|]\s*)git\b")
 MAX_LIST_ENTRIES = 300
 MAX_SEARCH_MATCHES = 100
 MAX_READ_LINES = 400
@@ -299,15 +304,16 @@ class RepoTools:
             return f"{rel} is in <project_context> above, as it is now: use that."
         self._count_library(path)
         self._needs_packages(path)
-        if path.is_file() and args.start_line == 1 and args.end_line is None:
+        if path.is_file():
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             seen = self._reads.get(rel)
             if seen and seen[1] == digest:
                 return (
-                    f"{rel} is unchanged since you read it at tool call {seen[0]}: "
-                    "use that copy (read a line range if you need a part again)."
+                    f"{rel} is unchanged since you read it in full at tool call {seen[0]}: "
+                    "it is still above in this conversation, use that copy."
                 )
-            self._reads[rel] = (self._calls, digest)
+            if args.start_line == 1 and args.end_line is None:
+                self._reads[rel] = (self._calls, digest)
         if self._sandbox_only(path):
             end = args.end_line or args.start_line + MAX_READ_LINES - 1
             end = min(end, args.start_line + MAX_READ_LINES - 1)
@@ -378,6 +384,15 @@ class RepoTools:
             raise ToolError(
                 "use read_file, list_files or search to look at files: they are cheaper, "
                 "and node_modules works there too"
+            )
+        if GIT_COMMAND.search(command):
+            raise ToolError(
+                "git isn't available here: your changes are committed and pushed for you"
+            )
+        if not self._browser_tests and APP_RUN.search(command):
+            raise ToolError(
+                "don't build, start or call the app: the final checks build it and QA runs "
+                "it. Run the checks (lint, typecheck) and the unit tests (run_tests)."
             )
         if not self._browser_tests and E2E_COMMAND.search(command):
             raise ToolError(
