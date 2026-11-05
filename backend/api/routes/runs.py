@@ -40,6 +40,58 @@ def start_run(body: RunRequest) -> JobStarted:
 
 
 MAX_EVENTS = 500  # per request; the browser asks again with `after`
+RECENT_RUNS = 20
+
+
+class RunSummary(BaseModel):
+    ticket: str
+    title: str
+    status: str  # running, in_review, ready_to_merge, needs_human, blocked, failed...
+    pr_url: str | None
+    cost_inr: float
+    started_at: datetime
+    updated_at: datetime
+
+
+@router.get("")
+def recent_runs(factory: SessionFactory) -> list[RunSummary]:
+    """The latest runs, newest first, for the dashboard."""
+    with factory() as session:
+        features = session.scalars(
+            select(Feature)
+            .where(Feature.jira_key.is_not(None))
+            .order_by(Feature.updated_at.desc())
+            .limit(RECENT_RUNS)
+        ).all()
+        ids = [f.id for f in features]
+        costs = dict(
+            session.execute(
+                select(Task.feature_id, func.coalesce(func.sum(LlmCall.cost_inr), 0))
+                .join(AgentRun, AgentRun.task_id == Task.id)
+                .join(LlmCall, LlmCall.agent_run_id == AgentRun.id)
+                .where(Task.feature_id.in_(ids))
+                .group_by(Task.feature_id)
+            ).all()
+        )
+        prs = dict(
+            session.execute(
+                select(RunEvent.feature_id, func.max(RunEvent.data["pr_url"].astext))
+                .where(RunEvent.feature_id.in_(ids), RunEvent.data.has_key("pr_url"))
+                .group_by(RunEvent.feature_id)
+            ).all()
+        )
+        return [
+            RunSummary(
+                ticket=f.jira_key or "",
+                title=f.title.removeprefix(f"{f.jira_key}: "),
+                status=f.status,
+                pr_url=prs.get(f.id),
+                cost_inr=float(costs.get(f.id, 0)),
+                started_at=f.created_at,
+                updated_at=f.updated_at,
+            )
+            for f in features
+        ]
 
 
 class EventOut(BaseModel):
