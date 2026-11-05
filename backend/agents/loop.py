@@ -11,7 +11,7 @@ on_event, if given, hears each tool call, rejected finish and the final answer, 
 run can be watched live (the runner saves them as run_events).
 
 With senior=True the model also gets ask_senior: a question to a stronger model (the
-escalation model, GLM-5.2), which sees the whole conversation so far as text, like a
+escalation model, DeepSeek V4 Pro), which sees the whole conversation so far as text, like a
 colleague reading over your shoulder (Cognition's "smart friend"). The loop answers it
 itself; it's capped per run, since the stronger model's answers cost more.
 """
@@ -55,11 +55,11 @@ EVENT_THOUGHT_MAX = 1500  # the model's reasoning, shown as the agent's thoughts
 CODE_TOOLS = {"create_file": ("content",), "edit_file": ("old_text", "new_text")}
 ASK_SENIOR = "ask_senior"
 MAX_SENIOR_CALLS = 2  # per agent run
-# The senior's answer, thinking included. GLM-5.2 output is ₹676 per 1M tokens, so ~₹2 max.
+# The senior's answer, thinking included. V4 Pro output is ~₹309 per 1M tokens: ~₹1 max.
 SENIOR_MAX_TOKENS = 3000
 # How much of the conversation the senior reads, from the end (the task is always kept).
-# GLM-5.2 input is ₹0.6 per 1M tokens: reading is cheap, writing isn't.
-SENIOR_CONTEXT_CHARS = 120_000
+# V4 Pro input is ~₹154 per 1M tokens (₹13 cached): keep what it reads bounded.
+SENIOR_CONTEXT_CHARS = 60_000  # ~15k tokens: at V4 Pro input prices, ~₹2 a question
 SENIOR_PROMPT = """\
 You are a senior engineer helping a colleague (another AI model) who is partway through a
 task and asked you a question. You get their whole conversation so far: their task, what

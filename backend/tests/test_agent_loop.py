@@ -238,7 +238,7 @@ def test_ask_senior_sends_the_conversation_to_the_stronger_model() -> None:
     )
     assert script.run(senior=True) == Answer(summary="done")
     asked = script.sent[2]
-    assert asked["model"] == "z-ai/glm-5.2"
+    assert asked["model"] == "deepseek/deepseek-v4-pro"
     assert "tools" not in asked
     question = asked["messages"][1]["content"]
     assert "[user] task" in question  # the agent's task, in full

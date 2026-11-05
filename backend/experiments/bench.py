@@ -138,6 +138,9 @@ def fresh_round_repo(round_name: str) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--round", default=datetime.now(UTC).strftime("r%m%d-%H%M"))
+    parser.add_argument(
+        "--model", help="one OpenRouter model for every agent, e.g. deepseek/deepseek-v4-flash"
+    )
     parser.add_argument("only", nargs="*", help="ticket ids from tickets.json (default: all)")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
@@ -178,6 +181,7 @@ def main() -> None:
         db_story_spend(factory),
         settings.story_budget_inr,
         agent_spend=db_agent_spend(factory),
+        model_override=args.model,
     )
     pipeline = Pipeline(
         factory,
@@ -191,7 +195,12 @@ def main() -> None:
         skip_qa=True,
     )
 
-    results: dict[str, Any] = {"round": args.round, "project_id": project_id, "tickets": {}}
+    results: dict[str, Any] = {
+        "round": args.round,
+        "project_id": project_id,
+        "model": args.model or "models.py",
+        "tickets": {},
+    }
     for ticket in tickets:
         key = keys[ticket["id"]]
         logger.info("=== %s (%s): %s", ticket["id"], key, ticket["summary"])

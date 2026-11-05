@@ -62,7 +62,10 @@ class LlmRouter:
         daily_spend: DailySpendLookup | None = None,
         daily_budget_inr: Decimal | None = None,
         agent_spend: AgentSpendLookup | None = None,
+        model_override: str | None = None,
     ) -> None:
+        """model_override: one model for every role (escalation keeps its own), for
+        comparing models on the benchmark without touching models.py."""
         self._client = client
         self._record = record
         self._usd_to_inr = usd_to_inr
@@ -72,6 +75,7 @@ class LlmRouter:
         self._daily_spend = daily_spend
         self._daily_budget_inr = daily_budget_inr
         self._agent_spend = agent_spend
+        self._model_override = model_override
 
     def complete(
         self,
@@ -100,6 +104,8 @@ class LlmRouter:
                 raise AgentBudgetExceededError(str(role), mine, cap)
 
         model = model_for(role, escalate=escalate)
+        if self._model_override and not escalate:
+            model = self._model_override
         attempt = 0
         while True:
             started = time.perf_counter()
