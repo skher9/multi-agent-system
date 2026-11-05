@@ -30,8 +30,9 @@ const TONE = {
   muted: "text-muted",
 };
 
-/** The latest runs, newest first, refreshed every 10 seconds. */
-export function RunsList() {
+/** The latest runs, newest first, refreshed every 10 seconds. With limit, a short
+ * list with a link to all runs (the dashboard); without, the full list (/runs). */
+export function RunsList({ limit }: { limit?: number }) {
   const [runs, setRuns] = useState<Run[] | null>(null);
   const [error, setError] = useState(false);
 
@@ -56,8 +57,14 @@ export function RunsList() {
   return (
     <section className="rounded-2xl border border-line bg-surface">
       <header className="flex items-center justify-between border-b border-line px-5 py-4">
-        <h2 className="font-medium">Runs</h2>
-        <span className="text-xs text-muted">Newest first</span>
+        <h2 className="font-medium">{limit ? "Recent runs" : "All runs"}</h2>
+        {limit ? (
+          <Link href="/runs" className="text-sm text-muted hover:text-ink">
+            View all runs →
+          </Link>
+        ) : (
+          <span className="text-xs text-muted">Newest first</span>
+        )}
       </header>
       {runs === null && !error && <p className="px-5 py-4 text-sm text-muted">Loading runs…</p>}
       {error && (
@@ -73,7 +80,7 @@ export function RunsList() {
         </p>
       )}
       <ul className="divide-y divide-line">
-        {runs?.map((run) => {
+        {runs?.slice(0, limit).map((run) => {
           const status = STATUS[run.status] ?? { label: run.status, tone: "muted" as const };
           return (
             <li

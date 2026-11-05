@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 
-import { SignOutButton } from "@/components/sign-out-button";
+import { AppNav } from "@/components/app-nav";
 import { RunsList } from "@/components/runs-list";
 import { StartRun } from "@/components/start-run";
-import { SiteNav } from "@/components/site";
 import { verifySession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -16,33 +14,18 @@ export const metadata: Metadata = { title: "Dashboard" };
 export default function DashboardPage() {
   return (
     <>
-      <SiteNav>
-        <div className="ml-auto flex items-center gap-4">
-          <Suspense>
-            <UserEmail />
-          </Suspense>
-          <Link href="/settings" className="text-sm text-muted hover:text-ink">
-            Settings
-          </Link>
-          <SignOutButton />
-        </div>
-      </SiteNav>
+      <AppNav />
       <main className="mx-auto max-w-6xl space-y-8 px-4 py-10">
         <Suspense fallback={<div className="h-9 w-64 animate-pulse rounded bg-surface" />}>
           <Greeting />
         </Suspense>
         <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-          <RunsList />
+          <RunsList limit={5} />
           <StartRun />
         </div>
       </main>
     </>
   );
-}
-
-async function UserEmail() {
-  const { user } = await verifySession(); // sends visitors who aren't logged in to /login
-  return <span className="hidden text-sm text-muted sm:inline">{user.email}</span>;
 }
 
 async function Greeting() {

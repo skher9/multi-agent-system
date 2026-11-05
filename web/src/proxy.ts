@@ -16,5 +16,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Live runs too, but not the public sample replay
-  matcher: ["/dashboard/:path*", "/settings/:path*", "/runs/((?!sample$).*)"],
+  matcher: ["/dashboard/:path*", "/settings/:path*", "/runs", "/runs/((?!sample$).*)"],
 };
