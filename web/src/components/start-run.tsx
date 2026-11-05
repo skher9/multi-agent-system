@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { FormError, INPUT } from "@/components/auth-form";
@@ -10,8 +11,9 @@ const POLL_MS = 5000;
 
 type Job = { id: string; ticket: string; status: string; result?: unknown };
 
-/** Start a run for a Jira ticket and follow it until it ends. */
+/** Start a run for a Jira ticket, then open its live run window. */
 export function StartRun() {
+  const router = useRouter();
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -37,6 +39,7 @@ export function StartRun() {
       return;
     }
     setJob({ id: data.job_id, ticket, status: "PENDING" });
+    router.push(`/runs/${ticket}`); // watch it live
   }
 
   const running = job !== null && !["SUCCESS", "FAILURE"].includes(job.status);
@@ -81,7 +84,12 @@ export function StartRun() {
             <span className="font-mono">{job.ticket}</span>
             <span className="text-muted"> · {describe(job)}</span>
           </p>
-          <p className="mt-1 font-mono text-xs text-muted">job {job.id}</p>
+          <a
+            href={`/runs/${job.ticket}`}
+            className="mt-1 inline-block text-xs text-accent hover:underline"
+          >
+            Watch it live →
+          </a>
         </div>
       )}
     </section>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { FeedItem, FeedTone } from "@/lib/runs/feed";
 
@@ -55,17 +55,15 @@ export function Feed({ items }: { items: FeedItem[] }) {
             >
               {item.role}
             </span>
-            <span
-              className={
-                item.tone === "thought"
-                  ? "italic text-gray-700 dark:text-gray-300"
-                  : item.tone === "tool"
-                    ? "break-all font-mono text-xs"
-                    : "font-medium"
-              }
-            >
-              {item.title}
-            </span>
+            {item.tone === "thought" ? (
+              <Thought text={item.title} />
+            ) : (
+              <span
+                className={item.tone === "tool" ? "break-all font-mono text-xs" : "font-medium"}
+              >
+                {item.title}
+              </span>
+            )}
             {item.detail && (
               <span className="block break-words text-xs text-gray-500">{item.detail}</span>
             )}
@@ -73,5 +71,31 @@ export function Feed({ items }: { items: FeedItem[] }) {
         </li>
       ))}
     </ol>
+  );
+}
+
+/** An agent's reasoning: the first lines, the rest on click. */
+function Thought({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 280;
+  return (
+    <span className="block">
+      <span
+        className={`block whitespace-pre-line italic text-gray-700 dark:text-gray-300 ${
+          long && !open ? "line-clamp-4" : ""
+        }`}
+      >
+        {text}
+      </span>
+      {long && (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="text-xs text-accent hover:underline"
+        >
+          {open ? "Show less" : "Show more"}
+        </button>
+      )}
+    </span>
   );
 }

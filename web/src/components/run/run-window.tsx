@@ -6,6 +6,7 @@ import { feedItem, type FeedItem } from "@/lib/runs/feed";
 import { stagesFrom } from "@/lib/runs/stages";
 import type { RunView } from "@/lib/runs/types";
 
+import { CodePanel } from "./code-panel";
 import { Feed } from "./feed";
 import { Pipeline } from "./pipeline";
 
@@ -32,9 +33,18 @@ function duration(run: RunView, shown: number): string {
 
 /**
  * The run window: the pipeline on the left, the live feed on the right, the run's
- * numbers on top. With replay, it plays the events one by one as if live.
+ * numbers on top. With replay, it plays the events one by one as if live. With live,
+ * events arriving later play in the same way, and cost and PR show as they come.
  */
-export function RunWindow({ run, replay = false }: { run: RunView; replay?: boolean }) {
+export function RunWindow({
+  run,
+  replay = false,
+  live = false,
+}: {
+  run: RunView;
+  replay?: boolean;
+  live?: boolean;
+}) {
   const total = run.events.length;
   const [shown, setShown] = useState(replay ? 0 : total);
 
@@ -51,6 +61,7 @@ export function RunWindow({ run, replay = false }: { run: RunView; replay?: bool
     [events],
   );
   const finished = shown >= total;
+  const showNumbers = finished || live;
 
   return (
     <section className="space-y-4">
@@ -58,10 +69,10 @@ export function RunWindow({ run, replay = false }: { run: RunView; replay?: bool
         <h1 className="mr-auto text-lg font-semibold">
           <span className="font-mono text-gray-500">{run.ticket}</span> {run.title}
         </h1>
-        <Stat label="Cost">{finished ? `₹${run.costInr.toFixed(2)}` : "…"}</Stat>
+        <Stat label="Cost">{showNumbers ? `₹${run.costInr.toFixed(2)}` : "…"}</Stat>
         <Stat label="Time">{duration(run, shown)}</Stat>
         <Stat label="PR">
-          {finished && run.prUrl ? (
+          {showNumbers && run.prUrl ? (
             <a href={run.prUrl} className="underline" target="_blank" rel="noreferrer">
               Open
             </a>
@@ -91,9 +102,12 @@ export function RunWindow({ run, replay = false }: { run: RunView; replay?: bool
         )}
       </header>
 
-      <div className="grid gap-4 md:grid-cols-[15rem_1fr]">
+      <div className="grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)_minmax(0,1.2fr)]">
         <Pipeline stages={stages} />
         <Feed items={items} />
+        <div className="md:col-span-2 xl:col-span-1">
+          <CodePanel events={events} />
+        </div>
       </div>
     </section>
   );

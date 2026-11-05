@@ -310,6 +310,12 @@ def build_template(api_key: str) -> str:
             user=USER,
         )
         .run_cmd("pnpm fetch")  # the starter's packages, so installs come from disk
+        # Playwright looks for browsers in ~/.cache/ms-playwright unless told otherwise;
+        # the base image keeps them in /ms-playwright. A link works with or without env.
+        .run_cmd(
+            f"mkdir -p /home/{USER}/.cache"
+            f" && ln -sfn /ms-playwright /home/{USER}/.cache/ms-playwright"
+        )
         # Graphify for the code graph; uv and graphifyy pinned (14-day rule)
         .run_cmd("curl -LsSf https://astral.sh/uv/0.13.1/install.sh | sh")
         .run_cmd(

@@ -115,6 +115,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runs/{ticket}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Events
+         * @description A ticket's run timeline, for the live run window. Poll with `after` = the last
+         *     event id you have, and only newer events come back.
+         */
+        get: operations["run_events_runs__ticket__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runs/{ticket}/plan-decision": {
         parameters: {
             query?: never;
@@ -140,6 +161,24 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** EventOut */
+        EventOut: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /** Agent Run Id */
+            agent_run_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -207,6 +246,21 @@ export interface components {
              * @default false
              */
             approve_plan: boolean;
+        };
+        /** RunTimeline */
+        RunTimeline: {
+            /** Ticket */
+            ticket: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Pr Url */
+            pr_url: string | null;
+            /** Cost Inr */
+            cost_inr: number;
+            /** Events */
+            events: components["schemas"]["EventOut"][];
         };
         /** ServiceStatus */
         ServiceStatus: {
@@ -433,6 +487,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_events_runs__ticket__events_get: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ticket: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunTimeline"];
                 };
             };
             /** @description Validation Error */
