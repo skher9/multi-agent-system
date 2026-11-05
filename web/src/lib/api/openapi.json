@@ -313,6 +313,77 @@
         }
       }
     },
+    "/runs/{ticket}/events": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Run Events",
+        "description": "A ticket's run timeline, for the live run window. Poll with `after` = the last\nevent id you have, and only newer events come back.",
+        "operationId": "run_events_runs__ticket__events_get",
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9]+-\\d+$",
+              "title": "Ticket"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "After"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunTimeline"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/runs/{ticket}/plan-decision": {
       "post": {
         "tags": [
@@ -386,6 +457,48 @@
   },
   "components": {
     "schemas": {
+      "EventOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Data"
+          },
+          "agent_run_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Run Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "data",
+          "agent_run_id",
+          "created_at"
+        ],
+        "title": "EventOut"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -524,6 +637,54 @@
           "ticket"
         ],
         "title": "RunRequest"
+      },
+      "RunTimeline": {
+        "properties": {
+          "ticket": {
+            "type": "string",
+            "title": "Ticket"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "pr_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pr Url"
+          },
+          "cost_inr": {
+            "type": "number",
+            "title": "Cost Inr"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventOut"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticket",
+          "title",
+          "status",
+          "pr_url",
+          "cost_inr",
+          "events"
+        ],
+        "title": "RunTimeline"
       },
       "ServiceStatus": {
         "properties": {

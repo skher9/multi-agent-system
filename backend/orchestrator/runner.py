@@ -420,7 +420,11 @@ def run_ticket(
                     if node == "__interrupt__":  # the pause itself, not a box
                         continue
                     logger.info("%s: finished %s", ticket_key, node)
-                    event(EventKind.NODE_FINISHED, {"node": node})
+                    finished: dict[str, Any] = {"node": node}
+                    update = cast(dict[str, Any], chunk)[node]
+                    if isinstance(update, dict) and update.get("pr_url"):
+                        finished["pr_url"] = update["pr_url"]  # the run window links to it
+                    event(EventKind.NODE_FINISHED, finished)
             else:
                 final = cast(dict[str, Any], chunk)
     except BaseException as exc:

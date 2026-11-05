@@ -29,7 +29,82 @@ const tool = (
   limit: number,
   name: string,
   args: Record<string, string> = {},
-): Step => [s, "tool_call", { role, tool: name, n, limit, arguments: JSON.stringify(args) }, run];
+  code?: Record<string, string>, // file writes carry their code, as real runs record it
+): Step => [
+  s,
+  "tool_call",
+  { role, tool: name, n, limit, arguments: JSON.stringify(args), ...(code && { code }) },
+  run,
+];
+
+const CONTACT_PAGE = `import { ContactForm } from "./contact-form";
+
+export const metadata = { title: "Contact" };
+
+export default function ContactPage() {
+  return (
+    <main className="mx-auto max-w-xl p-8">
+      <h1 className="text-2xl font-semibold">Contact us</h1>
+      <p className="mt-2 text-gray-600">We usually reply within a day.</p>
+      <ContactForm />
+    </main>
+  );
+}
+`;
+const CONTACT_FORM = `"use client";
+
+import { useState } from "react";
+
+const EMAIL = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+
+export function ContactForm() {
+  const [error, setError] = useState("");
+  const [sent, setSent] = useState(false);
+
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const email = String(new FormData(event.currentTarget).get("email"));
+    if (!EMAIL.test(email)) {
+      setError("Please enter a valid email");
+      return;
+    }
+    setSent(true);
+  }
+
+  if (sent) return <p>Thanks!</p>;
+  return (
+    <form onSubmit={onSubmit} className="mt-6 space-y-4">
+      <label className="block">
+        Name <input name="name" className="input" />
+      </label>
+      <label className="block">
+        Email <input name="email" type="email" className="input" />
+      </label>
+      <label className="block">
+        Message <textarea name="message" className="input" />
+      </label>
+      {error && <p role="alert">{error}</p>}
+      <button type="submit">Send</button>
+    </form>
+  );
+}
+`;
+const CONTACT_TEST = `import { test, expect } from "@playwright/test";
+
+test("an invalid email shows an error and keeps the form", async ({ page }) => {
+  await page.goto("/contact");
+  await page.getByLabel("Email").fill("not-an-email");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByRole("alert")).toHaveText("Please enter a valid email");
+});
+
+test("a valid email shows the thank-you message", async ({ page }) => {
+  await page.goto("/contact");
+  await page.getByLabel("Email").fill("ada@example.com");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Thanks!")).toBeVisible();
+});
+`;
 const done = (s: number, role: string, run: number, calls: number): Step => [
   s,
   "agent_finished",
@@ -60,12 +135,49 @@ const STEPS: Step[] = [
   node(34, "node_started", "develop"),
   think(37, "developer", 3, "Subtask 1: the page and a link in the header."),
   tool(40, "developer", 3, 1, 40, "read_file", { path: "src/app/layout.tsx" }),
-  tool(46, "developer", 3, 2, 40, "create_file", { path: "src/app/contact/page.tsx" }),
-  tool(51, "developer", 3, 3, 40, "edit_file", { path: "src/app/layout.tsx" }),
+  tool(
+    46,
+    "developer",
+    3,
+    2,
+    40,
+    "create_file",
+    { path: "src/app/contact/page.tsx" },
+    {
+      path: "src/app/contact/page.tsx",
+      content: CONTACT_PAGE,
+    },
+  ),
+  tool(
+    51,
+    "developer",
+    3,
+    3,
+    40,
+    "edit_file",
+    { path: "src/app/layout.tsx" },
+    {
+      path: "src/app/layout.tsx",
+      old_text: '        <Link href="/">Home</Link>',
+      new_text: '        <Link href="/">Home</Link>\n        <Link href="/contact">Contact</Link>',
+    },
+  ),
   tool(58, "developer", 3, 4, 40, "run_tests"),
   done(70, "developer", 3, 4),
   think(73, "developer", 4, "Subtask 2: the form. Email needs checking before submit."),
-  tool(76, "developer", 4, 1, 40, "create_file", { path: "src/app/contact/contact-form.tsx" }),
+  tool(
+    76,
+    "developer",
+    4,
+    1,
+    40,
+    "create_file",
+    { path: "src/app/contact/contact-form.tsx" },
+    {
+      path: "src/app/contact/contact-form.tsx",
+      content: CONTACT_FORM,
+    },
+  ),
   tool(83, "developer", 4, 2, 40, "create_file", {
     path: "src/app/contact/contact-form.test.tsx",
   }),
@@ -85,7 +197,19 @@ const STEPS: Step[] = [
   node(126, "node_started", "verify"),
   think(150, "qa", 5, "One browser test per acceptance criterion, using labels on the form."),
   tool(153, "qa", 5, 1, 40, "read_file", { path: "playwright.config.ts" }),
-  tool(158, "qa", 5, 2, 40, "create_file", { path: "e2e/contact.spec.ts" }),
+  tool(
+    158,
+    "qa",
+    5,
+    2,
+    40,
+    "create_file",
+    { path: "e2e/contact.spec.ts" },
+    {
+      path: "e2e/contact.spec.ts",
+      content: CONTACT_TEST,
+    },
+  ),
   tool(164, "qa", 5, 3, 40, "run_e2e"),
   done(205, "qa", 5, 3),
   node(206, "node_finished", "verify"),

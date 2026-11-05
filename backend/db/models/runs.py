@@ -59,8 +59,8 @@ class EventKind(StrEnum):
 
     RUN_STARTED = "run_started"  # data: resumed (continuing a crashed run)
     NODE_STARTED = "node_started"  # data: node
-    NODE_FINISHED = "node_finished"  # data: node
-    TOOL_CALL = "tool_call"  # data: role, tool, n, limit, arguments (shortened)
+    NODE_FINISHED = "node_finished"  # data: node, pr_url (open_pr only)
+    TOOL_CALL = "tool_call"  # data: role, tool, n, limit, arguments (shortened), code (file writes)
     FINISH_REJECTED = "finish_rejected"  # data: role, error (shortened)
     AGENT_FINISHED = "agent_finished"  # data: role, tool_calls
     RUN_PAUSED = "run_paused"  # data: waiting_for ("plan_approval")

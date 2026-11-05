@@ -269,3 +269,17 @@ def test_ask_senior_is_capped_and_off_by_default() -> None:
     plain = Script(reply(call("finish", {"summary": "x"})))
     plain.run()
     assert [t["function"]["name"] for t in plain.sent[0]["tools"]] == ["read_file", "finish"]
+
+
+def test_file_writes_carry_their_code_for_the_run_window() -> None:
+    from agents.loop import EVENT_CODE_MAX, _code_for_event
+
+    created = _code_for_event("create_file", json.dumps({"path": "a.tsx", "content": "x" * 30_000}))
+    assert created["code"]["path"] == "a.tsx"
+    assert len(created["code"]["content"]) == EVENT_CODE_MAX
+    edited = _code_for_event(
+        "edit_file", json.dumps({"path": "b.ts", "old_text": "1", "new_text": "2"})
+    )
+    assert edited == {"code": {"path": "b.ts", "old_text": "1", "new_text": "2"}}
+    assert _code_for_event("read_file", json.dumps({"path": "a.tsx"})) == {}
+    assert _code_for_event("create_file", "not json") == {}

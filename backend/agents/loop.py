@@ -39,6 +39,10 @@ MAX_GRACE = 15
 EXTRA_ROUNDS = 3  # rounds allowed after the tool limit for the model to call finish
 MAX_IDLE_ROUNDS = 2  # replies with no tool call before giving up
 EVENT_TEXT_MAX = 300  # arguments and errors are shortened to this in events
+# The run window shows code as it is written: for file-writing tools the event also
+# carries the code itself, up to this many characters per part
+EVENT_CODE_MAX = 20_000
+CODE_TOOLS = {"create_file": ("content",), "edit_file": ("old_text", "new_text")}
 ASK_SENIOR = "ask_senior"
 MAX_SENIOR_CALLS = 2  # per agent run
 # The senior's answer, thinking included. GLM-5.2 output is ₹676 per 1M tokens, so ~₹2 max.
@@ -85,6 +89,24 @@ def unwrap_lists(value: Any) -> Any:
     if isinstance(value, list):
         return [unwrap_lists(item) for item in value]
     return value
+
+
+def _code_for_event(tool: str, arguments: str) -> dict[str, Any]:
+    """{"code": {path, content | old_text + new_text}} for a file-writing tool, else {}."""
+    fields = CODE_TOOLS.get(tool)
+    if fields is None:
+        return {}
+    try:
+        args = json.loads(arguments)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(args, dict) or not isinstance(args.get("path"), str):
+        return {}
+    code = {"path": args["path"]}
+    for field in fields:
+        if isinstance(args.get(field), str):
+            code[field] = args[field][:EVENT_CODE_MAX]
+    return {"code": code}
 
 
 def _clean_arguments(arguments: str) -> str:
@@ -210,6 +232,7 @@ def run_agent[T: BaseModel](
                         "n": used,
                         "limit": max_tool_calls,
                         "arguments": arguments[:EVENT_TEXT_MAX],
+                        **_code_for_event(name, arguments),
                     },
                 )
                 result = handle(name, arguments)
