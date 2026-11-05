@@ -7,6 +7,7 @@ runs the tool, and returns plain text for the model to read. Problems come back 
 File tools work on the host, locked to the repo folder. Commands run in the sandbox.
 """
 
+import hashlib
 import json
 import re
 import shlex
@@ -16,12 +17,17 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from agents.project_context import context_files
 from services import sandbox_e2b
 from services.sandbox import SandboxLimits
 from services.workspace import Workspace
 
 # Never listed or searched: generated, huge, or not ours to read.
 SKIP_DIRS = {".git", "node_modules", ".next", "test-results", "playwright-report"}
+MAX_LIBRARY_READS = 6  # looks into node_modules per agent run
+# `run` used to read files: the read tools do that (and their output is cut to fit)
+SHELL_READ = re.compile(r"^(cd \S+ && )?(cat|head|tail|less|more|sed -n|ls|find|grep|tree|wc)\b")
+E2E_COMMAND = re.compile(r"test:e2e|playwright test|\bplaywright\b")
 MAX_LIST_ENTRIES = 300
 MAX_SEARCH_MATCHES = 100
 MAX_READ_LINES = 400
@@ -147,10 +153,25 @@ def _parameters(args: type[BaseModel]) -> dict[str, Any]:
 
 
 class RepoTools:
-    def __init__(self, workspace: Workspace, typecheck_after_edit: bool = True) -> None:
+    def __init__(
+        self,
+        workspace: Workspace,
+        typecheck_after_edit: bool = True,
+        *,
+        browser_tests: bool = True,
+        context_given: bool = False,
+    ) -> None:
+        """browser_tests: may `run` the e2e tests (QA yes, the developer no: the browser
+        tests are QA's job). context_given: the agent got <project_context>, so reading
+        its files is answered from there."""
         self._ws = workspace
         self._root = workspace.path.resolve()
         self._typecheck_after_edit = typecheck_after_edit
+        self._browser_tests = browser_tests
+        self._context_files = set(context_files(self._root)) if context_given else set()
+        self._reads: dict[str, tuple[int, str]] = {}  # path -> (call number, content hash)
+        self._calls = 0
+        self._library_reads = 0
         self.changed_files: set[str] = set()  # for the handoff: what the agent touched
         self._installed = False  # packages: installed on first need (see _needs_packages)
         self._handlers: dict[str, Callable[[Any], str]] = {
@@ -173,6 +194,7 @@ class RepoTools:
             args = args_model.model_validate(json.loads(arguments or "{}"))
         except (json.JSONDecodeError, ValidationError) as exc:
             return f"ERROR: bad arguments for {name}: {exc}"
+        self._calls += 1
         try:
             return self._handlers[name](args)
         except ToolError as exc:
@@ -226,6 +248,7 @@ class RepoTools:
 
     def _list_files(self, args: ListFiles) -> str:
         start = self._resolve(args.path)
+        self._count_library(start)
         self._needs_packages(start)
         if self._sandbox_only(start):
             rel = shlex.quote(self._rel(start))
@@ -244,6 +267,7 @@ class RepoTools:
 
     def _search(self, args: Search) -> str:
         start = self._resolve(args.path)
+        self._count_library(start)
         self._needs_packages(start)
         if self._sandbox_only(start):
             return (
@@ -270,7 +294,20 @@ class RepoTools:
 
     def _read_file(self, args: ReadFile) -> str:
         path = self._resolve(args.path)
+        rel = self._rel(path)
+        if rel in self._context_files and rel not in self.changed_files:
+            return f"{rel} is in <project_context> above, as it is now: use that."
+        self._count_library(path)
         self._needs_packages(path)
+        if path.is_file() and args.start_line == 1 and args.end_line is None:
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            seen = self._reads.get(rel)
+            if seen and seen[1] == digest:
+                return (
+                    f"{rel} is unchanged since you read it at tool call {seen[0]}: "
+                    "use that copy (read a line range if you need a part again)."
+                )
+            self._reads[rel] = (self._calls, digest)
         if self._sandbox_only(path):
             end = args.end_line or args.start_line + MAX_READ_LINES - 1
             end = min(end, args.start_line + MAX_READ_LINES - 1)
@@ -336,6 +373,17 @@ class RepoTools:
     # --- Running things ----------------------------------------------------
 
     def _run(self, args: Run) -> str:
+        command = args.command.strip()
+        if SHELL_READ.match(command):
+            raise ToolError(
+                "use read_file, list_files or search to look at files: they are cheaper, "
+                "and node_modules works there too"
+            )
+        if not self._browser_tests and E2E_COMMAND.search(command):
+            raise ToolError(
+                "the browser tests are QA's job, after you finish: run the unit tests "
+                "(run_tests) and the checks instead"
+            )
         exit_code, output = self._sandbox(args.command)
         return f"exit code {exit_code}\n{output}"
 
@@ -355,6 +403,18 @@ class RepoTools:
         exit_code, output = self._sandbox(INSTALL)
         self._installed = exit_code == 0
         return "" if exit_code == 0 else f"install failed (exit {exit_code}):\n{output}"
+
+    def _count_library(self, path: Path) -> None:
+        """Library code (node_modules) is read only a little: the project's facts are in
+        <project_context>, and browsing a library's internals rarely helps a ticket."""
+        parts = path.relative_to(self._root).parts
+        if parts and parts[0] == "node_modules":
+            self._library_reads += 1
+            if self._library_reads > MAX_LIBRARY_READS:
+                raise ToolError(
+                    f"library budget used ({MAX_LIBRARY_READS} looks into node_modules): "
+                    "work from <project_context> and the repo's own code"
+                )
 
     def _needs_packages(self, path: Path) -> None:
         """Install packages the first time an agent looks inside node_modules, instead of

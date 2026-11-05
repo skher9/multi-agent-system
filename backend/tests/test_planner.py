@@ -51,6 +51,7 @@ GOOD_PLAN: dict[str, Any] = {
     "assumptions": ["The link sits under the page heading, like other links"],
     "contract": "",
     "dependencies": [],
+    "relies_on": [],
     "unrelated_issues": [],
     "subtasks": [
         {
@@ -145,6 +146,7 @@ def test_a_plan_with_conflicts_may_skip_changes(repo: Path) -> None:
             "assumptions": [],
             "contract": "",
             "dependencies": [],
+            "relies_on": [],
             "unrelated_issues": [],
             "conflicts": [
                 {
@@ -218,3 +220,15 @@ def test_planner_can_look_but_not_touch(
     ]  # fmt: skip
     assert first["model"] == "minimax/minimax-m3"
     assert json.dumps(first).count("edit_file") == 0
+
+
+def test_what_the_ticket_relies_on_must_exist_or_be_a_conflict(repo: Path) -> None:
+    login = {"thing": "the login system", "evidence": ""}
+    with pytest.raises(ValidationError, match="add a conflict"):
+        checked(repo).model_validate({**GOOD_PLAN, "relies_on": [login]})
+    fake = {"thing": "the login system", "evidence": "src/auth.ts"}
+    with pytest.raises(ValidationError, match="doesn't exist"):
+        checked(repo).model_validate({**GOOD_PLAN, "relies_on": [fake]})
+    question = {"description": "No login system", "question": "Which login?"}
+    blocked = {**GOOD_PLAN, "relies_on": [login], "conflicts": [question], "subtasks": []}
+    assert checked(repo).model_validate(blocked).conflicts

@@ -33,3 +33,7 @@ playwright/.cache/
 .vscode/
 .idea/
 .vercel
+.gstack/
+
+# Benchmark runs (local repo copies, graphs, results)
+backend/experiments/.work/

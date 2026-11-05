@@ -13,6 +13,9 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from llm_router.budget import (
+    AGENT_BUDGETS_INR,
+    AgentBudgetExceededError,
+    AgentSpendLookup,
     BudgetExceededError,
     DailyBudgetExceededError,
     DailySpendLookup,
@@ -58,6 +61,7 @@ class LlmRouter:
         sleep: Callable[[float], None] = time.sleep,  # tests pass a no-op
         daily_spend: DailySpendLookup | None = None,
         daily_budget_inr: Decimal | None = None,
+        agent_spend: AgentSpendLookup | None = None,
     ) -> None:
         self._client = client
         self._record = record
@@ -67,6 +71,7 @@ class LlmRouter:
         self._sleep = sleep
         self._daily_spend = daily_spend
         self._daily_budget_inr = daily_budget_inr
+        self._agent_spend = agent_spend
 
     def complete(
         self,
@@ -88,6 +93,11 @@ class LlmRouter:
         spent = self._story_spend(agent_run_id)
         if spent >= self._story_budget_inr:
             raise BudgetExceededError(spent, self._story_budget_inr)
+        cap = AGENT_BUDGETS_INR.get(str(role))
+        if self._agent_spend is not None and cap is not None and not escalate:
+            mine = self._agent_spend(agent_run_id)
+            if mine >= cap:
+                raise AgentBudgetExceededError(str(role), mine, cap)
 
         model = model_for(role, escalate=escalate)
         attempt = 0

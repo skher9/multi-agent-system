@@ -42,6 +42,13 @@ EVENT_TEXT_MAX = 300  # arguments and errors are shortened to this in events
 # The run window shows code as it is written: for file-writing tools the event also
 # carries the code itself, up to this many characters per part
 EVENT_CODE_MAX = 20_000
+# Stuck detector (like OpenHands'): the same call this many times in a row is refused
+MAX_SAME_CALL = 3
+# Old tool results are cleared, in one batch, once the conversation passes this size;
+# the newest few stay. Batches keep the cached prompt prefix stable between clears.
+CLEAR_ABOVE_CHARS = 80_000  # ~20k tokens
+KEEP_TOOL_RESULTS = 6
+CLEARED = "[earlier tool result cleared to save space; call the tool again if you need it]"
 EVENT_THOUGHT_MAX = 1500  # the model's reasoning, shown as the agent's thoughts
 CODE_TOOLS = {"create_file": ("content",), "edit_file": ("old_text", "new_text")}
 ASK_SENIOR = "ask_senior"
@@ -90,6 +97,18 @@ def unwrap_lists(value: Any) -> Any:
     if isinstance(value, list):
         return [unwrap_lists(item) for item in value]
     return value
+
+
+def _clear_old_tool_results(messages: list[dict[str, Any]]) -> None:
+    """Once the conversation is big, blank all but the newest tool results (Anthropic's
+    tool-result clearing): the calls stay, so the agent knows what it did and can ask
+    again. Nothing happens below the threshold, so the cached prefix is reused."""
+    if sum(len(str(m.get("content") or "")) for m in messages) < CLEAR_ABOVE_CHARS:
+        return
+    results = [m for m in messages if m.get("role") == "tool"]
+    for message in results[:-KEEP_TOOL_RESULTS]:
+        if len(str(message.get("content") or "")) > len(CLEARED):
+            message["content"] = CLEARED
 
 
 def _code_for_event(tool: str, arguments: str) -> dict[str, Any]:
@@ -146,8 +165,10 @@ def run_agent[T: BaseModel](
     ]
     used = idle = grace = rounds = senior_calls = 0
     # The round limit grows with the grace actually granted, not the most it could be
+    recent: list[tuple[str, str]] = []  # every tool call so far, for the stuck detector
     while rounds < max_tool_calls + grace + EXTRA_ROUNDS:
         rounds += 1
+        _clear_old_tool_results(messages)
         response = router.complete(
             role=role,
             messages=messages,
@@ -227,6 +248,15 @@ def run_agent[T: BaseModel](
             elif used >= max_tool_calls + grace:
                 logger.info("%s: refused %s, tool limit reached", role, name)
                 result = f"ERROR: tool limit ({max_tool_calls}) reached. Call {FINISH} now."
+            elif recent[-(MAX_SAME_CALL - 1) :] == [(name, arguments)] * (MAX_SAME_CALL - 1):
+                logger.info(
+                    "%s: refused %s, same call %d times in a row", role, name, MAX_SAME_CALL
+                )
+                result = (
+                    f"ERROR: you made this exact call {MAX_SAME_CALL - 1} times in a row already "
+                    "and got the same answer. Change your approach, or call "
+                    f"{FINISH} (or problem) with what you know."
+                )
             else:
                 used += 1
                 logger.info("%s: tool %d/%d %s %.120s", role, used, max_tool_calls, name, arguments)
@@ -247,6 +277,7 @@ def run_agent[T: BaseModel](
                     result += (
                         f"\n\n[{left} tool calls left. Call {FINISH} soon with what you know.]"
                     )
+            recent.append((name, arguments))
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
     raise AgentLoopError(f"no valid answer after {used} tool calls")
 
