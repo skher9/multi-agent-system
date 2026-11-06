@@ -135,8 +135,12 @@ class OpenRouterClient:
         response_format: dict[str, Any] | None = None,
         session_id: str | None = None,
         max_tokens: int | None = None,
+        reasoning_effort: str | None = None,
     ) -> ChatResponse:
-        """One chat completion. Raises OpenRouterError on any failure, even inside a 200."""
+        """One chat completion. Raises OpenRouterError on any failure, even inside a 200.
+
+        reasoning_effort: "low", "medium" or "high", for models that think before
+        answering (DeepSeek honours effort, not a token cap)."""
         body: dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -150,6 +154,7 @@ class OpenRouterClient:
             # Keeps calls of one run on the same provider, so its prompt cache gets reused.
             "session_id": session_id,
             "max_tokens": max_tokens,
+            "reasoning": {"effort": reasoning_effort} if reasoning_effort else None,
         }
         body.update({k: v for k, v in optional.items() if v is not None})
 

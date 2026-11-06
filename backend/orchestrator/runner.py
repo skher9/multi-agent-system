@@ -71,6 +71,9 @@ class Pipeline:
     # For opening PRs: the API client and the repo as "owner/name"
     github: GitHubClient | None = None
     repo: str = ""
+    # Experiments (backend/experiments) measure the planner, developer and reviewer
+    # without the QA agent's browser tests
+    skip_qa: bool = False
 
 
 def open_pr(pipeline: Pipeline, branch: str, title: str, body: str) -> tuple[int, str]:
@@ -156,6 +159,7 @@ def make_code(
                 agent_run_id=agent_run_id,
                 subtask=subtask,
                 rules=project_rules(pipeline.factory, pipeline.project_id),
+                earlier=list(summaries),
                 on_event=on_event,
             )
             if dev.problem:
@@ -284,6 +288,8 @@ def make_verify(
             gate = GateResult(passed=dict.fromkeys(gate.passed, True), failures=[])
         qa = None
         try:
+            if pipeline.skip_qa:
+                raise _SkipQa
             with start_agent(Role.QA) as run_id:
                 qa, qa_files = qa_ticket(
                     pipeline.router,
@@ -295,6 +301,8 @@ def make_verify(
                 )
             if qa_files:
                 workspace.commit_all(f"{ticket_key}: browser tests\n\n{qa.summary}", AGENT_AUTHOR)
+        except _SkipQa:
+            pass
         except AgentLoopError:
             # QA is evidence, not a gate: the PR opens and says QA couldn't finish
             logger.warning("%s: QA didn't finish", ticket_key, exc_info=True)
@@ -303,6 +311,10 @@ def make_verify(
         return VerifyResult(
             checks=gate.passed, fixer_summary=fixer_summary, qa=qa, head_sha=workspace.head_sha()
         )
+
+
+class _SkipQa(Exception):  # noqa: N818  (a jump out of the QA block, not an error)
+    pass
 
 
 class NotMergedError(Exception):

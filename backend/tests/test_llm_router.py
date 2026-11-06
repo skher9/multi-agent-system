@@ -16,7 +16,7 @@ from services.openrouter import OpenRouterClient, OpenRouterError
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
-def reply(cost: float = 0.001, model: str = "minimax/minimax-m3") -> dict[str, Any]:
+def reply(cost: float = 0.001, model: str = "deepseek/deepseek-v4.1-flash") -> dict[str, Any]:
     return {
         "model": model,
         "choices": [{"finish_reason": "stop", "message": {"content": "done"}}],
@@ -112,9 +112,9 @@ def test_picks_model_by_role_and_sends_run_session() -> None:
     router.complete(role=Role.TICKET_READER, messages=[], agent_run_id=7)
     router.complete(role=Role.DEVELOPER, messages=[], agent_run_id=7, escalate=True)
 
-    assert sent[0]["model"] == "minimax/minimax-m3"
+    assert sent[0]["model"] == "deepseek/deepseek-v4.1-flash"
     assert sent[0]["session_id"] == "agent-run-7"
-    assert sent[1]["model"] == "z-ai/glm-5.2"
+    assert sent[1]["model"] == "deepseek/deepseek-v4-pro"
 
 
 def test_records_tokens_and_cost_in_rupees() -> None:
@@ -123,7 +123,7 @@ def test_records_tokens_and_cost_in_rupees() -> None:
 
     [record] = records
     assert record.agent_run_id == 7
-    assert record.model == "minimax/minimax-m3"
+    assert record.model == "deepseek/deepseek-v4.1-flash"
     assert record.input_tokens == 1200
     assert record.cached_tokens == 1000
     assert record.output_tokens == 30

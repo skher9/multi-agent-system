@@ -19,6 +19,16 @@ from db.models import AgentRun, LlmCall, Task
 SpendLookup = Callable[[int], Decimal]
 # ₹ spent by every run in the last 24 hours.
 DailySpendLookup = Callable[[], Decimal]
+# ₹ spent by one agent run (one agent's turn).
+AgentSpendLookup = Callable[[int], Decimal]
+
+# Per-turn caps by role, from the base-1 benchmark: about twice what a good run spent
+AGENT_BUDGETS_INR: dict[str, Decimal] = {
+    "planner": Decimal("6"),
+    "developer": Decimal("15"),
+    "fixer": Decimal("8"),
+    "reviewer": Decimal("5"),
+}
 
 
 class BudgetExceededError(Exception):
@@ -26,6 +36,15 @@ class BudgetExceededError(Exception):
         super().__init__(f"story budget used: ₹{spent_inr} of ₹{budget_inr}")
         self.spent_inr = spent_inr
         self.budget_inr = budget_inr
+
+
+class AgentBudgetExceededError(BudgetExceededError):
+    """One agent's turn cost more than its role's cap: stop a runaway before it eats the
+    whole story budget (in the baseline, one developer spent ₹45 of ₹50)."""
+
+    def __init__(self, role: str, spent_inr: Decimal, budget_inr: Decimal) -> None:
+        super().__init__(spent_inr, budget_inr)
+        self.args = (f"{role} budget used: ₹{spent_inr} of ₹{budget_inr} for this turn",)
 
 
 class DailyBudgetExceededError(BudgetExceededError):
@@ -61,6 +80,17 @@ def db_daily_spend(session_factory: sessionmaker[Session]) -> DailySpendLookup:
         since = func.now() - timedelta(hours=24)  # the database's clock, like created_at
         total = select(func.coalesce(func.sum(LlmCall.cost_inr), 0)).where(
             LlmCall.created_at >= since
+        )
+        with session_factory() as session:
+            return Decimal(session.scalar(total) or 0)
+
+    return spent
+
+
+def db_agent_spend(session_factory: sessionmaker[Session]) -> AgentSpendLookup:
+    def spent(agent_run_id: int) -> Decimal:
+        total = select(func.coalesce(func.sum(LlmCall.cost_inr), 0)).where(
+            LlmCall.agent_run_id == agent_run_id
         )
         with session_factory() as session:
             return Decimal(session.scalar(total) or 0)

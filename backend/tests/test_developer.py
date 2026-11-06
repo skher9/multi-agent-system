@@ -106,8 +106,12 @@ def test_subtask_or_review_is_required(origin: str) -> None:  # noqa: F811
         develop_ticket(Script().router(), SPEC, PLAN, ws, agent_run_id=1)
 
 
-def test_task_carries_criteria_and_plan() -> None:
-    task = developer._task(SPEC, PLAN) + developer._subtask_task(PLAN.subtasks[0])
+def test_task_carries_criteria_and_plan(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text('{"scripts": {"lint": "eslint"}}')
+    task = developer._task(SPEC, PLAN, tmp_path, ["package.json"]) + developer._subtask_task(
+        PLAN.subtasks[0]
+    )
+    assert "<project_context>" in task and "lint: eslint" in task
     assert "2. Submitting thanks you" in task
     assert "- create src/app/contact/page.tsx (criteria 1, 2): ContactPage with" in task
     assert "- Pages are default-exported server components (see src/app/page.tsx)" in task

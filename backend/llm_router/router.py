@@ -13,12 +13,15 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from llm_router.budget import (
+    AGENT_BUDGETS_INR,
+    AgentBudgetExceededError,
+    AgentSpendLookup,
     BudgetExceededError,
     DailyBudgetExceededError,
     DailySpendLookup,
     SpendLookup,
 )
-from llm_router.models import Role, model_for
+from llm_router.models import REASONING_EFFORT, Role, model_for
 from services.openrouter import ChatResponse, OpenRouterClient, OpenRouterError
 
 logger = logging.getLogger(__name__)
@@ -58,7 +61,11 @@ class LlmRouter:
         sleep: Callable[[float], None] = time.sleep,  # tests pass a no-op
         daily_spend: DailySpendLookup | None = None,
         daily_budget_inr: Decimal | None = None,
+        agent_spend: AgentSpendLookup | None = None,
+        model_override: str | None = None,
     ) -> None:
+        """model_override: one model for every role (escalation keeps its own), for
+        comparing models on the benchmark without touching models.py."""
         self._client = client
         self._record = record
         self._usd_to_inr = usd_to_inr
@@ -67,6 +74,8 @@ class LlmRouter:
         self._sleep = sleep
         self._daily_spend = daily_spend
         self._daily_budget_inr = daily_budget_inr
+        self._agent_spend = agent_spend
+        self._model_override = model_override
 
     def complete(
         self,
@@ -88,8 +97,15 @@ class LlmRouter:
         spent = self._story_spend(agent_run_id)
         if spent >= self._story_budget_inr:
             raise BudgetExceededError(spent, self._story_budget_inr)
+        cap = AGENT_BUDGETS_INR.get(str(role))
+        if self._agent_spend is not None and cap is not None and not escalate:
+            mine = self._agent_spend(agent_run_id)
+            if mine >= cap:
+                raise AgentBudgetExceededError(str(role), mine, cap)
 
         model = model_for(role, escalate=escalate)
+        if self._model_override and not escalate:
+            model = self._model_override
         attempt = 0
         while True:
             started = time.perf_counter()
@@ -101,6 +117,7 @@ class LlmRouter:
                     response_format=response_format,
                     session_id=f"agent-run-{agent_run_id}",
                     max_tokens=max_tokens,
+                    reasoning_effort=None if escalate else REASONING_EFFORT.get(role),
                 )
                 break
             except OpenRouterError as exc:

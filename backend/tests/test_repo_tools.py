@@ -46,7 +46,7 @@ def test_definitions_cover_every_tool_with_a_schema() -> None:
     defs = {d["function"]["name"]: d["function"] for d in tool_definitions()}
     assert set(defs) == {
         "list_files", "search", "read_file", "edit_file", "create_file", "delete_file",
-        "run", "run_tests",
+        "run", "run_tests", "load_skill",
     }  # fmt: skip
     edit = defs["edit_file"]
     assert "exactly once" in edit["description"]

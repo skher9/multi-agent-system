@@ -1,0 +1,44 @@
+[
+  {
+    "id": "about-page",
+    "why": "Create a page and change another: the common case",
+    "summary": "Add an About page",
+    "description": "Add a page at /about with the heading \"About us\" and one short paragraph about the team.\n\nAcceptance criteria:\n- Visiting /about shows the heading \"About us\"\n- The /about page has one paragraph of text below the heading\n- The home page has a link to /about",
+    "expect": {"outcome": "ready_to_merge", "touch": ["src/app/about/page.tsx", "src/app/page.tsx"], "never": ["package.json", "next.config.ts", "eslint.config.mjs", "tsconfig.json"]}
+  },
+  {
+    "id": "footer",
+    "why": "Change the shared layout, not every page",
+    "summary": "Add a site footer",
+    "description": "Add a site footer that appears on every page.\n\nAcceptance criteria:\n- Every page shows a footer with the text \"© 2026 Agent Playground\"\n- The footer has a link with the text \"Home\" that goes to /\n- The footer is part of the shared layout, so new pages get it automatically",
+    "expect": {"outcome": "ready_to_merge", "touch": ["src/app/layout.tsx"], "never": ["package.json", "next.config.ts", "eslint.config.mjs", "tsconfig.json"]}
+  },
+  {
+    "id": "heading-text",
+    "why": "A one-line change: should be cheap and fast",
+    "summary": "Change the home page heading",
+    "description": "Change the home page heading to \"Welcome to Agent Playground\".\n\nAcceptance criteria:\n- The home page heading reads \"Welcome to Agent Playground\"\n- The old text \"Hello from the starter app\" no longer appears",
+    "expect": {"outcome": "ready_to_merge", "touch": ["src/app/page.tsx"], "never": ["package.json", "next.config.ts", "eslint.config.mjs", "tsconfig.json", "src/app/layout.tsx"]}
+  },
+  {
+    "id": "like-button",
+    "why": "A client component with state: needs real thinking",
+    "summary": "Add a like button to the home page",
+    "description": "Add a \"Like\" button to the home page that counts clicks.\n\nAcceptance criteria:\n- The home page shows a button with the text \"Like (0)\"\n- Each click adds one: after two clicks it reads \"Like (2)\"\n- The count resets when the page is reloaded (no saving)",
+    "expect": {"outcome": "ready_to_merge", "touch": ["src/app/page.tsx"], "never": ["package.json", "next.config.ts", "eslint.config.mjs", "tsconfig.json"]}
+  },
+  {
+    "id": "vague",
+    "why": "Must stop at the reader with questions, almost free",
+    "summary": "Make the site better",
+    "description": "The site should look better and be more modern.",
+    "expect": {"outcome": "blocked", "touch": [], "never": []}
+  },
+  {
+    "id": "login-conflict",
+    "why": "Must stop at the planner: the app has no login system to extend",
+    "summary": "Show the user's name in the header",
+    "description": "Use the existing login system to show the logged-in user's name in the header.\n\nAcceptance criteria:\n- A logged-in user sees \"Hi, <name>\" in the header\n- A visitor who is not logged in sees a \"Log in\" link instead",
+    "expect": {"outcome": "blocked", "touch": [], "never": []}
+  }
+]

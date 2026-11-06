@@ -165,7 +165,7 @@ def test_qa_writes_only_e2e_tests_and_they_must_pass(
     assert results[0].startswith("ERROR: you can only change files in e2e/")
     assert "criterion 1 to 2 exactly once" in results[2]
     assert "the browser tests failed" in results[3] and "1 failed: thanks you" in results[3]
-    assert script.sent[0]["model"] == "minimax/minimax-m3"
+    assert script.sent[0]["model"] == "deepseek/deepseek-v4.1-flash"
 
 
 def test_qa_may_finish_with_failing_tests_when_it_names_the_bugs(

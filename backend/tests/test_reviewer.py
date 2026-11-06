@@ -94,7 +94,7 @@ def test_reviewer_sees_the_diff_and_can_only_look(origin: str) -> None:  # noqa:
     assert "criterion 1 to 2 exactly once" in rejected
     results = [m["content"] for m in script.sent[-1]["messages"] if m["role"] == "tool"]
     assert results[0].startswith("ERROR: 'edit_file' is not available to the reviewer")
-    assert script.sent[0]["model"] == "minimax/minimax-m3"
+    assert script.sent[0]["model"] == "deepseek/deepseek-v4.1-flash"
 
 
 def test_developer_fix_mode_gets_the_review_and_needs_no_new_test(

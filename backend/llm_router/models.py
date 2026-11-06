@@ -2,7 +2,7 @@
 
 This is the only place model IDs live, so changing a model is a one-line edit.
 Docs rule: a new model must pass the eval set before it goes in here.
-IDs and prices checked live on OpenRouter on 2026-10-29.
+IDs and prices checked live on OpenRouter on 2026-11-06.
 """
 
 from enum import StrEnum
@@ -21,19 +21,36 @@ class Role(StrEnum):
 
 
 MODELS: dict[Role, str] = {
-    # Was deepseek/deepseek-v4.1-flash, but the live smoke test (2026-10-29) showed it
-    # cost about the same as MiniMax per call with no cache hits, so one model is simpler.
-    Role.TICKET_READER: "minimax/minimax-m3",
-    Role.PLANNER: "minimax/minimax-m3",
-    Role.DEVELOPER: "minimax/minimax-m3",
-    Role.REVIEWER: "minimax/minimax-m3",
-    Role.FIXER: "minimax/minimax-m3",
-    Role.QA: "minimax/minimax-m3",
-    Role.LEARNER: "minimax/minimax-m3",
+    # DeepSeek V4.1 Flash for every role (2026-11-06): on the benchmark (backend/
+    # experiments, round ds-deepseek-v4.1-flash) it passed every ticket at about a fifth
+    # of MiniMax M3's cost and half the steps, with clean code. A role moves to a
+    # stronger DeepSeek model only if the benchmark shows better quality for it.
+    Role.TICKET_READER: "deepseek/deepseek-v4.1-flash",
+    Role.PLANNER: "deepseek/deepseek-v4.1-flash",
+    Role.DEVELOPER: "deepseek/deepseek-v4.1-flash",
+    Role.REVIEWER: "deepseek/deepseek-v4.1-flash",
+    Role.FIXER: "deepseek/deepseek-v4.1-flash",
+    Role.QA: "deepseek/deepseek-v4.1-flash",
+    Role.LEARNER: "deepseek/deepseek-v4.1-flash",
 }
 
 # Used only when a task has failed twice (System Design doc), for any role.
-ESCALATION_MODEL = "z-ai/glm-5.2"
+# How long each role thinks per call. Reasoning is billed as output, ~40% of the cost in
+# the benchmark. DeepSeek ignores a reasoning token cap but honours effort: "low" cut a
+# planning answer's reasoning from 5,893 to 1,914 tokens with an equally complete
+# answer. Judgment-heavy roles keep "medium". The escalation model uses its default.
+REASONING_EFFORT: dict[Role, str] = {
+    Role.TICKET_READER: "low",
+    Role.PLANNER: "medium",
+    Role.DEVELOPER: "low",
+    Role.REVIEWER: "medium",
+    Role.FIXER: "low",
+    Role.QA: "low",
+    Role.LEARNER: "low",
+}
+
+# The strongest DeepSeek model: when a task failed twice, and for ask_senior
+ESCALATION_MODEL = "deepseek/deepseek-v4-pro"
 
 
 def model_for(role: Role, *, escalate: bool = False) -> str:

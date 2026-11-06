@@ -84,7 +84,7 @@ def test_ready_ticket_becomes_a_spec() -> None:
     assert spec.status == "ready"
     assert spec.acceptance_criteria == ["Visiting /contact shows a form"]
     [request] = sent
-    assert request["model"] == "minimax/minimax-m3"
+    assert request["model"] == "deepseek/deepseek-v4.1-flash"
     assert request["response_format"] == RESPONSE_FORMAT
 
 

@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 from api.config import Settings
 from db.session import make_session_factory
-from llm_router.budget import db_daily_spend, db_story_spend
+from llm_router.budget import db_agent_spend, db_daily_spend, db_story_spend
 from llm_router.recorder import db_recorder
 from llm_router.router import LlmRouter
 from orchestrator.checkpoints import postgres_checkpointer
@@ -105,6 +105,7 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
         settings.story_budget_inr,
         daily_spend=db_daily_spend(factory),
         daily_budget_inr=settings.daily_budget_inr,
+        agent_spend=db_agent_spend(factory),
     )
     try:
         with postgres_checkpointer(db_url) as checkpointer:

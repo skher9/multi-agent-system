@@ -11,7 +11,7 @@ on_event, if given, hears each tool call, rejected finish and the final answer, 
 run can be watched live (the runner saves them as run_events).
 
 With senior=True the model also gets ask_senior: a question to a stronger model (the
-escalation model, GLM-5.2), which sees the whole conversation so far as text, like a
+escalation model, DeepSeek V4 Pro), which sees the whole conversation so far as text, like a
 colleague reading over your shoulder (Cognition's "smart friend"). The loop answers it
 itself; it's capped per run, since the stronger model's answers cost more.
 """
@@ -42,15 +42,24 @@ EVENT_TEXT_MAX = 300  # arguments and errors are shortened to this in events
 # The run window shows code as it is written: for file-writing tools the event also
 # carries the code itself, up to this many characters per part
 EVENT_CODE_MAX = 20_000
+# Stuck detector (like OpenHands'): the same call this many times in a row is refused
+MAX_SAME_CALL = 3
+# Old tool results are cleared, in one batch, once the conversation passes this size;
+# the newest few stay. Set high on purpose: in the ctx-1 benchmark, clearing at ~20k
+# tokens made the developer re-read the files it was working on, and with 90%+ of the
+# history cached, resending it is cheap. This only guards against very long runs.
+CLEAR_ABOVE_CHARS = 240_000  # ~60k tokens
+KEEP_TOOL_RESULTS = 6
+CLEARED = "[earlier tool result cleared to save space; call the tool again if you need it]"
 EVENT_THOUGHT_MAX = 1500  # the model's reasoning, shown as the agent's thoughts
 CODE_TOOLS = {"create_file": ("content",), "edit_file": ("old_text", "new_text")}
 ASK_SENIOR = "ask_senior"
 MAX_SENIOR_CALLS = 2  # per agent run
-# The senior's answer, thinking included. GLM-5.2 output is ₹676 per 1M tokens, so ~₹2 max.
+# The senior's answer, thinking included. V4 Pro output is ~₹309 per 1M tokens: ~₹1 max.
 SENIOR_MAX_TOKENS = 3000
 # How much of the conversation the senior reads, from the end (the task is always kept).
-# GLM-5.2 input is ₹0.6 per 1M tokens: reading is cheap, writing isn't.
-SENIOR_CONTEXT_CHARS = 120_000
+# V4 Pro input is ~₹154 per 1M tokens (₹13 cached): keep what it reads bounded.
+SENIOR_CONTEXT_CHARS = 60_000  # ~15k tokens: at V4 Pro input prices, ~₹2 a question
 SENIOR_PROMPT = """\
 You are a senior engineer helping a colleague (another AI model) who is partway through a
 task and asked you a question. You get their whole conversation so far: their task, what
@@ -90,6 +99,18 @@ def unwrap_lists(value: Any) -> Any:
     if isinstance(value, list):
         return [unwrap_lists(item) for item in value]
     return value
+
+
+def _clear_old_tool_results(messages: list[dict[str, Any]]) -> None:
+    """Once the conversation is big, blank all but the newest tool results (Anthropic's
+    tool-result clearing): the calls stay, so the agent knows what it did and can ask
+    again. Nothing happens below the threshold, so the cached prefix is reused."""
+    if sum(len(str(m.get("content") or "")) for m in messages) < CLEAR_ABOVE_CHARS:
+        return
+    results = [m for m in messages if m.get("role") == "tool"]
+    for message in results[:-KEEP_TOOL_RESULTS]:
+        if len(str(message.get("content") or "")) > len(CLEARED):
+            message["content"] = CLEARED
 
 
 def _code_for_event(tool: str, arguments: str) -> dict[str, Any]:
@@ -146,8 +167,10 @@ def run_agent[T: BaseModel](
     ]
     used = idle = grace = rounds = senior_calls = 0
     # The round limit grows with the grace actually granted, not the most it could be
+    recent: list[tuple[str, str]] = []  # every tool call so far, for the stuck detector
     while rounds < max_tool_calls + grace + EXTRA_ROUNDS:
         rounds += 1
+        _clear_old_tool_results(messages)
         response = router.complete(
             role=role,
             messages=messages,
@@ -227,6 +250,15 @@ def run_agent[T: BaseModel](
             elif used >= max_tool_calls + grace:
                 logger.info("%s: refused %s, tool limit reached", role, name)
                 result = f"ERROR: tool limit ({max_tool_calls}) reached. Call {FINISH} now."
+            elif recent[-(MAX_SAME_CALL - 1) :] == [(name, arguments)] * (MAX_SAME_CALL - 1):
+                logger.info(
+                    "%s: refused %s, same call %d times in a row", role, name, MAX_SAME_CALL
+                )
+                result = (
+                    f"ERROR: you made this exact call {MAX_SAME_CALL - 1} times in a row already "
+                    "and got the same answer. Change your approach, or call "
+                    f"{FINISH} (or problem) with what you know."
+                )
             else:
                 used += 1
                 logger.info("%s: tool %d/%d %s %.120s", role, used, max_tool_calls, name, arguments)
@@ -247,6 +279,7 @@ def run_agent[T: BaseModel](
                     result += (
                         f"\n\n[{left} tool calls left. Call {FINISH} soon with what you know.]"
                     )
+            recent.append((name, arguments))
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
     raise AgentLoopError(f"no valid answer after {used} tool calls")
 
