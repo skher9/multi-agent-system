@@ -1,4 +1,8 @@
-"""open_pipeline(): build a real Pipeline from settings, and close everything after."""
+"""open_pipeline(): build a real Pipeline from settings, and close everything after.
+
+Runs on the demo project use the Jira and GitHub in settings; runs on a user's own
+project use the tokens that user connected (orchestrator/projects.py).
+"""
 
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -9,6 +13,7 @@ from llm_router.budget import db_agent_spend, db_daily_spend, db_story_spend
 from llm_router.recorder import db_recorder
 from llm_router.router import LlmRouter
 from orchestrator.checkpoints import postgres_checkpointer
+from orchestrator.projects import Credentials, credentials
 from orchestrator.records import ensure_project
 from orchestrator.runner import Pipeline
 from services import sandbox_e2b
@@ -17,6 +22,7 @@ from services.github import GitHubClient
 from services.jira import JiraClient
 from services.openrouter import OpenRouterClient
 from services.r2 import R2Credentials, R2Storage
+from services.secret_box import SecretBox
 from services.workspace import github_remote
 
 
@@ -25,10 +31,13 @@ class NotConfiguredError(Exception):
 
 
 @contextmanager
-def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Iterator[Pipeline]:
+def open_pipeline(
+    settings: Settings, *, database_url: str | None = None, project_id: int | None = None
+) -> Iterator[Pipeline]:
     """Connect Jira, OpenRouter and the database, with Postgres checkpoints for resuming.
 
     database_url overrides settings.database_url (scripts and tests use the test branch).
+    project_id: a user's own project (NotReadyError if it can't run); None = the demo.
     """
     db_url = database_url or (
         settings.database_url.get_secret_value() if settings.database_url else None
@@ -75,13 +84,28 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
         sandbox_e2b.configure(None)
 
     factory = make_session_factory(db_url)
-    repo_url = github_remote(settings.agent_repo)
-    project_id = ensure_project(
-        factory,
-        owner_email=settings.agent_owner_email,
-        name=settings.agent_repo.split("/")[1],
-        repo_url=repo_url,
-    )
+    if project_id is None:
+        own = Credentials(
+            jira_site=settings.jira_base_url,
+            jira_email=settings.jira_email,
+            jira_token=settings.jira_api_token.get_secret_value(),
+            jira_project_key=settings.jira_project_key or "",
+            repo=settings.agent_repo,
+            github_token=settings.github_token.get_secret_value(),
+        )
+        project_id = ensure_project(
+            factory,
+            owner_email=settings.agent_owner_email,
+            name=settings.agent_repo.split("/")[1],
+            repo_url=github_remote(settings.agent_repo),
+        )
+    else:
+        if not settings.integrations_key:
+            raise NotConfiguredError("INTEGRATIONS_KEY (needed for users' own projects)")
+        own = credentials(
+            factory, project_id, SecretBox(settings.integrations_key.get_secret_value())
+        )
+    repo_url = github_remote(own.repo)
     storage = R2Storage(
         R2Credentials(
             account_id=settings.r2_account_id,
@@ -90,14 +114,10 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
             bucket=settings.r2_bucket,
         )
     )
-    jira = JiraClient(
-        settings.jira_base_url, settings.jira_email, settings.jira_api_token.get_secret_value()
-    )
+    jira = JiraClient(own.jira_site, own.jira_email, own.jira_token)
     client = OpenRouterClient(settings.openrouter_api_key.get_secret_value())
     # The org argument is only used by list_repos/ping; PRs name their repo
-    github = GitHubClient(
-        settings.github_token.get_secret_value(), settings.agent_repo.split("/")[0]
-    )
+    github = GitHubClient(own.github_token, own.repo.split("/")[0])
     figma = FigmaClient(settings.figma_token.get_secret_value()) if settings.figma_token else None
     router = LlmRouter(
         client,
@@ -119,9 +139,9 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
                 checkpointer,
                 storage=storage,
                 repo_url=repo_url,
-                github_token=settings.github_token.get_secret_value(),
+                github_token=own.github_token,
                 github=github,
-                repo=settings.agent_repo,
+                repo=own.repo,
                 figma=figma,
             )
     finally:

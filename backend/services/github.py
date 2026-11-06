@@ -27,6 +27,17 @@ class PullRequestInfo:
     merged: bool
 
 
+@dataclass(frozen=True)
+class RepoAccess:
+    repo: str  # owner/name, as GitHub spells it
+    private: bool
+    can_push: bool  # the token's user may push branches (needed to open PRs)
+
+
+class RepoNotFoundError(Exception):
+    """The token can't see the repo (or it doesn't exist: GitHub answers 404 for both)."""
+
+
 # Comments our own pipeline posts start with this; they're not human feedback
 AGENT_MARK = "🤖"
 
@@ -126,6 +137,25 @@ class GitHubClient:
             f"/repos/{_checked(repo)}/issues/{number}/comments", json={"body": body}
         )
         response.raise_for_status()
+
+    def repo_access(self, repo: str) -> RepoAccess:
+        response = self._http.get(f"/repos/{_checked(repo)}")
+        if response.status_code in (403, 404):
+            raise RepoNotFoundError(repo)
+        response.raise_for_status()
+        data = response.json()
+        permissions = data.get("permissions") or {}
+        return RepoAccess(
+            data["full_name"],
+            bool(data.get("private")),
+            bool(permissions.get("push") or permissions.get("admin")),
+        )
+
+    def login(self) -> str:
+        """The token's GitHub username. Raises on a bad or expired token (401)."""
+        response = self._http.get("/user")
+        response.raise_for_status()
+        return response.json()["login"]
 
     def ping(self) -> None:
         """Raise if the token can't read the organization's repos."""

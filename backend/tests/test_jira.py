@@ -154,6 +154,8 @@ def test_create_subtask_posts_parent_type_and_labels() -> None:
     sent: list[dict[str, Any]] = []
 
     def handler(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path == "/rest/api/3/project/KAN":
+            return httpx2.Response(404)  # can't read the project: falls back to the name
         assert request.url.path == "/rest/api/3/issue"
         sent.append(json.loads(request.content))
         return httpx2.Response(201, json={"id": "10050", "key": "KAN-12"})
@@ -167,6 +169,38 @@ def test_create_subtask_posts_parent_type_and_labels() -> None:
     assert fields["parent"] == {"key": "KAN-4"}
     assert fields["issuetype"] == {"name": "Subtask"}
     assert fields["labels"] == ["mas-agent"]
+
+
+def test_create_subtask_uses_the_projects_own_subtask_type() -> None:
+    calls: list[str] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        calls.append(request.url.path)
+        if request.url.path == "/rest/api/3/project/ACME":
+            types = [{"id": "1", "subtask": False}, {"id": "10003", "subtask": True}]
+            return httpx2.Response(200, json={"key": "ACME", "name": "Acme", "issueTypes": types})
+        assert json.loads(request.content)["fields"]["issuetype"] == {"id": "10003"}
+        return httpx2.Response(201, json={"id": "1", "key": "ACME-9"})
+
+    client = make_client(handler)
+    client.create_subtask("ACME-1", "a", p("x"), [])
+    client.create_subtask("ACME-1", "b", p("x"), [])
+    assert calls.count("/rest/api/3/project/ACME") == 1  # looked up once
+
+
+def test_project_and_bad_project_keys() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path == "/rest/api/3/project/KAN":
+            return httpx2.Response(200, json={"key": "KAN", "name": "Demo", "issueTypes": []})
+        return httpx2.Response(404)
+
+    client = make_client(handler)
+    assert client.project("KAN").name == "Demo"
+    assert client.project("KAN").subtask_type_id is None
+    with pytest.raises(TicketNotFoundError):
+        client.project("NOPE")
+    with pytest.raises(ValueError):
+        client.project("../x")
 
 
 def test_find_subtasks_maps_summary_to_key() -> None:

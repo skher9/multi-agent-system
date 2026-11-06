@@ -35,6 +35,13 @@ export default function PrivacyPage() {
             issues. We ask only for your basic profile and email.
           </li>
           <li>
+            <strong>Your own Jira and GitHub, if you connect them:</strong> your Jira site, email
+            and project key, your GitHub username and repo, and the two tokens. Tokens are checked
+            with Jira or GitHub first, then stored encrypted (the key is kept apart from the
+            database), used only for runs you start, and never shown again, not even to you.
+            Disconnecting or deleting your account deletes them.
+          </li>
+          <li>
             <strong>Runs you start:</strong> the ticket text you write, what the agents did, the
             code they produced, and what it cost.
           </li>

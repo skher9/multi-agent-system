@@ -6,7 +6,7 @@ another's data once the app opens to more users.
 
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, ForeignKey, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.base import Base, IdMixin, TimestampMixin, text_enum
@@ -37,8 +37,37 @@ class Project(IdMixin, TimestampMixin, Base):
     kind: Mapped[ProjectKind] = mapped_column(text_enum(ProjectKind, "project_kind"))
     code_repo_url: Mapped[str | None] = mapped_column(Text)
     context_repo_url: Mapped[str | None] = mapped_column(Text)
+    # Where its tickets live, e.g. https://acme.atlassian.net and KAN
+    jira_site: Mapped[str | None] = mapped_column(String(200))
+    jira_project_key: Mapped[str | None] = mapped_column(String(32))
     # Allowed values are defined when the orchestrator is built (M1).
     status: Mapped[str] = mapped_column(String(32))
+
+
+class IntegrationKind(StrEnum):
+    JIRA = "jira"
+    GITHUB = "github"
+
+
+class Integration(IdMixin, TimestampMixin, Base):
+    """A user's own Jira or GitHub, so agents can work on their project.
+
+    The token is encrypted (services/secret_box.py) and never leaves the backend: the
+    API answers with everything else. Disconnecting deletes the row.
+    """
+
+    __tablename__ = "integrations"
+    # One Jira and one GitHub per user. Also serves as the user_id index.
+    __table_args__ = (UniqueConstraint("user_id", "kind", name="uq_integrations_user_id_kind"),)
+
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
+    kind: Mapped[IntegrationKind] = mapped_column(text_enum(IntegrationKind, "integration_kind"))
+    # Who it signs in as: the Jira email, or the GitHub username
+    account: Mapped[str] = mapped_column(String(320))
+    site: Mapped[str | None] = mapped_column(String(200))  # Jira: https://acme.atlassian.net
+    # What agents work on: the Jira project key (KAN), or the repo (owner/name)
+    scope: Mapped[str] = mapped_column(String(200))
+    secret: Mapped[bytes] = mapped_column(LargeBinary)  # the encrypted token
 
 
 class Document(IdMixin, TimestampMixin, Base):

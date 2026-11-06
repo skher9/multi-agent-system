@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     # The Jira project the demo's tickets live in, e.g. KAN (for board links)
     jira_project_key: str | None = None
 
+    # Encrypts the Jira and GitHub tokens users connect (services/secret_box.py).
+    # Unset = users can't connect their own project; the demo still works.
+    integrations_key: SecretStr | None = None
+
     # LLM costs. OpenRouter bills in USD; we log and limit in ₹.
     # Rate from the Services doc (July 2026); update by hand when it drifts.
     usd_to_inr: Decimal = Decimal("96.5")
@@ -81,6 +85,9 @@ class Settings(BaseSettings):
     story_budget_inr: Decimal = Decimal("50")
     # All runs together, last 24 hours. Hidden from visitors; protects the bill.
     daily_budget_inr: Decimal = Decimal("300")
+    # Runs on one user's own projects, last 24 hours, so one user can't use up the
+    # daily budget the demo needs.
+    user_daily_budget_inr: Decimal = Decimal("100")
 
 
 @lru_cache

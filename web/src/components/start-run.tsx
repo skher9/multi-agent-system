@@ -3,10 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
+import Link from "next/link";
+
 import { FormError, INPUT } from "@/components/auth-form";
+import { useOwnProject, type OwnProjectState } from "@/components/own-project";
 import { Button } from "@/components/site";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
+import { runHref } from "@/lib/runs/use-runs";
 
 type Project = components["schemas"]["ProjectLinks"];
 
@@ -14,18 +18,23 @@ const POLL_MS = 5000;
 // Same shape the API accepts (backend/services/figma.py)
 const FIGMA_LINK = /^https:\/\/(www\.)?figma\.com\/(design|file|proto)\/[A-Za-z0-9]{10,64}/;
 
-type Job = { id: string; ticket: string; status: string; result?: unknown };
+type Job = { id: string; ticket: string; status: string; result?: unknown; href: string };
 
-/** Start a run for a Jira ticket, then open its live run window. */
+/** Start a run for a Jira ticket, on the demo project or the user's own, then open its
+ * live run window. */
 export function StartRun() {
   const router = useRouter();
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [project, setProject] = useState<Project | null>(null);
+  const [demo, setDemo] = useState<Project | null>(null);
+  const { project: own } = useOwnProject();
+  const [choice, setChoice] = useState<"own" | "demo" | null>(null); // null = not picked yet
+  const useOwn = own?.ready === true && choice !== "demo"; // your project once it's set up
+  const project = useOwn && own ? ownLinks(own) : demo;
 
   useEffect(() => {
-    api.GET("/project").then(({ data }) => data && setProject(data));
+    api.GET("/project").then(({ data }) => data && setDemo(data));
   }, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -35,24 +44,34 @@ export function StartRun() {
     const form = new FormData(event.currentTarget);
     const ticket = String(form.get("ticket")).trim().toUpperCase();
     const figmaUrl = String(form.get("figma_url") ?? "").trim();
-    const { data, response } = await api.POST("/runs", {
-      body: { ticket, approve_plan: form.get("approve_plan") === "on", figma_url: figmaUrl },
+    const projectId = useOwn ? (own?.project_id ?? null) : null;
+    const { data, error, response } = await api.POST("/runs", {
+      body: {
+        ticket,
+        approve_plan: form.get("approve_plan") === "on",
+        figma_url: figmaUrl,
+        project_id: projectId,
+      },
     });
     setPending(false);
     if (!data) {
+      const detail = (error as { detail?: unknown } | undefined)?.detail;
       setError(
-        response.status === 422
-          ? figmaUrl && !FIGMA_LINK.test(figmaUrl)
-            ? "That doesn't look like a Figma design link. Copy it from Figma's Share button."
-            : "That doesn't look like a ticket key. Use the form KAN-12."
-          : response.status === 401
-            ? "Your login expired. Refresh the page and try again."
-            : "Couldn't start the run. Please try again.",
+        typeof detail === "string" // our own checks: wrong project, not set up, daily limit
+          ? `${detail[0]?.toUpperCase()}${detail.slice(1)}.`
+          : response.status === 422
+            ? figmaUrl && !FIGMA_LINK.test(figmaUrl)
+              ? "That doesn't look like a Figma design link. Copy it from Figma's Share button."
+              : `That doesn't look like a ticket key. Use the form ${keyHint(project)}.`
+            : response.status === 401
+              ? "Your login expired. Refresh the page and try again."
+              : "Couldn't start the run. Please try again.",
       );
       return;
     }
-    setJob({ id: data.job_id, ticket, status: "PENDING" });
-    router.push(`/runs/${ticket}`); // watch it live
+    const href = runHref({ ticket, project_id: projectId ?? 0, demo: projectId === null });
+    setJob({ id: data.job_id, ticket, status: "PENDING", href });
+    router.push(href); // watch it live
   }
 
   const running = job !== null && !["SUCCESS", "FAILURE"].includes(job.status);
@@ -74,12 +93,37 @@ export function StartRun() {
       <p className="mt-1 text-sm text-muted">
         Enter a Jira ticket. The agents read it, plan, build, test and open a pull request.
       </p>
+      {own?.ready && (
+        <fieldset className="mt-4 grid grid-cols-2 gap-1 rounded-md border border-line bg-canvas p-1 text-sm">
+          <legend className="sr-only">Project</legend>
+          {(["own", "demo"] as const).map((value) => (
+            <label
+              key={value}
+              className={`cursor-pointer rounded px-3 py-1.5 text-center transition has-focus-visible:ring-2 has-focus-visible:ring-accent ${
+                (value === "own") === useOwn
+                  ? "bg-surface font-medium shadow-sm"
+                  : "text-muted hover:text-ink"
+              }`}
+            >
+              <input
+                type="radio"
+                name="project"
+                value={value}
+                checked={(value === "own") === useOwn}
+                onChange={() => setChoice(value)}
+                className="sr-only"
+              />
+              {value === "own" ? "Your project" : "Demo"}
+            </label>
+          ))}
+        </fieldset>
+      )}
       {project && <ProjectCard project={project} />}
       <form onSubmit={onSubmit} className="mt-5 space-y-3">
         <input
           name="ticket"
           required
-          placeholder="Ticket key, e.g. KAN-12"
+          placeholder={`Ticket key, e.g. ${keyHint(project)}`}
           autoComplete="off"
           className={`${INPUT} w-full`}
         />
@@ -112,12 +156,9 @@ export function StartRun() {
             <span className="font-mono">{job.ticket}</span>
             <span className="text-muted"> · {describe(job)}</span>
           </p>
-          <a
-            href={`/runs/${job.ticket}`}
-            className="mt-1 inline-block text-xs text-accent hover:underline"
-          >
+          <Link href={job.href} className="mt-1 inline-block text-xs text-accent hover:underline">
             Watch it live →
-          </a>
+          </Link>
         </div>
       )}
     </section>
@@ -129,6 +170,24 @@ function describe(job: Job): string {
   if (job.status === "SUCCESS") return `finished: ${String(job.result).replaceAll("_", " ")}`;
   if (job.status === "STARTED") return "running…";
   return "queued…";
+}
+
+function keyHint(project: Project | null): string {
+  return `${project?.jira_project ?? "KAN"}-12`;
+}
+
+/** The same links as the API gives for the demo, for the user's own project. */
+function ownLinks(own: OwnProjectState): Project {
+  const repo = own.github?.repo ?? null;
+  const site = own.jira?.site ?? null;
+  const key = own.jira?.project_key ?? null;
+  return {
+    repo,
+    repo_url: repo ? `https://github.com/${repo}` : null,
+    jira_site: site,
+    jira_project: key,
+    board_url: site && key ? `${site}/jira/software/projects/${key}/boards` : null,
+  };
 }
 
 /** Which repo and Jira project runs work on, with links to both. */

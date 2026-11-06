@@ -55,6 +55,17 @@ export const TONE: Record<Tone, string> = {
   muted: "text-muted",
 };
 
+/** A run's page. Runs on the user's own project name it, since ticket keys can repeat
+ * across Jira sites. */
+export function runHref(run: { ticket: string; project_id: number; demo: boolean }): string {
+  return run.demo ? `/runs/${run.ticket}` : `/runs/${run.ticket}?project=${run.project_id}`;
+}
+
+/** A stable key for lists: the same ticket key can exist on the demo and on your project. */
+export function runKey(run: Run): string {
+  return `${run.project_id}-${run.ticket}`;
+}
+
 export function statusOf(run: Run) {
   return STATUS[run.status] ?? { label: run.status.replaceAll("_", " "), tone: "muted" as const };
 }

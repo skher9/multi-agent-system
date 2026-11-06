@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api/client";
@@ -22,6 +22,9 @@ type State =
 /** A real run, live: asks the API for new events every 2 seconds and plays them in. */
 export function LiveRun() {
   const { ticket } = useParams<{ ticket: string }>();
+  // Runs on the user's own project say which one; none = the demo
+  const projectParam = Number(useSearchParams().get("project"));
+  const projectId = Number.isInteger(projectParam) && projectParam > 0 ? projectParam : undefined;
   const [state, setState] = useState<State>({ kind: "loading" });
 
   useEffect(() => {
@@ -32,7 +35,7 @@ export function LiveRun() {
     async function poll() {
       const after = current?.events.at(-1)?.id ?? 0;
       const { data, response } = await api.GET("/runs/{ticket}/events", {
-        params: { path: { ticket }, query: { after } },
+        params: { path: { ticket }, query: { after, project_id: projectId } },
       });
       if (cancelled) return;
       if (!data) {
@@ -78,7 +81,7 @@ export function LiveRun() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [ticket]);
+  }, [ticket, projectId]);
 
   // The browser tab says how the run is doing, so it can be watched from another tab
   const tabTitle =

@@ -14,6 +14,7 @@ from api.main import app
 from db.models import EventKind, User
 from db.session import make_session_factory
 from orchestrator.records import ensure_feature, ensure_project, record_event
+from services.workspace import github_remote
 
 test_db_url = get_settings().database_url_test
 pytestmark = pytest.mark.skipif(test_db_url is None, reason="DATABASE_URL_TEST not set")
@@ -30,9 +31,15 @@ def factory() -> Iterator[sessionmaker[Session]]:
 
 
 @pytest.fixture
-def ticket(factory: sessionmaker[Session]) -> Iterator[tuple[str, int]]:
+def ticket(
+    factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> Iterator[tuple[str, int]]:
+    """A ticket on the demo project (any user may see its runs)."""
     email = f"events-test-{uuid.uuid4().hex}@example.com"
-    project = ensure_project(factory, owner_email=email, name="pg", repo_url="https://x.git")
+    repo = f"o/r-{uuid.uuid4().hex[:8]}"
+    monkeypatch.setattr(get_settings(), "agent_owner_email", email)
+    monkeypatch.setattr(get_settings(), "agent_repo", repo)
+    project = ensure_project(factory, owner_email=email, name="pg", repo_url=github_remote(repo))
     key = f"EVT-{uuid.uuid4().int % 10**6}"
     yield key, ensure_feature(factory, project, key)
     with factory.begin() as session:
@@ -82,9 +89,9 @@ def test_timeline_links_to_ticket_repo_and_branch(
 ) -> None:
     settings = get_settings()
     monkeypatch.setattr(settings, "jira_base_url", "https://site.atlassian.net/")
-    monkeypatch.setattr(settings, "agent_repo", "o/r")
     monkeypatch.setattr(settings, "jira_project_key", None)
     key, feature_id = ticket
+    repo = settings.agent_repo
     body = client.get(f"/runs/{key}/events").json()
     assert body["ticket_url"] == f"https://site.atlassian.net/browse/{key}"
     assert body["branch_url"] is None  # nothing pushed yet
@@ -92,4 +99,5 @@ def test_timeline_links_to_ticket_repo_and_branch(
     assert body["project"]["board_url"].endswith(f"/projects/{project}/boards")
     record_event(factory, feature_id, EventKind.NODE_FINISHED, {"node": "develop"})
     after = client.get(f"/runs/{key}/events").json()
-    assert after["branch_url"] == f"https://github.com/o/r/tree/agent/{key}"
+    assert after["branch_url"] == f"https://github.com/{repo}/tree/agent/{key}"
+    assert after["demo"] is True

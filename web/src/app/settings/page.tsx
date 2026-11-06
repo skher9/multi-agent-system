@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { AppNav } from "@/components/app-nav";
 import { type Connection, Connections } from "@/components/connections";
 import { DeleteAccount } from "@/components/delete-account";
+import { OwnProject } from "@/components/own-project";
 import { auth, enabledProviders } from "@/lib/auth";
 import { verifySession } from "@/lib/session";
 
@@ -23,10 +24,19 @@ export default function SettingsPage() {
         <Suspense fallback={<div className="h-40 animate-pulse rounded-lg bg-surface" />}>
           <ConnectedAccounts />
         </Suspense>
+        <section id="project" className="scroll-mt-24 rounded-lg border border-line bg-surface p-6">
+          <h2 className="font-medium">Your project</h2>
+          <p className="mt-1 mb-4 text-sm text-muted">
+            The Jira and GitHub agents work on when you pick your own project. Tokens are checked,
+            then stored encrypted; nobody else can see your runs.
+          </p>
+          <OwnProject />
+        </section>
         <section className="rounded-lg border border-bad/30 bg-surface p-6">
           <h2 className="font-medium">Delete account</h2>
           <p className="mt-1 mb-4 text-sm text-muted">
-            Removes your account, your logins and your sessions from our database.
+            Removes your account, your logins, your sessions and your Jira and GitHub tokens from
+            our database.
           </p>
           <DeleteAccount />
         </section>
