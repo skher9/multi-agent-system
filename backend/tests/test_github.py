@@ -6,7 +6,7 @@ from collections.abc import Callable
 import httpx2
 import pytest
 
-from services.github import API_VERSION, GitHubClient
+from services.github import API_VERSION, GitHubClient, RepoNotFoundError
 
 
 def make_client(handler: Callable[[httpx2.Request], httpx2.Response]) -> GitHubClient:
@@ -121,3 +121,24 @@ def test_human_comments_leave_out_the_pipelines_own() -> None:
         "Looks good, one nit.",
         "src/a.tsx: Use formatDate here",
     ]
+
+
+def test_repo_access_and_login() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path == "/user":
+            return httpx2.Response(200, json={"login": "octo"})
+        if request.url.path == "/repos/octo/shop":
+            return httpx2.Response(
+                200,
+                json={"full_name": "octo/shop", "private": True, "permissions": {"push": True}},
+            )
+        return httpx2.Response(404)
+
+    client = GitHubClient("t", "octo", transport=httpx2.MockTransport(handler))
+    assert client.login() == "octo"
+    access = client.repo_access("octo/shop")
+    assert (access.repo, access.private, access.can_push) == ("octo/shop", True, True)
+    with pytest.raises(RepoNotFoundError):
+        client.repo_access("octo/missing")
+    with pytest.raises(ValueError):
+        client.repo_access("../etc")

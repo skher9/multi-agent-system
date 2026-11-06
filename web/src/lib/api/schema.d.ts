@@ -78,6 +78,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Own Project */
+        get: operations["get_own_project_me_project_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/jira": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Connect Jira */
+        put: operations["connect_jira_me_jira_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/github": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Connect Github */
+        put: operations["connect_github_me_github_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Disconnect Integration
+         * @description Delete our copy of the token. 404 if that wasn't connected.
+         */
+        delete: operations["disconnect_integration_me__kind__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/project": {
         parameters: {
             query?: never;
@@ -121,13 +192,14 @@ export interface paths {
         };
         /**
          * Recent Runs
-         * @description The latest runs, newest first, for the dashboard.
+         * @description The latest runs the user may see (the demo's and their own), newest first.
          */
         get: operations["recent_runs_runs_get"];
         put?: never;
         /**
          * Start Run
-         * @description Queue a run. 202 = accepted, not finished.
+         * @description Queue a run. 202 = accepted, not finished. On the user's own project, the ticket
+         *     must be in their Jira project, and their runs share a daily budget (429 past it).
          */
         post: operations["start_run_runs_post"];
         delete?: never;
@@ -200,6 +272,28 @@ export interface components {
              */
             created_at: string;
         };
+        /** GitHubConnect */
+        GitHubConnect: {
+            /**
+             * Token
+             * Format: password
+             */
+            token: string;
+            /** Repo */
+            repo: string;
+        };
+        /** GitHubConnection */
+        GitHubConnection: {
+            /** Login */
+            login: string;
+            /** Repo */
+            repo: string;
+            /**
+             * Connected At
+             * Format: date-time
+             */
+            connected_at: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -216,6 +310,39 @@ export interface components {
             services: {
                 [key: string]: components["schemas"]["ServiceStatus"];
             };
+        };
+        /**
+         * IntegrationKind
+         * @enum {string}
+         */
+        IntegrationKind: "jira" | "github";
+        /** JiraConnect */
+        JiraConnect: {
+            /** Site */
+            site: string;
+            /** Email */
+            email: string;
+            /**
+             * Api Token
+             * Format: password
+             */
+            api_token: string;
+            /** Project Key */
+            project_key: string;
+        };
+        /** JiraConnection */
+        JiraConnection: {
+            /** Site */
+            site: string;
+            /** Email */
+            email: string;
+            /** Project Key */
+            project_key: string;
+            /**
+             * Connected At
+             * Format: date-time
+             */
+            connected_at: string;
         };
         /** JobStarted */
         JobStarted: {
@@ -241,6 +368,17 @@ export interface components {
              * @description Pull request number in the agent's repo
              */
             pr: number;
+        };
+        /** OwnProject */
+        OwnProject: {
+            /** Available */
+            available: boolean;
+            jira: components["schemas"]["JiraConnection"] | null;
+            github: components["schemas"]["GitHubConnection"] | null;
+            /** Project Id */
+            project_id: number | null;
+            /** Ready */
+            ready: boolean;
         };
         /**
          * PlanDecision
@@ -288,11 +426,17 @@ export interface components {
              * @default
              */
             figma_url: string;
+            /** Project Id */
+            project_id?: number | null;
         };
         /** RunSummary */
         RunSummary: {
             /** Ticket */
             ticket: string;
+            /** Project Id */
+            project_id: number;
+            /** Demo */
+            demo: boolean;
             /** Title */
             title: string;
             /** Status */
@@ -316,6 +460,10 @@ export interface components {
         RunTimeline: {
             /** Ticket */
             ticket: string;
+            /** Project Id */
+            project_id: number;
+            /** Demo */
+            demo: boolean;
             /** Title */
             title: string;
             /** Ticket Url */
@@ -504,6 +652,138 @@ export interface operations {
             };
         };
     };
+    get_own_project_me_project_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnProject"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    connect_jira_me_jira_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JiraConnect"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnProject"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    connect_github_me_github_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitHubConnect"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnProject"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_integration_me__kind__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                kind: components["schemas"]["IntegrationKind"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_project_project_get: {
         parameters: {
             query?: never;
@@ -635,6 +915,7 @@ export interface operations {
     run_events_runs__ticket__events_get: {
         parameters: {
             query?: {
+                project_id?: number | null;
                 after?: number;
             };
             header?: {
@@ -669,7 +950,9 @@ export interface operations {
     };
     decide_plan_runs__ticket__plan_decision_post: {
         parameters: {
-            query?: never;
+            query?: {
+                project_id?: number | null;
+            };
             header?: {
                 authorization?: string | null;
             };

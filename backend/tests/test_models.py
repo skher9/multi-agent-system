@@ -53,6 +53,7 @@ def test_all_v1_tables_exist() -> None:
         "llm_calls",
         "run_events",
         "repo_rules",
+        "integrations",
     }
 
 

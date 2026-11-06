@@ -14,7 +14,10 @@ import httpx2
 # Project key, dash, number: "KAN-4". Checked before the key goes into a URL path.
 TICKET_KEY = re.compile(r"[A-Z][A-Z0-9]+-\d+")
 LABEL = re.compile(r"[a-z0-9-]+")  # the labels we set, e.g. "mas-agent"
-SUBTASK_TYPE = "Subtask"  # the issue type's name in team-managed Jira projects
+PROJECT_KEY = re.compile(r"[A-Z][A-Z0-9]+")  # "KAN"
+# The subtask issue type's name in team-managed Jira projects ("Sub-task" in
+# company-managed ones); used when the project's own types can't be read
+SUBTASK_TYPE = "Subtask"
 
 
 class TicketNotFoundError(Exception):
@@ -29,6 +32,13 @@ class JiraTicket:
     summary: str  # the ticket title
     description: str  # plain text; "" when the ticket has none
     labels: list[str]
+
+
+@dataclass(frozen=True)
+class JiraProject:
+    key: str
+    name: str
+    subtask_type_id: str | None  # the project's subtask issue type; None = it has none
 
 
 class JiraClient:
@@ -46,6 +56,7 @@ class JiraClient:
             timeout=15,
             transport=transport,  # tests pass a fake transport; None means real network
         )
+        self._subtask_types: dict[str, dict[str, str]] = {}  # project key -> issuetype field
 
     def get_ticket(self, key: str) -> JiraTicket:
         # fullmatch, not match + "$": "$" also accepts a trailing newline ("KAN-4\n").
@@ -90,10 +101,11 @@ class JiraClient:
         """Create a subtask under a ticket (same project); return its key, e.g. "KAN-12"."""
         if not TICKET_KEY.fullmatch(parent_key):
             raise ValueError(f"not a Jira ticket key: {parent_key!r}")
+        project = parent_key.split("-")[0]
         fields = {
-            "project": {"key": parent_key.split("-")[0]},
+            "project": {"key": project},
             "parent": {"key": parent_key},
-            "issuetype": {"name": SUBTASK_TYPE},
+            "issuetype": self._subtask_type(project),
             "summary": summary,
             "description": description,
             "labels": labels,
@@ -114,9 +126,37 @@ class JiraClient:
         response.raise_for_status()
         return {i["fields"]["summary"]: i["key"] for i in response.json().get("issues", [])}
 
+    def project(self, key: str) -> JiraProject:
+        """A project the token can see; TicketNotFoundError if it can't (or none exists)."""
+        if not PROJECT_KEY.fullmatch(key):
+            raise ValueError(f"not a Jira project key: {key!r}")
+        response = self._http.get(f"/rest/api/3/project/{key}")
+        if response.status_code == 404:
+            raise TicketNotFoundError(key)
+        response.raise_for_status()
+        data = response.json()
+        subtask = next((t for t in data.get("issueTypes", []) if t.get("subtask")), None)
+        return JiraProject(data["key"], data.get("name", key), subtask and str(subtask["id"]))
+
+    def myself(self) -> str:
+        """Who the email + token sign in as (their display name). Raises if they can't."""
+        response = self._http.get("/rest/api/3/myself")
+        response.raise_for_status()
+        return response.json().get("displayName", "")
+
     def ping(self) -> None:
         """Raise if the email + token can't sign in. GET /myself reads only the caller."""
-        self._http.get("/rest/api/3/myself").raise_for_status()
+        self.myself()
+
+    def _subtask_type(self, project: str) -> dict[str, str]:
+        """The issuetype field for a subtask in this project, looked up once."""
+        if project not in self._subtask_types:
+            try:
+                found = self.project(project).subtask_type_id
+            except (TicketNotFoundError, httpx2.HTTPError):
+                found = None
+            self._subtask_types[project] = {"id": found} if found else {"name": SUBTASK_TYPE}
+        return self._subtask_types[project]
 
     def close(self) -> None:
         self._http.close()

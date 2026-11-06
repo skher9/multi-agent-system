@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from api.config import Settings
 from api.main import app
+from orchestrator.projects import NotReadyError
 from orchestrator.runner import AlreadyRunningError
 from orchestrator.wiring import NotConfiguredError, open_pipeline
 from workers import tasks
@@ -28,11 +29,11 @@ def test_start_run_queues_the_ticket(monkeypatch: pytest.MonkeyPatch) -> None:
     response = client.post("/runs", json={"ticket": "KAN-4"})
     assert response.status_code == 202
     assert response.json() == {"job_id": "job-9"}
-    assert sent == [("run_ticket", ["KAN-4", False, ""])]
+    assert sent == [("run_ticket", ["KAN-4", False, "", None])]
     design = "https://www.figma.com/design/AbC123xyz456/Shop?node-id=1-2"
     response = client.post("/runs", json={"ticket": "KAN-4", "figma_url": f" {design} "})
     assert response.status_code == 202
-    assert sent[-1] == ("run_ticket", ["KAN-4", False, design])
+    assert sent[-1] == ("run_ticket", ["KAN-4", False, design, None])
 
 
 @pytest.mark.parametrize(
@@ -57,7 +58,7 @@ def test_plan_decision_queues_the_answer(monkeypatch: pytest.MonkeyPatch) -> Non
     )
     body = {"decision": "revise", "feedback": "Use the existing Button"}
     assert client.post("/runs/KAN-4/plan-decision", json=body).status_code == 202
-    assert sent == [("decide_plan", ["KAN-4", body])]
+    assert sent == [("decide_plan", ["KAN-4", body, None])]
 
 
 def test_learn_queues_the_pr(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -91,7 +92,7 @@ def test_start_run_rejects_bad_keys(monkeypatch: pytest.MonkeyPatch, ticket: str
 
 def test_run_ticket_task_returns_the_outcome(monkeypatch: pytest.MonkeyPatch) -> None:
     @contextmanager
-    def fake_open(settings: Any):
+    def fake_open(settings: Any, project_id: int | None = None):
         yield "pipeline"
 
     monkeypatch.setattr(tasks, "open_pipeline", fake_open)
@@ -108,7 +109,7 @@ def test_run_ticket_task_returns_the_outcome(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_run_ticket_task_skips_when_already_running(monkeypatch: pytest.MonkeyPatch) -> None:
     @contextmanager
-    def fake_open(settings: Any):
+    def fake_open(settings: Any, project_id: int | None = None):
         yield "pipeline"
 
     def busy(pipeline: Any, key: str, **_: Any) -> None:
@@ -117,6 +118,16 @@ def test_run_ticket_task_skips_when_already_running(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(tasks, "open_pipeline", fake_open)
     monkeypatch.setattr(tasks, "run_ticket", busy)
     assert tasks.run_ticket_task("KAN-4") == "already_running"
+
+
+def test_run_ticket_task_on_a_disconnected_project(monkeypatch: pytest.MonkeyPatch) -> None:
+    @contextmanager
+    def not_ready(settings: Any, project_id: int | None = None):
+        raise NotReadyError("connect both Jira and GitHub first")
+        yield
+
+    monkeypatch.setattr(tasks, "open_pipeline", not_ready)
+    assert tasks.run_ticket_task("ACME-1", project_id=5) == "not_connected"
 
 
 def test_open_pipeline_names_every_missing_setting() -> None:

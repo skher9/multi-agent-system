@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 
+import { ButtonLink } from "@/components/button";
+import { useOwnProject } from "@/components/own-project";
 import { StatusLabel } from "@/components/status-label";
-import { duration, type Run, useRuns } from "@/lib/runs/use-runs";
+import { duration, type Run, runHref, runKey, useRuns } from "@/lib/runs/use-runs";
 
 /** Your numbers, the latest run, and the few before it. */
 export function Overview() {
@@ -30,11 +32,11 @@ export function Overview() {
           <ul className="mt-3 divide-y divide-line border-y border-line">
             {earlier.slice(0, 3).map((run) => (
               <li
-                key={run.ticket}
+                key={runKey(run)}
                 className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-3 text-sm"
               >
                 <Link
-                  href={`/runs/${run.ticket}`}
+                  href={runHref(run)}
                   className="flex min-w-0 items-baseline gap-3 hover:underline hover:underline-offset-4"
                 >
                   <span className="font-mono text-xs text-muted">{run.ticket}</span>
@@ -89,7 +91,7 @@ function Latest({ run }: { run: Run }) {
       </p>
       <div className="mt-5 flex flex-wrap gap-3 text-sm">
         <Link
-          href={`/runs/${run.ticket}`}
+          href={runHref(run)}
           className="rounded-md bg-ink px-4 py-2 font-medium text-canvas transition hover:bg-accent hover:text-accent-ink"
         >
           Open the run
@@ -132,4 +134,36 @@ function median(runs: Run[]): Run | undefined {
       (new Date(b.updated_at).getTime() - new Date(b.started_at).getTime()),
   );
   return sorted[Math.floor(sorted.length / 2)];
+}
+
+/** Setting up your own project: an invitation until it's done, then what it points at. */
+export function OwnProjectCard() {
+  const { project } = useOwnProject();
+  if (!project?.available) return null;
+  if (project.ready)
+    return (
+      <section className="rounded-lg border border-line p-5 text-sm">
+        <h2 className="font-display text-xl">Your project</h2>
+        <p className="mt-2 text-muted">
+          <span className="font-mono text-xs text-ink">{project.github?.repo}</span> with Jira{" "}
+          <span className="font-mono text-xs text-ink">{project.jira?.project_key}</span>. Only you
+          see its runs.
+        </p>
+        <Link href="/settings#project" className="mt-3 inline-block text-accent hover:underline">
+          Manage or disconnect
+        </Link>
+      </section>
+    );
+  return (
+    <section className="rounded-lg border border-line p-5 text-sm">
+      <h2 className="font-display text-xl">Use your own project</h2>
+      <p className="mt-2 text-muted">
+        Connect your Jira and a GitHub repo, and the same team works on your tickets. Pull requests
+        wait for your review; nothing is merged for you.
+      </p>
+      <ButtonLink href="/setup" size="sm" variant="ghost" className="mt-4">
+        Set it up · 5 min
+      </ButtonLink>
+    </section>
+  );
 }

@@ -204,6 +204,224 @@
         }
       }
     },
+    "/me/project": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Get Own Project",
+        "operationId": "get_own_project_me_project_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnProject"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/jira": {
+      "put": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Connect Jira",
+        "operationId": "connect_jira_me_jira_put",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JiraConnect"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnProject"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/github": {
+      "put": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Connect Github",
+        "operationId": "connect_github_me_github_put",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitHubConnect"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnProject"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/{kind}": {
+      "delete": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Disconnect Integration",
+        "description": "Delete our copy of the token. 404 if that wasn't connected.",
+        "operationId": "disconnect_integration_me__kind__delete",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/IntegrationKind"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/project": {
       "get": {
         "tags": [
@@ -308,7 +526,7 @@
           "runs"
         ],
         "summary": "Start Run",
-        "description": "Queue a run. 202 = accepted, not finished.",
+        "description": "Queue a run. 202 = accepted, not finished. On the user's own project, the ticket\nmust be in their Jira project, and their runs share a daily budget (429 past it).",
         "operationId": "start_run_runs_post",
         "parameters": [
           {
@@ -366,7 +584,7 @@
           "runs"
         ],
         "summary": "Recent Runs",
-        "description": "The latest runs, newest first, for the dashboard.",
+        "description": "The latest runs the user may see (the demo's and their own), newest first.",
         "operationId": "recent_runs_runs_get",
         "parameters": [
           {
@@ -431,6 +649,23 @@
               "type": "string",
               "pattern": "^[A-Z][A-Z0-9]+-\\d+$",
               "title": "Ticket"
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
             }
           },
           {
@@ -502,6 +737,23 @@
               "type": "string",
               "pattern": "^[A-Z][A-Z0-9]+-\\d+$",
               "title": "Ticket"
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
             }
           },
           {
@@ -600,6 +852,53 @@
         ],
         "title": "EventOut"
       },
+      "GitHubConnect": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 400,
+            "minLength": 10,
+            "format": "password",
+            "title": "Token",
+            "writeOnly": true
+          },
+          "repo": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Repo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "repo"
+        ],
+        "title": "GitHubConnect"
+      },
+      "GitHubConnection": {
+        "properties": {
+          "login": {
+            "type": "string",
+            "title": "Login"
+          },
+          "repo": {
+            "type": "string",
+            "title": "Repo"
+          },
+          "connected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Connected At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "login",
+          "repo",
+          "connected_at"
+        ],
+        "title": "GitHubConnection"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -637,6 +936,78 @@
           "services"
         ],
         "title": "HealthReport"
+      },
+      "IntegrationKind": {
+        "type": "string",
+        "enum": [
+          "jira",
+          "github"
+        ],
+        "title": "IntegrationKind"
+      },
+      "JiraConnect": {
+        "properties": {
+          "site": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Site"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Email"
+          },
+          "api_token": {
+            "type": "string",
+            "maxLength": 400,
+            "minLength": 10,
+            "format": "password",
+            "title": "Api Token",
+            "writeOnly": true
+          },
+          "project_key": {
+            "type": "string",
+            "title": "Project Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "site",
+          "email",
+          "api_token",
+          "project_key"
+        ],
+        "title": "JiraConnect"
+      },
+      "JiraConnection": {
+        "properties": {
+          "site": {
+            "type": "string",
+            "title": "Site"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "project_key": {
+            "type": "string",
+            "title": "Project Key"
+          },
+          "connected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Connected At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "site",
+          "email",
+          "project_key",
+          "connected_at"
+        ],
+        "title": "JiraConnection"
       },
       "JobStarted": {
         "properties": {
@@ -693,6 +1064,58 @@
           "pr"
         ],
         "title": "LearnRequest"
+      },
+      "OwnProject": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "jira": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JiraConnection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "github": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GitHubConnection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          }
+        },
+        "type": "object",
+        "required": [
+          "available",
+          "jira",
+          "github",
+          "project_id",
+          "ready"
+        ],
+        "title": "OwnProject"
       },
       "PlanDecision": {
         "properties": {
@@ -806,6 +1229,17 @@
             "maxLength": 500,
             "title": "Figma Url",
             "default": ""
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
           }
         },
         "type": "object",
@@ -819,6 +1253,14 @@
           "ticket": {
             "type": "string",
             "title": "Ticket"
+          },
+          "project_id": {
+            "type": "integer",
+            "title": "Project Id"
+          },
+          "demo": {
+            "type": "boolean",
+            "title": "Demo"
           },
           "title": {
             "type": "string",
@@ -857,6 +1299,8 @@
         "type": "object",
         "required": [
           "ticket",
+          "project_id",
+          "demo",
           "title",
           "status",
           "pr_url",
@@ -871,6 +1315,14 @@
           "ticket": {
             "type": "string",
             "title": "Ticket"
+          },
+          "project_id": {
+            "type": "integer",
+            "title": "Project Id"
+          },
+          "demo": {
+            "type": "boolean",
+            "title": "Demo"
           },
           "title": {
             "type": "string",
@@ -931,6 +1383,8 @@
         "type": "object",
         "required": [
           "ticket",
+          "project_id",
+          "demo",
           "title",
           "ticket_url",
           "branch_url",

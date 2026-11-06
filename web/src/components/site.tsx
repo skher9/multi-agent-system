@@ -54,7 +54,7 @@ export function SiteNav({ children }: { children?: ReactNode }) {
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-line">
+    <footer className="mt-auto border-t border-line">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 text-sm sm:grid-cols-[1fr_auto_auto]">
         <div>
           <Logo />

@@ -39,8 +39,10 @@ export function enabledProviders(): SocialProvider[] {
   return [google && "google", github && "github"].filter(Boolean) as SocialProvider[];
 }
 
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
 export const auth = betterAuth({
-  database: new Pool({ connectionString: process.env.DATABASE_URL }),
+  database: pool,
   // Better Auth's own limits (e.g. 3 sign-in tries per 10 s, 3 reset emails a minute),
   // counted in Postgres: in memory, each Vercel instance would keep its own count.
   rateLimit: { storage: "database" },
@@ -62,7 +64,18 @@ export const auth = betterAuth({
   user: {
     // Deletes the user; their sessions and linked logins go with them (on delete cascade).
     // Needs a recent login (Better Auth's freshAge, 1 day) or the account password.
-    deleteUser: { enabled: true },
+    deleteUser: {
+      enabled: true,
+      // First the Jira and GitHub tokens they connected (backend table `integrations`),
+      // so a failure stops the delete instead of leaving tokens behind.
+      beforeDelete: async (user) => {
+        await pool.query(
+          "delete from integrations where user_id in (select id from users where auth_user_id = $1)",
+          [user.id],
+        );
+        await pool.query("update users set auth_user_id = null where auth_user_id = $1", [user.id]);
+      },
+    },
   },
   emailAndPassword: {
     enabled: true,

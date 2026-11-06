@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { StatusLabel } from "@/components/status-label";
-import { day, duration, useRuns } from "@/lib/runs/use-runs";
+import { day, duration, runHref, runKey, useRuns } from "@/lib/runs/use-runs";
 
 /** Every run, newest first, refreshed every 10 seconds: a table on wide screens, a
  * stack of rows on phones. */
@@ -46,15 +46,17 @@ export function RunsList() {
         <tbody className="divide-y divide-line">
           {runs.map((run) => (
             <tr
-              key={run.ticket}
+              key={runKey(run)}
               className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-4 transition hover:bg-raised/60 sm:table-row sm:p-0"
             >
               <td className="w-full sm:w-auto sm:px-5 sm:py-4">
-                <Link
-                  href={`/runs/${run.ticket}`}
-                  className="group flex min-w-0 items-baseline gap-3"
-                >
+                <Link href={runHref(run)} className="group flex min-w-0 items-baseline gap-3">
                   <span className="font-mono text-xs text-muted">{run.ticket}</span>
+                  {!run.demo && (
+                    <span className="shrink-0 rounded-sm border border-line px-1.5 text-xs text-muted">
+                      your project
+                    </span>
+                  )}
                   <span className="truncate font-medium group-hover:underline group-hover:underline-offset-4">
                     {run.title || run.ticket}
                   </span>
@@ -74,7 +76,7 @@ export function RunsList() {
               </td>
               <td className="ml-auto sm:px-5 sm:py-4 sm:text-right">
                 <span className="inline-flex gap-4">
-                  <Link href={`/runs/${run.ticket}`} className="text-muted hover:text-ink">
+                  <Link href={runHref(run)} className="text-muted hover:text-ink">
                     Watch
                   </Link>
                   {run.pr_url && (
