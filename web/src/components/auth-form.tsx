@@ -197,16 +197,12 @@ export function AuthShell({
 }) {
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-40 h-80 w-full max-w-2xl rounded-full bg-accent/10 blur-3xl"
-      />
       <div className="relative w-full max-w-sm">
         <div className="mb-8 flex justify-center">
           <Logo />
         </div>
-        <div className="rounded-2xl border border-line bg-surface p-6 shadow-2xl shadow-black/40">
-          <h1 className="text-xl font-semibold">{title}</h1>
+        <div className="rounded-lg border border-line bg-surface p-6 shadow-[0_24px_60px_-30px_rgb(27_25_21/0.35)]">
+          <h1 className="font-display text-3xl">{title}</h1>
           {children}
         </div>
         {footer && <p className="mt-6 text-center text-sm text-muted">{footer}</p>}
@@ -216,7 +212,7 @@ export function AuthShell({
 }
 
 export const INPUT =
-  "h-10 rounded-lg border border-line bg-canvas px-3 text-sm text-ink outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20";
+  "h-10 rounded-md border border-line bg-canvas px-3 text-sm text-ink outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20";
 
 export function Field({
   label,
@@ -241,7 +237,7 @@ export function Field({
 export function FormError({ message }: { message: string }) {
   if (!message) return null;
   return (
-    <p role="alert" className="text-sm text-red-400">
+    <p role="alert" className="text-sm text-bad">
       {message}
     </p>
   );

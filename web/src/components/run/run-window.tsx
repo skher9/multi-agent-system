@@ -73,9 +73,9 @@ export function RunWindow({
 
   return (
     <section className="space-y-4">
-      <header className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-800">
+      <header className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-line bg-surface px-4 py-3">
         <div className="mr-auto min-w-0">
-          <h1 className="text-lg font-semibold">
+          <h1 className="font-display text-2xl">
             <span className="font-mono text-gray-500">{run.ticket}</span>{" "}
             {run.title || (live ? "Fetching the ticket…" : "")}
           </h1>
@@ -97,7 +97,7 @@ export function RunWindow({
             <button
               type="button"
               onClick={() => setShown(0)}
-              className="rounded border border-gray-300 px-2.5 py-1 text-sm dark:border-gray-700"
+              className="rounded-md border border-line px-2.5 py-1 text-sm hover:bg-raised"
             >
               Replay
             </button>
@@ -105,7 +105,7 @@ export function RunWindow({
               <button
                 type="button"
                 onClick={() => setShown(total)}
-                className="rounded border border-gray-300 px-2.5 py-1 text-sm dark:border-gray-700"
+                className="rounded-md border border-line px-2.5 py-1 text-sm hover:bg-raised"
               >
                 Skip to end
               </button>

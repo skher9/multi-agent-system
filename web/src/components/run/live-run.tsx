@@ -97,7 +97,7 @@ export function LiveRun() {
         by itself.
       </p>
     );
-  if (state.kind === "error") return <p className="text-sm text-red-400">{state.message}</p>;
+  if (state.kind === "error") return <p className="text-sm text-bad">{state.message}</p>;
   return (
     <div className="space-y-3">
       <p className="flex items-center gap-2 text-sm text-muted">

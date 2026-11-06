@@ -98,7 +98,7 @@ function Typed({ write }: { write: CodeWrite }) {
   return (
     <pre className="flex-1 overflow-auto p-3 font-mono text-[12.5px] leading-5">
       {write.oldText !== undefined && (
-        <Lines text={write.oldText} sign="-" className="bg-red-500/10 text-red-300/80" />
+        <Lines text={write.oldText} sign="-" className="bg-bad/10 text-bad" />
       )}
       <Lines
         text={typed}

@@ -1,122 +1,111 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
-import { api } from "@/lib/api/client";
-import type { components } from "@/lib/api/schema";
+import { StatusLabel } from "@/components/status-label";
+import { day, duration, useRuns } from "@/lib/runs/use-runs";
 
-type Run = components["schemas"]["RunSummary"];
+/** Every run, newest first, refreshed every 10 seconds: a table on wide screens, a
+ * stack of rows on phones. */
+export function RunsList() {
+  const { runs, error } = useRuns();
 
-const REFRESH_MS = 10_000;
-
-// How each feature status reads, and its colour
-const STATUS: Record<string, { label: string; tone: "live" | "good" | "warn" | "bad" | "muted" }> =
-  {
-    running: { label: "Running", tone: "live" },
-    in_review: { label: "In review", tone: "live" },
-    waiting_for_plan_approval: { label: "Waiting for your approval", tone: "warn" },
-    ready_to_merge: { label: "PR ready", tone: "good" },
-    needs_human: { label: "Needs you", tone: "warn" },
-    blocked: { label: "Questions on Jira", tone: "warn" },
-    plan_rejected: { label: "Plan rejected", tone: "muted" },
-    failed: { label: "Failed", tone: "bad" },
-  };
-const TONE = {
-  live: "text-accent",
-  good: "text-accent",
-  warn: "text-amber-300",
-  bad: "text-red-400",
-  muted: "text-muted",
-};
-
-/** The latest runs, newest first, refreshed every 10 seconds. With limit, a short
- * list with a link to all runs (the dashboard); without, the full list (/runs). */
-export function RunsList({ limit }: { limit?: number }) {
-  const [runs, setRuns] = useState<Run[] | null>(null);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const { data } = await api.GET("/runs");
-      if (cancelled) return;
-      if (data) {
-        setRuns(data);
-        setError(false);
-      } else setError(true);
-    }
-    load();
-    const timer = setInterval(load, REFRESH_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, []);
+  if (error && runs === null)
+    return <p className="text-sm text-bad">Couldn&apos;t load runs. Retrying…</p>;
+  if (runs === null) return <TableSkeleton />;
+  if (runs.length === 0)
+    return (
+      <p className="rounded-lg border border-dashed border-line px-5 py-10 text-center text-muted">
+        No runs yet. Start one from the{" "}
+        <Link href="/dashboard" className="text-ink underline underline-offset-4">
+          dashboard
+        </Link>
+        , or{" "}
+        <Link href="/runs/sample" className="text-ink underline underline-offset-4">
+          watch an example
+        </Link>
+        .
+      </p>
+    );
 
   return (
-    <section className="rounded-2xl border border-line bg-surface">
-      <header className="flex items-center justify-between border-b border-line px-5 py-4">
-        <h2 className="font-medium">{limit ? "Recent runs" : "All runs"}</h2>
-        {limit ? (
-          <Link href="/runs" className="text-sm text-muted hover:text-ink">
-            View all runs →
-          </Link>
-        ) : (
-          <span className="text-xs text-muted">Newest first</span>
-        )}
-      </header>
-      {runs === null && !error && <p className="px-5 py-4 text-sm text-muted">Loading runs…</p>}
-      {error && (
-        <p className="px-5 py-4 text-sm text-red-400">Couldn&apos;t load runs. Retrying…</p>
-      )}
-      {runs?.length === 0 && (
-        <p className="px-5 py-4 text-sm text-muted">
-          No runs yet. Start one, or{" "}
-          <Link href="/runs/sample" className="text-ink underline-offset-4 hover:underline">
-            watch an example
-          </Link>
-          .
-        </p>
-      )}
-      <ul className="divide-y divide-line">
-        {runs?.slice(0, limit).map((run) => {
-          const status = STATUS[run.status] ?? { label: run.status, tone: "muted" as const };
-          return (
-            <li
+    <div className="overflow-hidden rounded-lg border border-line bg-surface">
+      <table className="w-full text-sm">
+        <thead className="hidden border-b border-line text-left text-xs text-muted sm:table-header-group">
+          <tr>
+            <th className="px-5 py-3 font-normal">Ticket</th>
+            <th className="px-3 py-3 font-normal">Status</th>
+            <th className="px-3 py-3 text-right font-normal">Cost</th>
+            <th className="px-3 py-3 text-right font-normal">Time</th>
+            <th className="px-3 py-3 font-normal">Started</th>
+            <th className="px-5 py-3">
+              <span className="sr-only">Links</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line">
+          {runs.map((run) => (
+            <tr
               key={run.ticket}
-              className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4 transition hover:bg-raised"
+              className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-4 transition hover:bg-raised/60 sm:table-row sm:p-0"
             >
-              <Link href={`/runs/${run.ticket}`} className="flex min-w-0 items-center gap-3">
-                <span className="font-mono text-sm text-muted">{run.ticket}</span>
-                <span className="truncate font-medium">{run.title || run.ticket}</span>
-              </Link>
-              <span className="ml-auto flex items-center gap-4 text-sm text-muted">
-                <span className="tabular-nums">₹{run.cost_inr.toFixed(2)}</span>
-                <span className={`flex items-center gap-1.5 ${TONE[status.tone]}`}>
-                  <span
-                    className={`size-1.5 rounded-full bg-current ${status.tone === "live" ? "animate-pulse" : ""}`}
-                  />
-                  {status.label}
-                </span>
-                <Link href={`/runs/${run.ticket}`} className="hover:text-ink">
-                  Watch
+              <td className="w-full sm:w-auto sm:px-5 sm:py-4">
+                <Link
+                  href={`/runs/${run.ticket}`}
+                  className="group flex min-w-0 items-baseline gap-3"
+                >
+                  <span className="font-mono text-xs text-muted">{run.ticket}</span>
+                  <span className="truncate font-medium group-hover:underline group-hover:underline-offset-4">
+                    {run.title || run.ticket}
+                  </span>
                 </Link>
-                {run.pr_url && (
-                  <a
-                    href={run.pr_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-ink hover:underline"
-                  >
-                    PR ↗
-                  </a>
-                )}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+              </td>
+              <td className="sm:px-3 sm:py-4">
+                <StatusLabel run={run} />
+              </td>
+              <td className="text-muted tabular-nums sm:px-3 sm:py-4 sm:text-right">
+                ₹{run.cost_inr.toFixed(2)}
+              </td>
+              <td className="text-muted tabular-nums sm:px-3 sm:py-4 sm:text-right">
+                {duration(run)}
+              </td>
+              <td className="hidden text-muted sm:table-cell sm:px-3 sm:py-4">
+                {day(run.started_at)}
+              </td>
+              <td className="ml-auto sm:px-5 sm:py-4 sm:text-right">
+                <span className="inline-flex gap-4">
+                  <Link href={`/runs/${run.ticket}`} className="text-muted hover:text-ink">
+                    Watch
+                  </Link>
+                  {run.pr_url && (
+                    <a
+                      href={run.pr_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-ink hover:text-accent"
+                    >
+                      PR ↗
+                    </a>
+                  )}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div
+      className="space-y-px overflow-hidden rounded-lg border border-line"
+      aria-label="Loading runs"
+    >
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="h-14 animate-pulse bg-surface" />
+      ))}
+    </div>
   );
 }

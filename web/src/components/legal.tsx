@@ -19,7 +19,7 @@ export function LegalPage({
     <>
       <SiteNav />
       <main className="mx-auto max-w-2xl px-4 py-12">
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="font-display text-5xl leading-tight">{title}</h1>
         <p className="mt-2 text-sm text-muted">Last updated {updated}</p>
         <div className="mt-10 space-y-10 text-[15px] leading-7 text-muted [&_a]:text-ink [&_a]:underline [&_a]:underline-offset-4 [&_li]:mt-2 [&_strong]:font-medium [&_strong]:text-ink [&_ul]:list-disc [&_ul]:pl-5">
           {children}

@@ -1,34 +1,42 @@
-/** The pieces every page shares: logo, top nav, footer, buttons. */
+/** The pieces every page shares: wordmark, top nav, footer, buttons. */
 
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { NavAuth } from "@/components/nav-auth";
 
-export function Logo() {
+const REPO_URL = "https://github.com/skher9/multi-agent-system";
+
+/** The wordmark: set in the serif, with the accent on the one word that matters. */
+export function Logo({ href = "/", short = false }: { href?: string; short?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-      <span
-        aria-hidden
-        className="grid size-6 place-items-center rounded-md bg-accent font-mono text-xs text-accent-ink"
-      >
-        ▲
-      </span>
-      Agent Dev Team
+    <Link href={href} className="font-display text-xl leading-none whitespace-nowrap">
+      {short ? (
+        <span aria-label="Agent Dev Team">
+          a<span className="text-accent">d</span>t
+        </span>
+      ) : (
+        <>
+          Agent <span className="text-accent italic">Dev</span> Team
+        </>
+      )}
     </Link>
   );
 }
 
 export function SiteNav({ children }: { children?: ReactNode }) {
   return (
-    <header className="sticky top-0 z-10 border-b border-line/60 bg-canvas/80 backdrop-blur">
+    <header className="sticky top-0 z-10 border-b border-line bg-canvas/85 backdrop-blur">
       <nav className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
         <Logo />
         {children ?? (
           <>
-            <div className="ml-6 hidden gap-6 text-sm text-muted sm:flex">
+            <div className="ml-4 hidden gap-6 text-sm text-muted sm:flex">
               <Link href="/#how" className="hover:text-ink">
                 How it works
+              </Link>
+              <Link href="/#results" className="hover:text-ink">
+                Results
               </Link>
               <Link href="/runs/sample" className="hover:text-ink">
                 Watch a run
@@ -46,18 +54,44 @@ export function SiteNav({ children }: { children?: ReactNode }) {
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-line/60">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-muted">
-        <span>Built by Shravani Kher</span>
-        <span className="font-mono text-xs">LangGraph · FastAPI · Next.js · Playwright</span>
-        <span className="flex gap-4">
-          <Link href="/privacy" className="hover:text-ink">
-            Privacy
-          </Link>
-          <Link href="/terms" className="hover:text-ink">
-            Terms
-          </Link>
-        </span>
+    <footer className="border-t border-line">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 text-sm sm:grid-cols-[1fr_auto_auto]">
+        <div>
+          <Logo />
+          <p className="mt-3 max-w-xs text-muted">
+            A portfolio project by Shravani Kher: seven AI agents that turn tickets into tested pull
+            requests.
+          </p>
+        </div>
+        <ul className="space-y-2 text-muted">
+          <li>
+            <a href={REPO_URL} target="_blank" rel="noreferrer" className="hover:text-ink">
+              Source code ↗
+            </a>
+          </li>
+          <li>
+            <Link href="/runs/sample" className="hover:text-ink">
+              Watch a run
+            </Link>
+          </li>
+          <li>
+            <Link href="/status" className="hover:text-ink">
+              System status
+            </Link>
+          </li>
+        </ul>
+        <ul className="space-y-2 text-muted">
+          <li>
+            <Link href="/privacy" className="hover:text-ink">
+              Privacy
+            </Link>
+          </li>
+          <li>
+            <Link href="/terms" className="hover:text-ink">
+              Terms
+            </Link>
+          </li>
+        </ul>
       </div>
     </footer>
   );

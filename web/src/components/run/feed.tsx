@@ -4,23 +4,17 @@ import { useEffect, useRef, useState } from "react";
 
 import type { FeedItem, FeedTone } from "@/lib/runs/feed";
 
-const ICON: Record<FeedTone, string> = {
-  thought: "💭",
-  tool: "🔧",
-  good: "✅",
-  bad: "⚠️",
-  info: "▸",
+// Typographic marks, not emoji: quiet in the feed, coloured only where it matters
+const ICON: Record<FeedTone, { mark: string; className: string }> = {
+  thought: { mark: "~", className: "text-muted" },
+  tool: { mark: "→", className: "text-muted" },
+  good: { mark: "✓", className: "text-ok" },
+  bad: { mark: "!", className: "font-semibold text-bad" },
+  info: { mark: "·", className: "text-muted" },
 };
 
-const ROLE_STYLE: Record<string, string> = {
-  reader: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200",
-  planner: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
-  developer: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200",
-  fixer: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200",
-  qa: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200",
-  reviewer: "bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-200",
-};
-const RUN_STYLE = "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
+const ROLE_CHIP = "bg-raised text-ink";
+const RUN_CHIP = "bg-transparent text-muted";
 
 /** What the agents think and do, oldest at the top; keeps the newest line in view. */
 export function Feed({
@@ -42,22 +36,25 @@ export function Feed({
       ref={box}
       aria-label="Live feed"
       aria-live="polite"
-      className="h-[28rem] space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-800"
+      className="h-[28rem] space-y-1 overflow-y-auto rounded-lg border border-line bg-surface p-2"
     >
       {items.length === 0 && <li className="p-2 text-sm text-gray-500">Waiting for the run…</li>}
       {items.map((item) => (
         <li
           key={item.id}
           className={`flex gap-2 rounded px-2 py-1.5 text-sm ${
-            item.tone === "thought" ? "bg-gray-50 dark:bg-gray-900" : ""
+            item.tone === "thought" ? "bg-raised/60" : ""
           }`}
         >
-          <span aria-hidden className="w-5 shrink-0 text-center">
-            {ICON[item.tone]}
+          <span
+            aria-hidden
+            className={`w-5 shrink-0 text-center font-mono ${ICON[item.tone].className}`}
+          >
+            {ICON[item.tone].mark}
           </span>
           <span className="min-w-0 flex-1">
             <span
-              className={`mr-2 rounded px-1.5 py-0.5 text-xs font-medium ${ROLE_STYLE[item.role] ?? RUN_STYLE}`}
+              className={`mr-2 rounded px-1.5 py-0.5 text-xs font-medium ${item.role === "run" ? RUN_CHIP : ROLE_CHIP}`}
             >
               {item.role}
             </span>
@@ -78,11 +75,11 @@ export function Feed({
       ))}
       {thinkingRole && (
         <li className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted">
-          <span aria-hidden className="w-5 shrink-0 text-center">
-            💭
+          <span aria-hidden className="w-5 shrink-0 text-center font-mono">
+            ~
           </span>
           <span
-            className={`rounded px-1.5 py-0.5 text-xs font-medium ${ROLE_STYLE[thinkingRole] ?? RUN_STYLE}`}
+            className={`rounded px-1.5 py-0.5 text-xs font-medium ${thinkingRole === "run" ? RUN_CHIP : ROLE_CHIP}`}
           >
             {thinkingRole}
           </span>
@@ -105,7 +102,7 @@ function Thought({ text }: { text: string }) {
   return (
     <span className="block">
       <span
-        className={`block whitespace-pre-line italic text-gray-700 dark:text-gray-300 ${
+        className={`block whitespace-pre-line italic text-muted ${
           long && !open ? "line-clamp-4" : ""
         }`}
       >

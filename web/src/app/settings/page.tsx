@@ -13,11 +13,11 @@ export default function SettingsPage() {
     <>
       <AppNav />
       <main className="mx-auto max-w-2xl space-y-6 px-4 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <Suspense fallback={<div className="h-28 animate-pulse rounded-2xl bg-surface" />}>
+        <h1 className="font-display text-5xl leading-tight">Settings</h1>
+        <Suspense fallback={<div className="h-28 animate-pulse rounded-lg bg-surface" />}>
           <Account />
         </Suspense>
-        <section className="rounded-2xl border border-red-500/30 bg-surface p-6">
+        <section className="rounded-lg border border-bad/30 bg-surface p-6">
           <h2 className="font-medium">Delete account</h2>
           <p className="mt-1 mb-4 text-sm text-muted">
             Removes your account, your logins and your sessions from our database.
@@ -32,7 +32,7 @@ export default function SettingsPage() {
 async function Account() {
   const { user } = await verifySession(); // sends visitors who aren't logged in to /login
   return (
-    <section className="rounded-2xl border border-line bg-surface p-6">
+    <section className="rounded-lg border border-line bg-surface p-6">
       <h2 className="font-medium">Account</h2>
       <dl className="mt-4 grid grid-cols-[6rem_1fr] gap-y-2 text-sm">
         <dt className="text-muted">Name</dt>

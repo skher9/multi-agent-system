@@ -1,25 +1,47 @@
 @import "tailwindcss";
 
-/* The site is always dark (html has class="dark"), so every dark: style applies. */
-@custom-variant dark (&:where(.dark, .dark *));
+/* Light by default, dark when the visitor's system asks for it. Every pair of tokens
+   below passes WCAG AA (4.5:1) for text on canvas and surface. */
+@custom-variant dark (@media (prefers-color-scheme: dark));
 
 @theme {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-instrument-sans);
+  --font-serif: var(--font-instrument-serif);
+  --font-mono: var(--font-jetbrains-mono);
 
-  --color-canvas: #09090b;
-  --color-surface: #111114;
-  --color-raised: #18181c;
-  --color-line: #26262c;
-  --color-ink: #ededef;
-  --color-muted: #8e8e98;
-  --color-accent: #3ee6a8;
-  --color-accent-ink: #04150e;
+  /* Paper and ink */
+  --color-canvas: #f6f3ec;
+  --color-surface: #fcfaf5;
+  --color-raised: #eee9df;
+  --color-line: #e0d9cc;
+  --color-ink: #1b1915;
+  --color-muted: #655f55;
+  --color-accent: #b83a12; /* vermilion */
+  --color-accent-ink: #ffffff;
+  --color-ok: #2f6b3b;
+  --color-warn: #94600b;
+  --color-bad: #a3271f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-canvas: #151412;
+    --color-surface: #1c1b18;
+    --color-raised: #25231f;
+    --color-line: #34312b;
+    --color-ink: #ede8de;
+    --color-muted: #a39c90;
+    --color-accent: #f0794b;
+    --color-accent-ink: #1a0b05;
+    --color-ok: #7fbf8a;
+    --color-warn: #e0ae55;
+    --color-bad: #ef7f72;
+  }
 }
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light dark;
   }
   body {
     @apply bg-canvas text-ink antialiased;
@@ -27,4 +49,14 @@
   ::selection {
     @apply bg-accent text-accent-ink;
   }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+}
+
+@utility font-display {
+  /* Headlines: the serif, a touch tighter */
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }

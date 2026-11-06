@@ -10,9 +10,9 @@ type State =
   | { kind: "unreachable"; message: string };
 
 const BADGE: Record<string, string> = {
-  ok: "bg-green-100 text-green-800",
-  error: "bg-red-100 text-red-800",
-  not_configured: "bg-amber-100 text-amber-800",
+  ok: "bg-ok/10 text-ok",
+  error: "bg-bad/10 text-bad",
+  not_configured: "bg-warn/10 text-warn",
 };
 
 async function fetchHealth(): Promise<State> {
@@ -64,7 +64,7 @@ export function StatusBoard() {
         )}
       </div>
 
-      {state.kind === "unreachable" && <p className="text-red-700">{state.message}</p>}
+      {state.kind === "unreachable" && <p className="text-bad">{state.message}</p>}
 
       {state.kind === "loaded" && (
         <ul className="divide-y rounded border">

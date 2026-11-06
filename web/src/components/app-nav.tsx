@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Suspense } from "react";
 
 import { Button } from "@/components/button";
+import { Logo } from "@/components/site";
 import { authClient } from "@/lib/auth-client";
 
 const LINKS = [
@@ -19,7 +20,7 @@ const LINKS = [
 export function AppNav() {
   return (
     <Suspense
-      fallback={<header className="sticky top-0 z-10 h-14 border-b border-line/60 bg-canvas/80" />}
+      fallback={<header className="sticky top-0 z-10 h-14 border-b border-line bg-canvas/85" />}
     >
       <AppNavBar />
     </Suspense>
@@ -37,17 +38,14 @@ function AppNavBar() {
       : pathname === href;
 
   return (
-    <header className="sticky top-0 z-10 border-b border-line/60 bg-canvas/80 backdrop-blur">
+    <header className="sticky top-0 z-10 border-b border-line bg-canvas/85 backdrop-blur">
       <nav className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 sm:gap-6">
-        <Link href="/dashboard" className="flex items-center gap-2 font-semibold tracking-tight">
-          <span
-            aria-hidden
-            className="grid size-6 place-items-center rounded-md bg-accent font-mono text-xs text-accent-ink"
-          >
-            ▲
-          </span>
-          <span className="hidden sm:inline">Agent Dev Team</span>
-        </Link>
+        <span className="sm:hidden">
+          <Logo href="/dashboard" short />
+        </span>
+        <span className="hidden sm:inline">
+          <Logo href="/dashboard" />
+        </span>
         <div className="flex gap-1 text-sm">
           {LINKS.map((link) => (
             <Link
@@ -55,7 +53,9 @@ function AppNavBar() {
               href={link.href}
               aria-current={active(link.href) ? "page" : undefined}
               className={`rounded-md px-2.5 py-1.5 transition ${
-                active(link.href) ? "bg-raised text-ink" : "text-muted hover:text-ink"
+                active(link.href)
+                  ? "text-ink underline decoration-accent decoration-2 underline-offset-[18px]"
+                  : "text-muted hover:text-ink"
               }`}
             >
               {link.label}

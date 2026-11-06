@@ -35,8 +35,8 @@ export function ResultCard({ run, events }: { run: RunView; events: RunEvent[] }
               };
   const color = {
     good: "border-accent/40 bg-accent/10",
-    warn: "border-amber-400/40 bg-amber-400/10",
-    bad: "border-red-500/40 bg-red-500/10",
+    warn: "border-warn/40 bg-warn/8",
+    bad: "border-bad/40 bg-bad/8",
   }[card.tone];
   return (
     <div className={`flex flex-wrap items-center gap-4 rounded-lg border px-4 py-3 ${color}`}>

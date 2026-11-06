@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { AppNav } from "@/components/app-nav";
-import { RunsList } from "@/components/runs-list";
+import { Overview } from "@/components/dashboard";
+import { SiteFooter } from "@/components/site";
 import { StartRun } from "@/components/start-run";
 import { verifySession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Dashboard" };
+
+const TEAM = ["Reader", "Planner", "Developer", "Fixer", "QA", "Reviewer", "Learner"];
+
+const TIPS = [
+  "One change per ticket: a page, a component, an endpoint.",
+  "List what must be true when it's done, as acceptance criteria.",
+  'Say what to reuse ("use the existing Button") and what not to touch.',
+  "Building a screen? Add the Figma frame link.",
+];
 
 // The page frame is static and loads at once; the part that reads the login cookie
 // streams in behind <Suspense> (required with Cache Components: a cookie read can't
@@ -15,25 +26,74 @@ export default function DashboardPage() {
   return (
     <>
       <AppNav />
-      <main className="mx-auto max-w-6xl space-y-8 px-4 py-10">
-        <Suspense fallback={<div className="h-9 w-64 animate-pulse rounded bg-surface" />}>
+      <main className="mx-auto max-w-6xl px-4 py-12">
+        <Suspense fallback={<div className="h-20 w-80 animate-pulse rounded bg-surface" />}>
           <Greeting />
         </Suspense>
-        <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-          <RunsList limit={5} />
-          <StartRun />
+        <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_22rem]">
+          <Overview />
+          <aside className="space-y-6">
+            <StartRun />
+            <section className="rounded-lg border border-line p-5">
+              <h2 className="font-display text-xl">Writing a good ticket</h2>
+              <ul className="mt-3 space-y-2 text-sm text-muted">
+                {TIPS.map((tip) => (
+                  <li key={tip} className="flex gap-2">
+                    <span aria-hidden className="text-accent">
+                      —
+                    </span>
+                    {tip}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </aside>
         </div>
+        <Team />
       </main>
+      <SiteFooter />
     </>
   );
 }
 
 async function Greeting() {
   const { user } = await verifySession();
+  const first = user.name.trim().split(/\s+/)[0] || "there";
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Hi, {user.name}</h1>
-      <p className="mt-1 text-muted">Your agent runs and what they&apos;re doing.</p>
+      <h1 className="font-display text-5xl leading-tight">Welcome back, {first}.</h1>
+      <p className="mt-2 max-w-2xl text-muted">
+        Your AI dev team turns Jira tickets into tested, reviewed pull requests on the demo repo.
+        Give it a ticket and watch it work.
+      </p>
     </div>
+  );
+}
+
+/** What happens to a ticket, at a glance. */
+function Team() {
+  return (
+    <section className="mt-16 border-t border-line pt-8">
+      <h2 className="font-display text-2xl">How your team works</h2>
+      <ol className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-3 text-sm">
+        {TEAM.map((name, i) => (
+          <li key={name} className="flex items-center gap-3">
+            <span className="rounded-full border border-line bg-surface px-3 py-1">{name}</span>
+            {i < TEAM.length - 1 && (
+              <span aria-hidden className="text-muted">
+                →
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+      <p className="mt-4 max-w-2xl text-sm text-muted">
+        Each agent has one job and only the tools for it. Checks run in code between them, so no
+        agent can skip a failing test.{" "}
+        <Link href="/#how" className="text-ink underline underline-offset-4">
+          What each one does
+        </Link>
+      </p>
+    </section>
   );
 }

@@ -4,16 +4,16 @@ import Link from "next/link";
 import type { ComponentProps } from "react";
 
 const BUTTON = {
-  primary: "bg-accent text-accent-ink hover:brightness-110",
-  ghost: "border border-line bg-surface text-ink hover:border-muted/60",
-  danger: "bg-red-500 text-white hover:bg-red-400",
+  primary: "bg-ink text-canvas hover:bg-accent hover:text-accent-ink",
+  ghost: "border border-ink/15 bg-transparent text-ink hover:border-ink/40 hover:bg-surface",
+  danger: "bg-bad text-canvas hover:brightness-110",
 };
 const SIZE = { sm: "h-8 px-3 text-sm", md: "h-11 px-5" };
 
 type Look = { variant?: keyof typeof BUTTON; size?: keyof typeof SIZE };
 
 function buttonClass({ variant = "primary", size = "md" }: Look, extra = "") {
-  return `inline-flex items-center justify-center gap-2 rounded-lg font-medium transition disabled:opacity-50 ${BUTTON[variant]} ${SIZE[size]} ${extra}`;
+  return `inline-flex items-center justify-center gap-2 rounded-md font-medium transition disabled:opacity-50 ${BUTTON[variant]} ${SIZE[size]} ${extra}`;
 }
 
 export function ButtonLink({
