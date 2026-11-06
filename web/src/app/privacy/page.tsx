@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy policy" updated="4 November 2026">
+    <LegalPage title="Privacy policy" updated="6 November 2026">
       <p>
         Agent Dev Team is a portfolio project by Shravani Kher. This page says plainly what it
         stores about you, why, and how to remove it.
@@ -63,6 +63,9 @@ export default function PrivacyPage() {
             <strong>Vercel:</strong> hosts the website.
           </li>
           <li>
+            <strong>Railway:</strong> runs the agent server and its job queue (Redis), in Singapore.
+          </li>
+          <li>
             <strong>Neon:</strong> the Postgres database, in Singapore (AWS ap-southeast-1).
           </li>
           <li>
@@ -76,11 +79,18 @@ export default function PrivacyPage() {
             text and the playground code, to plan and write the change.
           </li>
           <li>
-            <strong>GitHub:</strong> stores the code changes the agents make, in a private
-            playground repository.
+            <strong>E2B:</strong> the sandboxes where agent code is installed, tested and run.
           </li>
           <li>
-            <strong>Pusher:</strong> carries live run updates to your browser.
+            <strong>Cloudflare R2:</strong> stores the code maps agents use to find their way around
+            the playground repository.
+          </li>
+          <li>
+            <strong>Figma:</strong> only when a ticket links a design; the agents read that file.
+          </li>
+          <li>
+            <strong>GitHub:</strong> stores the code changes the agents make, in a public playground
+            repository. Don&apos;t put anything private in a ticket.
           </li>
         </ul>
         <p>
