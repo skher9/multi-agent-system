@@ -131,6 +131,7 @@ def plan_ticket(
     feedback: str = "",
     rules: list[str] | None = None,
     on_event: EventSink = ignore_events,
+    strong_reason: str | None = None,
 ) -> Plan:
     """Plan the ticket. feedback: a human's notes on the previous plan, when they asked
     for changes instead of approving it."""
@@ -160,6 +161,7 @@ def plan_ticket(
         max_tokens=MAX_OUTPUT_TOKENS,
         on_event=on_event,
         senior=True,  # may ask the escalation model for advice when stuck
+        strong_reason=strong_reason,
     )
 
 

@@ -53,5 +53,11 @@ REASONING_EFFORT: dict[Role, str] = {
 ESCALATION_MODEL = "deepseek/deepseek-v4-pro"
 
 
-def model_for(role: Role, *, escalate: bool = False) -> str:
-    return ESCALATION_MODEL if escalate else MODELS[role]
+# Routing (orchestrator/routing.py) moves big or risky work to the strong model
+STRONG_MODEL = ESCALATION_MODEL
+
+
+def model_for(role: Role, *, escalate: bool = False, strong: bool = False) -> str:
+    if escalate:
+        return ESCALATION_MODEL
+    return STRONG_MODEL if strong else MODELS[role]

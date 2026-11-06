@@ -35,6 +35,7 @@ from orchestrator.records import (
     save_rules,
     update_feature,
 )
+from orchestrator.routing import planner_tier, reviewer_tier
 from services.github import GitHubClient
 from services.jira import TICKET_KEY, JiraClient
 from services.workspace import GitIdentity, Workspace
@@ -117,6 +118,7 @@ def make_plan(
                 feedback=feedback,
                 rules=project_rules(pipeline.factory, pipeline.project_id),
                 on_event=on_event,
+                strong_reason=planner_tier(spec),
             )
             return plan, graph.commit_sha
 
@@ -205,6 +207,7 @@ def make_review(
             previous=previous,
             rules=project_rules(pipeline.factory, pipeline.project_id),
             on_event=on_event,
+            strong_reason=reviewer_tier(plan, 1 if previous is None else 2),
         )
 
 

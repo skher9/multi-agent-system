@@ -42,6 +42,8 @@ EVENT_TEXT_MAX = 300  # arguments and errors are shortened to this in events
 # The run window shows code as it is written: for file-writing tools the event also
 # carries the code itself, up to this many characters per part
 EVENT_CODE_MAX = 20_000
+# Rejected answers before a turn switches to the strong model (routing on trouble)
+TROUBLE_REJECTIONS = 2
 # Stuck detector (like OpenHands'): the same call this many times in a row is refused
 MAX_SAME_CALL = 3
 # Old tool results are cleared, in one batch, once the conversation passes this size;
@@ -157,8 +159,13 @@ def run_agent[T: BaseModel](
     max_tokens: int | None = None,
     on_event: EventSink = ignore_events,
     senior: bool = False,
+    strong_reason: str | None = None,
 ) -> T:
-    """Run the loop and return the model's validated answer."""
+    """Run the loop and return the model's validated answer.
+
+    strong_reason: why routing put this turn on the strong model (None: the standard
+    one). On trouble (TROUBLE_REJECTIONS rejected answers, or the stuck detector firing)
+    the turn switches to the strong model for the rest of its calls."""
     extra = {ASK_SENIOR: AskSenior} if senior else {}
     all_tools = [*tools, *definitions({**extra, FINISH: answer})]
     messages: list[dict[str, Any]] = [
@@ -168,6 +175,23 @@ def run_agent[T: BaseModel](
     used = idle = grace = rounds = senior_calls = 0
     # The round limit grows with the grace actually granted, not the most it could be
     recent: list[tuple[str, str]] = []  # every tool call so far, for the stuck detector
+    strong = strong_reason is not None
+    rejections = 0
+    if strong:
+        on_event(
+            EventKind.STEP, {"role": role, "text": f"Using the stronger model: {strong_reason}"}
+        )
+
+    def switch_up(reason: str) -> None:
+        nonlocal strong
+        if not strong:
+            strong = True
+            logger.info("%s: switching to the strong model: %s", role, reason)
+            on_event(
+                EventKind.STEP,
+                {"role": role, "text": f"Switching to the stronger model: {reason}"},
+            )
+
     while rounds < max_tool_calls + grace + EXTRA_ROUNDS:
         rounds += 1
         _clear_old_tool_results(messages)
@@ -177,6 +201,7 @@ def run_agent[T: BaseModel](
             agent_run_id=agent_run_id,
             tools=all_tools,
             max_tokens=max_tokens,
+            strong=strong,
         )
         if response.reasoning and response.reasoning.strip():
             on_event(
@@ -224,6 +249,9 @@ def run_agent[T: BaseModel](
                         EventKind.FINISH_REJECTED,
                         {"role": role, "error": str(exc)[:EVENT_TEXT_MAX]},
                     )
+                    rejections += 1
+                    if rejections >= TROUBLE_REJECTIONS:
+                        switch_up(f"{rejections} answers rejected by our checks")
                     extra = min(GRACE_PER_REJECTION, MAX_GRACE - grace)
                     grace += extra
                     result = (

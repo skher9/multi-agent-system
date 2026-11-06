@@ -73,6 +73,7 @@ def review_changes(
     previous: Review | None = None,
     rules: list[str] | None = None,
     on_event: EventSink = ignore_events,
+    strong_reason: str | None = None,
 ) -> Review:
     """Review everything on the workspace's branch since base_sha (the planned commit).
 
@@ -98,6 +99,7 @@ def review_changes(
         user=_task(spec, plan, diff, dev_summary, previous, workspace)
         + repo_rules_block(rules or []),
         tools=definitions({name: TOOL_ARGS[name] for name in READ_ONLY_TOOLS}),
+        strong_reason=strong_reason,
         handle=handle,
         answer=_checked_review(len(spec.acceptance_criteria)),
         max_tool_calls=MAX_TOOL_CALLS,

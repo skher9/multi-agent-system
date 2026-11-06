@@ -141,6 +141,9 @@ def main() -> None:
     parser.add_argument(
         "--model", help="one OpenRouter model for every agent, e.g. deepseek/deepseek-v4-flash"
     )
+    parser.add_argument(
+        "--no-routing", action="store_true", help="standard model only (routing off)"
+    )
     parser.add_argument("only", nargs="*", help="ticket ids from tickets.json (default: all)")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
@@ -182,6 +185,7 @@ def main() -> None:
         settings.story_budget_inr,
         agent_spend=db_agent_spend(factory),
         model_override=args.model,
+        routing=not args.no_routing,
     )
     pipeline = Pipeline(
         factory,
@@ -199,6 +203,7 @@ def main() -> None:
         "round": args.round,
         "project_id": project_id,
         "model": args.model or "models.py",
+        "routing": not args.no_routing,
         "tickets": {},
     }
     for ticket in tickets:

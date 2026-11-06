@@ -29,6 +29,8 @@ AGENT_BUDGETS_INR: dict[str, Decimal] = {
     "fixer": Decimal("8"),
     "reviewer": Decimal("5"),
 }
+# A turn on the strong model (routing) costs more per token: its cap is this much higher
+STRONG_BUDGET_MULTIPLIER = Decimal("3")
 
 
 class BudgetExceededError(Exception):
