@@ -214,11 +214,11 @@ def _summarise(error: ValidationError) -> str:
     )
 
 
-def with_design_link(spec: TicketSpec, ticket: JiraTicket) -> TicketSpec:
-    """A ready spec whose ticket links a Figma design says so in its requirements, in our
-    words: the reader may drop or reword the link, and the planner and developer find the
-    design through this line (see agents/design.py)."""
-    link = find_link(f"{ticket.summary}\n{ticket.description}")
+def with_design_link(spec: TicketSpec, ticket: JiraTicket, given: str = "") -> TicketSpec:
+    """A ready spec with a Figma design (given with the run, or linked in the ticket) says
+    so in its requirements, in our words: the reader may drop or reword a link, and the
+    planner and developer find the design through this line (see agents/design.py)."""
+    link = find_link(given) or find_link(f"{ticket.summary}\n{ticket.description}")
     if spec.status != "ready" or link is None or any(link.url in r for r in spec.requirements):
         return spec
     requirement = f"Match the linked Figma design: {link.url}"

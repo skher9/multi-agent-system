@@ -20,11 +20,13 @@ def ping() -> str:
 
 
 @celery_app.task(name="run_ticket")
-def run_ticket_task(ticket_key: str, approve_plan: bool = False) -> str:
+def run_ticket_task(ticket_key: str, approve_plan: bool = False, figma_url: str = "") -> str:
     """One pipeline run for a Jira ticket. Returns where it ended, e.g. "blocked"."""
     with open_pipeline(get_settings()) as pipeline:
         try:
-            return run_ticket(pipeline, ticket_key, approve_plan=approve_plan)["outcome"]
+            return run_ticket(pipeline, ticket_key, approve_plan=approve_plan, figma_url=figma_url)[
+                "outcome"
+            ]
         except AlreadyRunningError:
             return "already_running"  # not a failure: the other run carries on
 

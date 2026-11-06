@@ -18,9 +18,9 @@ client = TestClient(app)
 
 
 def test_start_run_queues_the_ticket(monkeypatch: pytest.MonkeyPatch) -> None:
-    sent: list[tuple[str, list[str]]] = []
+    sent: list[tuple[str, list[Any]]] = []
 
-    def fake_send(name: str, args: list[str]) -> SimpleNamespace:
+    def fake_send(name: str, args: list[Any]) -> SimpleNamespace:
         sent.append((name, args))
         return SimpleNamespace(id="job-9")
 
@@ -28,7 +28,24 @@ def test_start_run_queues_the_ticket(monkeypatch: pytest.MonkeyPatch) -> None:
     response = client.post("/runs", json={"ticket": "KAN-4"})
     assert response.status_code == 202
     assert response.json() == {"job_id": "job-9"}
-    assert sent == [("run_ticket", ["KAN-4", False])]
+    assert sent == [("run_ticket", ["KAN-4", False, ""])]
+    design = "https://www.figma.com/design/AbC123xyz456/Shop?node-id=1-2"
+    response = client.post("/runs", json={"ticket": "KAN-4", "figma_url": f" {design} "})
+    assert response.status_code == 202
+    assert sent[-1] == ("run_ticket", ["KAN-4", False, design])
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://evil.io/design/AbC123xyz456",
+        "https://www.figma.com/design/AbC123xyz456/x javascript:alert(1)",
+        "not a link",
+    ],
+)
+def test_start_run_rejects_non_figma_links(monkeypatch: pytest.MonkeyPatch, url: str) -> None:
+    monkeypatch.setattr(celery_app, "send_task", lambda *a, **k: pytest.fail("queued"))
+    assert client.post("/runs", json={"ticket": "KAN-4", "figma_url": url}).status_code == 422
 
 
 def test_plan_decision_queues_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -79,9 +96,14 @@ def test_run_ticket_task_returns_the_outcome(monkeypatch: pytest.MonkeyPatch) ->
 
     monkeypatch.setattr(tasks, "open_pipeline", fake_open)
     monkeypatch.setattr(
-        tasks, "run_ticket", lambda p, key, approve_plan: {"outcome": f"{p}:{key}:{approve_plan}"}
+        tasks,
+        "run_ticket",
+        lambda p, key, approve_plan, figma_url: {
+            "outcome": f"{p}:{key}:{approve_plan}:{figma_url}"
+        },
     )
-    assert tasks.run_ticket_task("KAN-4", True) == "pipeline:KAN-4:True"
+    assert tasks.run_ticket_task("KAN-4", True) == "pipeline:KAN-4:True:"
+    assert tasks.run_ticket_task("KAN-4", False, "f") == "pipeline:KAN-4:False:f"
 
 
 def test_run_ticket_task_skips_when_already_running(monkeypatch: pytest.MonkeyPatch) -> None:

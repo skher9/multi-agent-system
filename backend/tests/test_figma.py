@@ -175,6 +175,9 @@ def test_a_linked_design_becomes_a_requirement() -> None:
     assert with_link.requirements[-1] == f"Match the linked Figma design: {URL}"
     assert design_link(with_link).node_id == "1:2"  # type: ignore[union-attr]
     assert with_design_link(with_link, ticket) == with_link  # not added twice
+    other = URL.replace("1-2", "5-6")
+    given = with_design_link(spec, ticket, other)  # given with the run: wins over the ticket
+    assert given.requirements[-1] == f"Match the linked Figma design: {other}"
     plain = JiraTicket("KAN-1", "Story", "To Do", "Shop page", "no design", [])
     assert with_design_link(spec, plain) == spec
     assert design_link(spec) is None

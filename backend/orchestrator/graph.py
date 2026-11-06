@@ -61,6 +61,7 @@ class RunInput(TypedDict):
 
     ticket_key: str
     approve_plan: NotRequired[bool]  # pause for a human to approve the plan (default: no)
+    figma_url: NotRequired[str]  # a design given with the run, not in the ticket ("" = none)
 
 
 class RunState(RunInput):
@@ -132,7 +133,8 @@ def read(state: RunState, runtime: Runtime[RunContext]) -> Update:
     ctx = runtime.context
     with ctx.agent_run("ticket_reader") as run_id:
         ticket = JiraTicket(**state["ticket"])
-        spec = with_design_link(read_ticket(ctx.router, ticket, agent_run_id=run_id), ticket)
+        spec = read_ticket(ctx.router, ticket, agent_run_id=run_id)
+        spec = with_design_link(spec, ticket, state.get("figma_url", ""))
     return {"spec": spec.model_dump()}
 
 
