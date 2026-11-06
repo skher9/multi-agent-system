@@ -4,704 +4,704 @@
  */
 
 export interface paths {
-  "/health": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health
+         * @description Check every external service. 200 if all are ok, 503 otherwise.
+         */
+        get: operations["health_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Health
-     * @description Check every external service. 200 if all are ok, 503 otherwise.
-     */
-    get: operations["health_health_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/jobs/ping": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/jobs/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Ping
+         * @description Queue the ping task. 202 = accepted, not finished.
+         */
+        post: operations["start_ping_jobs_ping_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Start Ping
-     * @description Queue the ping task. 202 = accepted, not finished.
-     */
-    post: operations["start_ping_jobs_ping_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/jobs/{job_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
+        get: operations["get_job_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Get Job */
-    get: operations["get_job_jobs__job_id__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/learn": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/learn": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Learn */
+        post: operations["learn_learn_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Learn */
-    post: operations["learn_learn_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/project": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Project */
+        get: operations["get_project_project_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Get Project */
-    get: operations["get_project_project_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/realtime/test": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/realtime/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Test Event */
+        post: operations["send_test_event_realtime_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Send Test Event */
-    post: operations["send_test_event_realtime_test_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/runs": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent Runs
+         * @description The latest runs, newest first, for the dashboard.
+         */
+        get: operations["recent_runs_runs_get"];
+        put?: never;
+        /**
+         * Start Run
+         * @description Queue a run. 202 = accepted, not finished.
+         */
+        post: operations["start_run_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Recent Runs
-     * @description The latest runs, newest first, for the dashboard.
-     */
-    get: operations["recent_runs_runs_get"];
-    put?: never;
-    /**
-     * Start Run
-     * @description Queue a run. 202 = accepted, not finished.
-     */
-    post: operations["start_run_runs_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/runs/{ticket}/events": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/runs/{ticket}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Events
+         * @description A ticket's run timeline, for the live run window. Poll with `after` = the last
+         *     event id you have, and only newer events come back.
+         */
+        get: operations["run_events_runs__ticket__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Run Events
-     * @description A ticket's run timeline, for the live run window. Poll with `after` = the last
-     *     event id you have, and only newer events come back.
-     */
-    get: operations["run_events_runs__ticket__events_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/runs/{ticket}/plan-decision": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/runs/{ticket}/plan-decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide Plan
+         * @description Answer a run paused for plan approval: approve, revise (with feedback) or reject.
+         *     The job's result is "not_waiting" if no plan was waiting.
+         */
+        post: operations["decide_plan_runs__ticket__plan_decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Decide Plan
-     * @description Answer a run paused for plan approval: approve, revise (with feedback) or reject.
-     *     The job's result is "not_waiting" if no plan was waiting.
-     */
-    post: operations["decide_plan_runs__ticket__plan_decision_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /** EventOut */
-    EventOut: {
-      /** Id */
-      id: number;
-      /** Kind */
-      kind: string;
-      /** Data */
-      data: {
-        [key: string]: unknown;
-      };
-      /** Agent Run Id */
-      agent_run_id: number | null;
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
+    schemas: {
+        /** EventOut */
+        EventOut: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /** Agent Run Id */
+            agent_run_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HealthReport */
+        HealthReport: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "degraded";
+            /** Services */
+            services: {
+                [key: string]: components["schemas"]["ServiceStatus"];
+            };
+        };
+        /** JobStarted */
+        JobStarted: {
+            /** Job Id */
+            job_id: string;
+        };
+        /** JobStatus */
+        JobStatus: {
+            /** Job Id */
+            job_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "STARTED" | "RETRY" | "FAILURE" | "SUCCESS";
+            /** Result */
+            result?: unknown;
+        };
+        /** LearnRequest */
+        LearnRequest: {
+            /**
+             * Pr
+             * @description Pull request number in the agent's repo
+             */
+            pr: number;
+        };
+        /**
+         * PlanDecision
+         * @description A human's answer to a paused plan.
+         */
+        PlanDecision: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approve" | "revise" | "reject";
+            /**
+             * Feedback
+             * @default
+             */
+            feedback: string;
+        };
+        /**
+         * ProjectLinks
+         * @description Where a run's work lives, so the run window can link to it.
+         */
+        ProjectLinks: {
+            /** Repo */
+            repo: string | null;
+            /** Repo Url */
+            repo_url: string | null;
+            /** Jira Site */
+            jira_site: string | null;
+            /** Jira Project */
+            jira_project: string | null;
+            /** Board Url */
+            board_url: string | null;
+        };
+        /** RunRequest */
+        RunRequest: {
+            /** Ticket */
+            ticket: string;
+            /**
+             * Approve Plan
+             * @default false
+             */
+            approve_plan: boolean;
+            /**
+             * Figma Url
+             * @default
+             */
+            figma_url: string;
+        };
+        /** RunSummary */
+        RunSummary: {
+            /** Ticket */
+            ticket: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Pr Url */
+            pr_url: string | null;
+            /** Cost Inr */
+            cost_inr: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** RunTimeline */
+        RunTimeline: {
+            /** Ticket */
+            ticket: string;
+            /** Title */
+            title: string;
+            /** Ticket Url */
+            ticket_url: string | null;
+            /** Branch Url */
+            branch_url: string | null;
+            project: components["schemas"]["ProjectLinks"];
+            /** Status */
+            status: string;
+            /** Pr Url */
+            pr_url: string | null;
+            /** Cost Inr */
+            cost_inr: number;
+            /** Events */
+            events: components["schemas"]["EventOut"][];
+        };
+        /** ServiceStatus */
+        ServiceStatus: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "error" | "not_configured";
+            /** Detail */
+            detail?: string | null;
+        };
+        /** TestEventSent */
+        TestEventSent: {
+            /** Channel */
+            channel: string;
+            /** Event */
+            event: string;
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
+        };
     };
-    /** HTTPValidationError */
-    HTTPValidationError: {
-      /** Detail */
-      detail?: components["schemas"]["ValidationError"][];
-    };
-    /** HealthReport */
-    HealthReport: {
-      /**
-       * Status
-       * @enum {string}
-       */
-      status: "ok" | "degraded";
-      /** Services */
-      services: {
-        [key: string]: components["schemas"]["ServiceStatus"];
-      };
-    };
-    /** JobStarted */
-    JobStarted: {
-      /** Job Id */
-      job_id: string;
-    };
-    /** JobStatus */
-    JobStatus: {
-      /** Job Id */
-      job_id: string;
-      /**
-       * Status
-       * @enum {string}
-       */
-      status: "PENDING" | "STARTED" | "RETRY" | "FAILURE" | "SUCCESS";
-      /** Result */
-      result?: unknown;
-    };
-    /** LearnRequest */
-    LearnRequest: {
-      /**
-       * Pr
-       * @description Pull request number in the agent's repo
-       */
-      pr: number;
-    };
-    /**
-     * PlanDecision
-     * @description A human's answer to a paused plan.
-     */
-    PlanDecision: {
-      /**
-       * Decision
-       * @enum {string}
-       */
-      decision: "approve" | "revise" | "reject";
-      /**
-       * Feedback
-       * @default
-       */
-      feedback: string;
-    };
-    /**
-     * ProjectLinks
-     * @description Where a run's work lives, so the run window can link to it.
-     */
-    ProjectLinks: {
-      /** Repo */
-      repo: string | null;
-      /** Repo Url */
-      repo_url: string | null;
-      /** Jira Site */
-      jira_site: string | null;
-      /** Jira Project */
-      jira_project: string | null;
-      /** Board Url */
-      board_url: string | null;
-    };
-    /** RunRequest */
-    RunRequest: {
-      /** Ticket */
-      ticket: string;
-      /**
-       * Approve Plan
-       * @default false
-       */
-      approve_plan: boolean;
-      /**
-       * Figma Url
-       * @default
-       */
-      figma_url: string;
-    };
-    /** RunSummary */
-    RunSummary: {
-      /** Ticket */
-      ticket: string;
-      /** Title */
-      title: string;
-      /** Status */
-      status: string;
-      /** Pr Url */
-      pr_url: string | null;
-      /** Cost Inr */
-      cost_inr: number;
-      /**
-       * Started At
-       * Format: date-time
-       */
-      started_at: string;
-      /**
-       * Updated At
-       * Format: date-time
-       */
-      updated_at: string;
-    };
-    /** RunTimeline */
-    RunTimeline: {
-      /** Ticket */
-      ticket: string;
-      /** Title */
-      title: string;
-      /** Ticket Url */
-      ticket_url: string | null;
-      /** Branch Url */
-      branch_url: string | null;
-      project: components["schemas"]["ProjectLinks"];
-      /** Status */
-      status: string;
-      /** Pr Url */
-      pr_url: string | null;
-      /** Cost Inr */
-      cost_inr: number;
-      /** Events */
-      events: components["schemas"]["EventOut"][];
-    };
-    /** ServiceStatus */
-    ServiceStatus: {
-      /**
-       * Status
-       * @enum {string}
-       */
-      status: "ok" | "error" | "not_configured";
-      /** Detail */
-      detail?: string | null;
-    };
-    /** TestEventSent */
-    TestEventSent: {
-      /** Channel */
-      channel: string;
-      /** Event */
-      event: string;
-      /**
-       * Sent At
-       * Format: date-time
-       */
-      sent_at: string;
-    };
-    /** ValidationError */
-    ValidationError: {
-      /** Location */
-      loc: (string | number)[];
-      /** Message */
-      msg: string;
-      /** Error Type */
-      type: string;
-      /** Input */
-      input?: unknown;
-      /** Context */
-      ctx?: Record<string, never>;
-    };
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  health_health_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    health_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthReport"];
+                };
+            };
+            /** @description One or more services are down */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthReport"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    start_ping_jobs_ping_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["HealthReport"];
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
-      };
-      /** @description One or more services are down */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HealthReport"];
-        };
-      };
     };
-  };
-  start_ping_jobs_ping_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path?: never;
-      cookie?: never;
+    get_job_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      202: {
-        headers: {
-          [name: string]: unknown;
+    learn_learn_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["JobStarted"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LearnRequest"];
+            };
         };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
     };
-  };
-  get_job_jobs__job_id__get: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path: {
-        job_id: string;
-      };
-      cookie?: never;
+    get_project_project_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectLinks"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    send_test_event_realtime_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["JobStatus"];
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestEventSent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
     };
-  };
-  learn_learn_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path?: never;
-      cookie?: never;
+    recent_runs_runs_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["LearnRequest"];
-      };
+    start_run_runs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    responses: {
-      /** @description Successful Response */
-      202: {
-        headers: {
-          [name: string]: unknown;
+    run_events_runs__ticket__events_get: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ticket: string;
+            };
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["JobStarted"];
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunTimeline"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
     };
-  };
-  get_project_project_get: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path?: never;
-      cookie?: never;
+    decide_plan_runs__ticket__plan_decision_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ticket: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ProjectLinks"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  send_test_event_realtime_test_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["TestEventSent"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  recent_runs_runs_get: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["RunSummary"][];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  start_run_runs_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["RunRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      202: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["JobStarted"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  run_events_runs__ticket__events_get: {
-    parameters: {
-      query?: {
-        after?: number;
-      };
-      header?: {
-        authorization?: string | null;
-      };
-      path: {
-        ticket: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["RunTimeline"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  decide_plan_runs__ticket__plan_decision_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path: {
-        ticket: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PlanDecision"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      202: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["JobStarted"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
 }
