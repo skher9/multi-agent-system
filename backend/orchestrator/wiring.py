@@ -12,6 +12,7 @@ from orchestrator.checkpoints import postgres_checkpointer
 from orchestrator.records import ensure_project
 from orchestrator.runner import Pipeline
 from services import sandbox_e2b
+from services.figma import FigmaClient
 from services.github import GitHubClient
 from services.jira import JiraClient
 from services.openrouter import OpenRouterClient
@@ -97,6 +98,7 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
     github = GitHubClient(
         settings.github_token.get_secret_value(), settings.agent_repo.split("/")[0]
     )
+    figma = FigmaClient(settings.figma_token.get_secret_value()) if settings.figma_token else None
     router = LlmRouter(
         client,
         db_recorder(factory),
@@ -120,8 +122,11 @@ def open_pipeline(settings: Settings, *, database_url: str | None = None) -> Ite
                 github_token=settings.github_token.get_secret_value(),
                 github=github,
                 repo=settings.agent_repo,
+                figma=figma,
             )
     finally:
         jira.close()
         client.close()
         github.close()
+        if figma is not None:
+            figma.close()

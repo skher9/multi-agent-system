@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # OpenRouter
     openrouter_api_key: SecretStr | None = None
 
+    # Figma: reads designs linked from tickets (a personal access token, file read scope)
+    figma_token: SecretStr | None = None
+
     # Where agent code runs: "docker" (local, default) or "e2b" (cloud microVMs, for
     # hosts without Docker such as Railway). E2B needs its API key.
     sandbox_backend: Literal["docker", "e2b"] = "docker"

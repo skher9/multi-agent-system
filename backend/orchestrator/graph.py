@@ -43,7 +43,7 @@ from agents.developer import DevResult
 from agents.gate import VerifyResult
 from agents.planner import Plan, conflicts_comment, plan_comment, subtask_description
 from agents.reviewer import Review, review_markdown
-from agents.ticket_reader import TicketSpec, questions_comment, read_ticket
+from agents.ticket_reader import TicketSpec, questions_comment, read_ticket, with_design_link
 from llm_router.router import LlmRouter
 from orchestrator.decisions import PlanDecision
 from orchestrator.handback import pr_body, pr_comment, pr_title, problem_comment
@@ -131,7 +131,8 @@ def fetch_ticket(state: RunState, runtime: Runtime[RunContext]) -> Update:
 def read(state: RunState, runtime: Runtime[RunContext]) -> Update:
     ctx = runtime.context
     with ctx.agent_run("ticket_reader") as run_id:
-        spec = read_ticket(ctx.router, JiraTicket(**state["ticket"]), agent_run_id=run_id)
+        ticket = JiraTicket(**state["ticket"])
+        spec = with_design_link(read_ticket(ctx.router, ticket, agent_run_id=run_id), ticket)
     return {"spec": spec.model_dump()}
 
 
