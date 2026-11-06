@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
 from llm_router.models import Role
 from llm_router.router import LlmRouter
+from services.figma import FigmaLink, find_link
 from services.jira import JiraTicket
 
 # Room for a reasoning model to think before it answers (MiniMax output: ₹116 per 1M tokens).
@@ -211,3 +212,18 @@ def _summarise(error: ValidationError) -> str:
     return "\n".join(
         f"- {'.'.join(str(p) for p in e['loc']) or 'reply'}: {e['msg']}" for e in error.errors()
     )
+
+
+def with_design_link(spec: TicketSpec, ticket: JiraTicket) -> TicketSpec:
+    """A ready spec whose ticket links a Figma design says so in its requirements, in our
+    words: the reader may drop or reword the link, and the planner and developer find the
+    design through this line (see agents/design.py)."""
+    link = find_link(f"{ticket.summary}\n{ticket.description}")
+    if spec.status != "ready" or link is None or any(link.url in r for r in spec.requirements):
+        return spec
+    requirement = f"Match the linked Figma design: {link.url}"
+    return spec.model_copy(update={"requirements": [*spec.requirements, requirement]})
+
+
+def design_link(spec: TicketSpec) -> FigmaLink | None:
+    return find_link("\n".join(spec.requirements))

@@ -4,6 +4,7 @@ import logging
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, cast
 
 from langchain_core.runnables import RunnableConfig
@@ -12,6 +13,7 @@ from langgraph.types import Command
 from sqlalchemy.orm import Session, sessionmaker
 
 from agents.code_graph import Storage, open_code_graph
+from agents.design import Design, read_design
 from agents.developer import DevResult, develop_ticket
 from agents.gate import GateResult, VerifyResult, run_gate
 from agents.learner import learn_rules
@@ -20,7 +22,7 @@ from agents.planner import Plan, plan_ticket
 from agents.qa import qa_ticket
 from agents.repo_tools import RepoTools
 from agents.reviewer import Review, review_changes
-from agents.ticket_reader import TicketSpec
+from agents.ticket_reader import TicketSpec, design_link
 from db.models import EventKind
 from llm_router.models import Role
 from llm_router.router import LlmRouter
@@ -36,6 +38,7 @@ from orchestrator.records import (
     update_feature,
 )
 from orchestrator.routing import planner_tier, reviewer_tier
+from services.figma import FigmaClient, FigmaError
 from services.github import GitHubClient
 from services.jira import TICKET_KEY, JiraClient
 from services.workspace import GitIdentity, Workspace
@@ -75,6 +78,8 @@ class Pipeline:
     # Experiments (backend/experiments) measure the planner, developer and reviewer
     # without the QA agent's browser tests
     skip_qa: bool = False
+    # Reads Figma designs linked from tickets. None: tickets with a design can't be built
+    figma: FigmaClient | None = None
 
 
 def open_pr(pipeline: Pipeline, branch: str, title: str, body: str) -> tuple[int, str]:
@@ -90,6 +95,25 @@ def open_pr(pipeline: Pipeline, branch: str, title: str, body: str) -> tuple[int
 def step(on_event: EventSink, role: str, text: str) -> None:
     """A plain-words progress line for the run window, for work that has no tool calls."""
     on_event(EventKind.STEP, {"role": role, "text": text})
+
+
+def load_design(
+    pipeline: Pipeline, spec: TicketSpec, root: Path, role: Role, on_event: EventSink
+) -> Design | None:
+    """The ticket's Figma design (its images and icons written into the repo at root),
+    or None when the ticket links none."""
+    link = design_link(spec)
+    if link is None:
+        return None
+    if pipeline.figma is None:
+        raise RuntimeError("the ticket links a Figma design, but no Figma token is set up")
+    step(on_event, role, "Reading the Figma design")
+    try:
+        design = read_design(pipeline.figma, link, root)
+    except FigmaError as error:
+        raise RuntimeError(f"couldn't read the Figma design: {error}") from error
+    step(on_event, role, f'Read the design "{design.name}" ({len(design.assets)} images and icons)')
+    return design
 
 
 def make_plan(
@@ -108,6 +132,7 @@ def make_plan(
         with open_code_graph(
             pipeline.factory, pipeline.storage, pipeline.project_id, workspace
         ) as graph:
+            design = load_design(pipeline, spec, workspace.path, Role.PLANNER, on_event)
             step(on_event, Role.PLANNER, "Reading the code to plan the change")
             plan = plan_ticket(
                 pipeline.router,
@@ -119,6 +144,7 @@ def make_plan(
                 rules=project_rules(pipeline.factory, pipeline.project_id),
                 on_event=on_event,
                 strong_reason=planner_tier(spec),
+                design=design,
             )
             return plan, graph.commit_sha
 
@@ -146,6 +172,8 @@ def make_code(
     step(on_event, Role.DEVELOPER, "Cloning the repo")
     with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
         workspace.create_branch(branch, start=commit_sha)
+        # Its images and icons go in with the first subtask's commit
+        design = load_design(pipeline, spec, workspace.path, Role.DEVELOPER, on_event)
         for number, subtask in enumerate(plan.subtasks, start=1):
             step(
                 on_event,
@@ -162,6 +190,7 @@ def make_code(
                 subtask=subtask,
                 rules=project_rules(pipeline.factory, pipeline.project_id),
                 earlier=list(summaries),
+                design=design,
                 on_event=on_event,
             )
             if dev.problem:

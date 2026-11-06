@@ -152,6 +152,8 @@ def _block(node: dict[str, Any], indent: str) -> str:
         return f"```\n{_inline(children)}\n```\n"
     if kind == "rule":
         return "---\n"
+    if kind in ("blockCard", "embedCard"):
+        return f"{indent}{_inline([node])}\n"
     # Anything else (tables, panels, quotes...): keep the text inside, drop the styling.
     return _blocks(children, indent) if children else _inline([node])
 
@@ -161,7 +163,19 @@ def _inline(nodes: list[dict[str, Any]]) -> str:
     for node in nodes:
         kind = node.get("type")
         if kind == "text":
-            parts.append(node.get("text", ""))
+            text = node.get("text", "")
+            href = next(
+                (
+                    m.get("attrs", {}).get("href", "")
+                    for m in node.get("marks", [])
+                    if m.get("type") == "link"
+                ),
+                "",
+            )
+            # Keep the address when the visible text isn't it (e.g. a Figma link)
+            parts.append(f"{text} ({href})" if href and href != text else text)
+        elif kind in ("inlineCard", "blockCard", "embedCard"):
+            parts.append(node.get("attrs", {}).get("url", ""))  # Jira smart links
         elif kind == "hardBreak":
             parts.append("\n")
         elif kind == "mention":
