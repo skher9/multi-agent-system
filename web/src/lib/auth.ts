@@ -29,6 +29,11 @@ function keys(prefix: string) {
   return clientId && clientSecret ? { clientId, clientSecret } : undefined;
 }
 
+/** A provider's OAuth app keys (server only), e.g. to revoke a grant on disconnect. */
+export function providerKeys(provider: SocialProvider) {
+  return provider === "google" ? google : github;
+}
+
 /** The social logins whose keys are set, for the login page's buttons. */
 export function enabledProviders(): SocialProvider[] {
   return [google && "google", github && "github"].filter(Boolean) as SocialProvider[];
