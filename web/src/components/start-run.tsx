@@ -11,6 +11,8 @@ import type { components } from "@/lib/api/schema";
 type Project = components["schemas"]["ProjectLinks"];
 
 const POLL_MS = 5000;
+// Same shape the API accepts (backend/services/figma.py)
+const FIGMA_LINK = /^https:\/\/(www\.)?figma\.com\/(design|file|proto)\/[A-Za-z0-9]{10,64}/;
 
 type Job = { id: string; ticket: string; status: string; result?: unknown };
 
@@ -32,14 +34,17 @@ export function StartRun() {
     setPending(true);
     const form = new FormData(event.currentTarget);
     const ticket = String(form.get("ticket")).trim().toUpperCase();
+    const figmaUrl = String(form.get("figma_url") ?? "").trim();
     const { data, response } = await api.POST("/runs", {
-      body: { ticket, approve_plan: form.get("approve_plan") === "on" },
+      body: { ticket, approve_plan: form.get("approve_plan") === "on", figma_url: figmaUrl },
     });
     setPending(false);
     if (!data) {
       setError(
         response.status === 422
-          ? "That doesn't look like a ticket key. Use the form KAN-12."
+          ? figmaUrl && !FIGMA_LINK.test(figmaUrl)
+            ? "That doesn't look like a Figma design link. Copy it from Figma's Share button."
+            : "That doesn't look like a ticket key. Use the form KAN-12."
           : response.status === 401
             ? "Your login expired. Refresh the page and try again."
             : "Couldn't start the run. Please try again.",
@@ -78,6 +83,20 @@ export function StartRun() {
           autoComplete="off"
           className={`${INPUT} w-full`}
         />
+        <div>
+          <input
+            name="figma_url"
+            type="url"
+            placeholder="Figma design link (optional)"
+            autoComplete="off"
+            aria-describedby="figma-help"
+            className={`${INPUT} w-full`}
+          />
+          <p id="figma-help" className="mt-1 text-xs text-muted">
+            For screens: the agents build the page to match this frame. Share the file as
+            &ldquo;Anyone with the link can view&rdquo;.
+          </p>
+        </div>
         <label className="flex items-center gap-2 text-sm text-muted">
           <input type="checkbox" name="approve_plan" className="accent-accent" />
           Pause for me to approve the plan

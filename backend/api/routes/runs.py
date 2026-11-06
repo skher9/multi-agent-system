@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, StringConstraints, field_validator
 from sqlalchemy import func, select
 
 from api.auth import current_user
@@ -17,6 +17,7 @@ from api.db import SessionFactory
 from api.routes.jobs import JobStarted
 from db.models import AgentRun, EventKind, Feature, LlmCall, RunEvent, Task
 from orchestrator.decisions import PlanDecision
+from services.figma import find_link
 from services.jira import TICKET_KEY
 from workers.celery_app import celery_app
 
@@ -31,12 +32,22 @@ TicketKey = Annotated[str, StringConstraints(pattern=f"^{TICKET_KEY.pattern}$")]
 class RunRequest(BaseModel):
     ticket: TicketKey
     approve_plan: bool = False  # pause after planning until a human decides
+    # A Figma frame to build the screen from (agents/design.py); "" = none
+    figma_url: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] = ""
+
+    @field_validator("figma_url")
+    @classmethod
+    def _a_figma_link(cls, value: str) -> str:
+        link = find_link(value)
+        if value and (link is None or link.url != value):
+            raise ValueError("not a Figma design link")
+        return value
 
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
 def start_run(body: RunRequest) -> JobStarted:
     """Queue a run. 202 = accepted, not finished."""
-    job = celery_app.send_task("run_ticket", args=[body.ticket, body.approve_plan])
+    job = celery_app.send_task("run_ticket", args=[body.ticket, body.approve_plan, body.figma_url])
     return JobStarted(job_id=job.id)
 
 

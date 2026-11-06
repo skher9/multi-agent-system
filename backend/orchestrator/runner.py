@@ -388,6 +388,7 @@ def run_ticket(
     *,
     approve_plan: bool = False,
     plan_decision: PlanDecision | None = None,
+    figma_url: str = "",
 ) -> RunState:
     """Run the graph for one ticket and save where it ended on the ticket's feature.
 
@@ -462,7 +463,11 @@ def run_ticket(
     elif unfinished:
         graph_input = None  # None tells LangGraph "continue from the checkpoint"
     else:
-        graph_input = {"ticket_key": ticket_key, "approve_plan": approve_plan}
+        graph_input = {
+            "ticket_key": ticket_key,
+            "approve_plan": approve_plan,
+            "figma_url": figma_url,
+        }
     final: dict[str, Any] = {}
     event(EventKind.RUN_STARTED, {"resumed": unfinished})
     try:

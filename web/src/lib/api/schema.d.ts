@@ -283,6 +283,11 @@ export interface components {
              * @default false
              */
             approve_plan: boolean;
+            /**
+             * Figma Url
+             * @default
+             */
+            figma_url: string;
         };
         /** RunSummary */
         RunSummary: {

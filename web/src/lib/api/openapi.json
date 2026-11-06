@@ -800,6 +800,12 @@
             "type": "boolean",
             "title": "Approve Plan",
             "default": false
+          },
+          "figma_url": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Figma Url",
+            "default": ""
           }
         },
         "type": "object",
