@@ -23,7 +23,7 @@ from services import sandbox, sandbox_e2b
 from services.sandbox import SandboxLimits, SandboxResult
 
 SHA = re.compile(r"[0-9a-f]{40}")  # a full git commit id
-GITHUB_REPO = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")  # owner/name
+GITHUB_REPO = re.compile(r"[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}")  # owner/name, GitHub's limits
 
 # Applied to every host git command. Hooks off: nothing in the repo runs on the host.
 SAFE_GIT_CONFIG = ["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false"]
