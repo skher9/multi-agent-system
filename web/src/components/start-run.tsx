@@ -69,8 +69,8 @@ export function StartRun() {
   }, [jobId, running]);
 
   return (
-    <section className="h-fit rounded-2xl border border-line bg-surface p-5">
-      <h2 className="font-medium">Start a run</h2>
+    <section className="h-fit rounded-lg border border-line bg-surface p-5">
+      <h2 className="font-display text-2xl">Start a run</h2>
       <p className="mt-1 text-sm text-muted">
         Enter a Jira ticket. The agents read it, plan, build, test and open a pull request.
       </p>
@@ -107,7 +107,7 @@ export function StartRun() {
         </Button>
       </form>
       {job && (
-        <div className="mt-4 rounded-lg border border-line bg-canvas p-3 text-sm">
+        <div className="mt-4 rounded-md border border-line bg-canvas p-3 text-sm">
           <p>
             <span className="font-mono">{job.ticket}</span>
             <span className="text-muted"> · {describe(job)}</span>
@@ -134,7 +134,7 @@ function describe(job: Job): string {
 /** Which repo and Jira project runs work on, with links to both. */
 function ProjectCard({ project }: { project: Project }) {
   return (
-    <dl className="mt-4 grid grid-cols-[4.5rem_1fr] gap-y-1.5 rounded-lg border border-line bg-canvas p-3 text-xs">
+    <dl className="mt-4 grid grid-cols-[4.5rem_1fr] gap-y-1.5 rounded-md border border-line bg-canvas p-3 text-xs">
       <dt className="text-muted">GitHub</dt>
       <dd className="truncate">
         {project.repo_url ? (

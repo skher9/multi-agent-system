@@ -7,9 +7,7 @@
   "paths": {
     "/health": {
       "get": {
-        "tags": [
-          "health"
-        ],
+        "tags": ["health"],
         "summary": "Health",
         "description": "Check every external service. 200 if all are ok, 503 otherwise.",
         "operationId": "health_health_get",
@@ -39,9 +37,7 @@
     },
     "/jobs/ping": {
       "post": {
-        "tags": [
-          "jobs"
-        ],
+        "tags": ["jobs"],
         "summary": "Start Ping",
         "description": "Queue the ping task. 202 = accepted, not finished.",
         "operationId": "start_ping_jobs_ping_post",
@@ -89,9 +85,7 @@
     },
     "/jobs/{job_id}": {
       "get": {
-        "tags": [
-          "jobs"
-        ],
+        "tags": ["jobs"],
         "summary": "Get Job",
         "operationId": "get_job_jobs__job_id__get",
         "parameters": [
@@ -147,9 +141,7 @@
     },
     "/learn": {
       "post": {
-        "tags": [
-          "learn"
-        ],
+        "tags": ["learn"],
         "summary": "Learn",
         "operationId": "learn_learn_post",
         "parameters": [
@@ -206,9 +198,7 @@
     },
     "/project": {
       "get": {
-        "tags": [
-          "project"
-        ],
+        "tags": ["project"],
         "summary": "Get Project",
         "operationId": "get_project_project_get",
         "parameters": [
@@ -255,9 +245,7 @@
     },
     "/realtime/test": {
       "post": {
-        "tags": [
-          "realtime"
-        ],
+        "tags": ["realtime"],
         "summary": "Send Test Event",
         "operationId": "send_test_event_realtime_test_post",
         "parameters": [
@@ -304,9 +292,7 @@
     },
     "/runs": {
       "post": {
-        "tags": [
-          "runs"
-        ],
+        "tags": ["runs"],
         "summary": "Start Run",
         "description": "Queue a run. 202 = accepted, not finished.",
         "operationId": "start_run_runs_post",
@@ -362,9 +348,7 @@
         }
       },
       "get": {
-        "tags": [
-          "runs"
-        ],
+        "tags": ["runs"],
         "summary": "Recent Runs",
         "description": "The latest runs, newest first, for the dashboard.",
         "operationId": "recent_runs_runs_get",
@@ -416,9 +400,7 @@
     },
     "/runs/{ticket}/events": {
       "get": {
-        "tags": [
-          "runs"
-        ],
+        "tags": ["runs"],
         "summary": "Run Events",
         "description": "A ticket's run timeline, for the live run window. Poll with `after` = the last\nevent id you have, and only newer events come back.",
         "operationId": "run_events_runs__ticket__events_get",
@@ -487,9 +469,7 @@
     },
     "/runs/{ticket}/plan-decision": {
       "post": {
-        "tags": [
-          "runs"
-        ],
+        "tags": ["runs"],
         "summary": "Decide Plan",
         "description": "Answer a run paused for plan approval: approve, revise (with feedback) or reject.\nThe job's result is \"not_waiting\" if no plan was waiting.",
         "operationId": "decide_plan_runs__ticket__plan_decision_post",
@@ -591,13 +571,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "id",
-          "kind",
-          "data",
-          "agent_run_id",
-          "created_at"
-        ],
+        "required": ["id", "kind", "data", "agent_run_id", "created_at"],
         "title": "EventOut"
       },
       "HTTPValidationError": {
@@ -617,10 +591,7 @@
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "ok",
-              "degraded"
-            ],
+            "enum": ["ok", "degraded"],
             "title": "Status"
           },
           "services": {
@@ -632,10 +603,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "status",
-          "services"
-        ],
+        "required": ["status", "services"],
         "title": "HealthReport"
       },
       "JobStarted": {
@@ -646,9 +614,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "job_id"
-        ],
+        "required": ["job_id"],
         "title": "JobStarted"
       },
       "JobStatus": {
@@ -659,13 +625,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "PENDING",
-              "STARTED",
-              "RETRY",
-              "FAILURE",
-              "SUCCESS"
-            ],
+            "enum": ["PENDING", "STARTED", "RETRY", "FAILURE", "SUCCESS"],
             "title": "Status"
           },
           "result": {
@@ -673,10 +633,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "job_id",
-          "status"
-        ],
+        "required": ["job_id", "status"],
         "title": "JobStatus"
       },
       "LearnRequest": {
@@ -689,20 +646,14 @@
           }
         },
         "type": "object",
-        "required": [
-          "pr"
-        ],
+        "required": ["pr"],
         "title": "LearnRequest"
       },
       "PlanDecision": {
         "properties": {
           "decision": {
             "type": "string",
-            "enum": [
-              "approve",
-              "revise",
-              "reject"
-            ],
+            "enum": ["approve", "revise", "reject"],
             "title": "Decision"
           },
           "feedback": {
@@ -714,9 +665,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "decision"
-        ],
+        "required": ["decision"],
         "title": "PlanDecision",
         "description": "A human's answer to a paused plan."
       },
@@ -779,13 +728,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "repo",
-          "repo_url",
-          "jira_site",
-          "jira_project",
-          "board_url"
-        ],
+        "required": ["repo", "repo_url", "jira_site", "jira_project", "board_url"],
         "title": "ProjectLinks",
         "description": "Where a run's work lives, so the run window can link to it."
       },
@@ -809,9 +752,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "ticket"
-        ],
+        "required": ["ticket"],
         "title": "RunRequest"
       },
       "RunSummary": {
@@ -855,15 +796,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "ticket",
-          "title",
-          "status",
-          "pr_url",
-          "cost_inr",
-          "started_at",
-          "updated_at"
-        ],
+        "required": ["ticket", "title", "status", "pr_url", "cost_inr", "started_at", "updated_at"],
         "title": "RunSummary"
       },
       "RunTimeline": {
@@ -946,11 +879,7 @@
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "ok",
-              "error",
-              "not_configured"
-            ],
+            "enum": ["ok", "error", "not_configured"],
             "title": "Status"
           },
           "detail": {
@@ -966,9 +895,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "status"
-        ],
+        "required": ["status"],
         "title": "ServiceStatus"
       },
       "TestEventSent": {
@@ -988,11 +915,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "channel",
-          "event",
-          "sent_at"
-        ],
+        "required": ["channel", "event", "sent_at"],
         "title": "TestEventSent"
       },
       "ValidationError": {
@@ -1028,11 +951,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
+        "required": ["loc", "msg", "type"],
         "title": "ValidationError"
       }
     }
