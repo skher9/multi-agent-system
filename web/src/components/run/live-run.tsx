@@ -65,7 +65,6 @@ export function LiveRun() {
           repoUrl: data.project.repo_url ?? null,
           branchUrl: data.branch_url ?? null,
         },
-        costInr: data.cost_inr,
         events: [...(current?.events ?? []), ...fresh],
       };
       // Each run of a ticket starts with run_started: show only the latest one

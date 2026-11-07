@@ -62,7 +62,8 @@ class RunRequest(BaseModel):
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
 def start_run(body: RunRequest, user: CurrentUser) -> JobStarted:
     """Queue a run. 202 = accepted, not finished. On the user's own project, the ticket
-    must be in their Jira project, and their runs share a daily budget (429 past it)."""
+    must be in their Jira project, and their runs share a daily budget (429 past it). The
+    budget is ours to know: the message names a run limit, never an amount."""
     if body.project_id is not None:
         _check_own_run(user, body.project_id, body.ticket)
     job = celery_app.send_task(
@@ -90,7 +91,7 @@ def _check_own_run(user: User, project_id: int, ticket: str) -> None:
         if _spent_today(session, user_id) >= budget:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
-                f"your projects used today's ₹{budget} of runs; try again tomorrow",
+                "you've reached today's run limit for your project; try again tomorrow",
             )
 
 
@@ -121,7 +122,6 @@ class RunSummary(BaseModel):
     title: str
     status: str  # running, in_review, ready_to_merge, needs_human, blocked, failed...
     pr_url: str | None
-    cost_inr: float
     started_at: datetime
     updated_at: datetime
 
@@ -142,15 +142,6 @@ def recent_runs(user: CurrentUser, factory: SessionFactory) -> list[RunSummary]:
             .limit(RECENT_RUNS)
         ).all()
         ids = [f.id for f in features]
-        costs = dict(
-            session.execute(
-                select(Task.feature_id, func.coalesce(func.sum(LlmCall.cost_inr), 0))
-                .join(AgentRun, AgentRun.task_id == Task.id)
-                .join(LlmCall, LlmCall.agent_run_id == AgentRun.id)
-                .where(Task.feature_id.in_(ids))
-                .group_by(Task.feature_id)
-            ).all()
-        )
         prs = dict(
             session.execute(
                 select(RunEvent.feature_id, func.max(RunEvent.data["pr_url"].astext))
@@ -166,7 +157,6 @@ def recent_runs(user: CurrentUser, factory: SessionFactory) -> list[RunSummary]:
                 title=f.title.removeprefix(f"{f.jira_key}: "),
                 status=f.status,
                 pr_url=prs.get(f.id),
-                cost_inr=float(costs.get(f.id, 0)),
                 started_at=f.created_at,
                 updated_at=f.updated_at,
             )
@@ -202,7 +192,6 @@ class RunTimeline(BaseModel):
     project: ProjectLinks
     status: str  # the feature's status, e.g. running, in_review, ready_to_merge
     pr_url: str | None
-    cost_inr: float  # every model call of this ticket so far
     events: list[EventOut]  # newer than `after`, oldest first
 
 
@@ -253,12 +242,6 @@ def run_events(
             .order_by(RunEvent.id)
             .limit(MAX_EVENTS)
         ).all()
-        cost = session.scalar(
-            select(func.coalesce(func.sum(LlmCall.cost_inr), 0))
-            .join(AgentRun, LlmCall.agent_run_id == AgentRun.id)
-            .join(Task, AgentRun.task_id == Task.id)
-            .where(Task.feature_id == feature.id)
-        )
         # The open_pr box records the PR's address when it finishes
         pr_url = session.scalar(
             select(RunEvent.data["pr_url"].astext)
@@ -292,7 +275,6 @@ def run_events(
             project=found,
             status=feature.status,
             pr_url=pr_url,
-            cost_inr=float(cost or 0),
             events=[
                 EventOut(
                     id=row.id,

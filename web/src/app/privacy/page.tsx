@@ -43,7 +43,7 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Runs you start:</strong> the ticket text you write, what the agents did, the
-            code they produced, and what it cost.
+            code they produced, and usage records for each step.
           </li>
           <li>
             <strong>Login attempts,</strong> counted for a short time per IP address, to slow down

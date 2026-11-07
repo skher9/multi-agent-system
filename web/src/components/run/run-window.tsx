@@ -36,7 +36,7 @@ function duration(run: RunView, shown: number): string {
 /**
  * The run window: the pipeline on the left, the live feed on the right, the run's
  * numbers on top. With replay, it plays the events one by one as if live. With live,
- * events arriving later play in the same way, and cost and PR show as they come.
+ * events arriving later play in the same way, and the PR shows as it comes.
  */
 export function RunWindow({
   run,
@@ -81,7 +81,6 @@ export function RunWindow({
           </h1>
           {run.links && <RunLinksRow run={run} />}
         </div>
-        <Stat label="Cost">{showNumbers ? `₹${run.costInr.toFixed(2)}` : "…"}</Stat>
         <Stat label="Time">{duration(run, shown)}</Stat>
         <Stat label="PR">
           {showNumbers && run.prUrl ? (

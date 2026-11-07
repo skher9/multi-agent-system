@@ -199,7 +199,8 @@ export interface paths {
         /**
          * Start Run
          * @description Queue a run. 202 = accepted, not finished. On the user's own project, the ticket
-         *     must be in their Jira project, and their runs share a daily budget (429 past it).
+         *     must be in their Jira project, and their runs share a daily budget (429 past it). The
+         *     budget is ours to know: the message names a run limit, never an amount.
          */
         post: operations["start_run_runs_post"];
         delete?: never;
@@ -443,8 +444,6 @@ export interface components {
             status: string;
             /** Pr Url */
             pr_url: string | null;
-            /** Cost Inr */
-            cost_inr: number;
             /**
              * Started At
              * Format: date-time
@@ -475,8 +474,6 @@ export interface components {
             status: string;
             /** Pr Url */
             pr_url: string | null;
-            /** Cost Inr */
-            cost_inr: number;
             /** Events */
             events: components["schemas"]["EventOut"][];
         };

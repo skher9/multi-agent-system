@@ -231,7 +231,6 @@ export const SAMPLE_RUN: RunView = {
   ticket: "KAN-12",
   title: "Add a contact page",
   prUrl: "https://github.com/skher9/agent-playground/pulls",
-  costInr: 4.2,
   events: STEPS.map(([seconds, kind, data = {}, run]): RunEvent => ({
     id: 0,
     kind,
