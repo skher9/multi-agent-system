@@ -84,9 +84,7 @@ function Latest({ run }: { run: Run }) {
         <StatusLabel run={run} />
       </p>
       <h2 className="mt-3 font-display text-3xl leading-tight">{run.title || run.ticket}</h2>
-      <p className="mt-2 text-sm text-muted">
-        {duration(run)}
-      </p>
+      <p className="mt-2 text-sm text-muted">{duration(run)}</p>
       <div className="mt-5 flex flex-wrap gap-3 text-sm">
         <Link
           href={runHref(run)}
