@@ -54,7 +54,7 @@ def test_timeline_in_order_then_only_newer(
     record_event(factory, feature_id, EventKind.NODE_STARTED, {"node": "fetch_ticket"})
     body = client.get(f"/runs/{key}/events").json()
     assert [e["kind"] for e in body["events"]] == ["run_started", "node_started"]
-    assert body["pr_url"] is None and body["cost_inr"] == 0
+    assert body["pr_url"] is None and "cost_inr" not in body
 
     last = body["events"][-1]["id"]
     url = "https://github.com/o/r/pull/9"
@@ -81,7 +81,7 @@ def test_recent_runs_lists_the_ticket_with_its_pr(
     runs = client.get("/runs").json()
     mine = next(r for r in runs if r["ticket"] == key)
     assert mine["pr_url"] == url
-    assert mine["cost_inr"] == 0
+    assert "cost_inr" not in mine  # spend stays internal
 
 
 def test_timeline_links_to_ticket_repo_and_branch(

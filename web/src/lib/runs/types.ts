@@ -41,6 +41,5 @@ export type RunView = {
   title: string;
   prUrl: string | null;
   links?: RunLinks; // live runs only; the sample has none
-  costInr: number; // every model call of this run so far
   events: RunEvent[];
 };

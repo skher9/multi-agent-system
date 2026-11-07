@@ -25,7 +25,6 @@ const AGENTS = [
 
 // Benchmark: the same 6 tickets on the same repo, before and after (docs in the repo)
 const RESULTS = [
-  ["₹102", "₹5.73", "cost to build all six tickets"],
   ["5 of 6", "6 of 6", "tickets built correctly"],
   ["~50%", "~20%", "of tool calls wasted"],
   ["~15 min", "~4 min", "per ticket, before browser tests"],
@@ -45,8 +44,8 @@ const TRUST = [
     "Agent code runs in a throwaway machine with none of our keys and no internet except the npm registry.",
   ],
   [
-    "Every rupee counted",
-    "Each model call is metered, with caps per agent and per day. A small ticket like an FAQ page costs about ₹8, browser tests included.",
+    "Every step on the record",
+    "Each agent's tool calls, reasoning and code are saved as it works, so you can watch a run live or replay it later.",
   ],
 ] as const;
 
@@ -174,7 +173,7 @@ function Results() {
             and model choice. One run per setup so far; the method and every round are in the repo.
           </p>
         </div>
-        <dl className="mt-14 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="mt-14 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3">
           {RESULTS.map(([before, after, label]) => (
             <div key={label} className="bg-canvas p-6">
               <dt className="text-sm text-muted">{label}</dt>

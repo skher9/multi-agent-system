@@ -526,7 +526,7 @@
           "runs"
         ],
         "summary": "Start Run",
-        "description": "Queue a run. 202 = accepted, not finished. On the user's own project, the ticket\nmust be in their Jira project, and their runs share a daily budget (429 past it).",
+        "description": "Queue a run. 202 = accepted, not finished. On the user's own project, the ticket\nmust be in their Jira project, and their runs share a daily budget (429 past it). The\nbudget is ours to know: the message names a run limit, never an amount.",
         "operationId": "start_run_runs_post",
         "parameters": [
           {
@@ -1281,10 +1281,6 @@
             ],
             "title": "Pr Url"
           },
-          "cost_inr": {
-            "type": "number",
-            "title": "Cost Inr"
-          },
           "started_at": {
             "type": "string",
             "format": "date-time",
@@ -1304,7 +1300,6 @@
           "title",
           "status",
           "pr_url",
-          "cost_inr",
           "started_at",
           "updated_at"
         ],
@@ -1368,10 +1363,6 @@
             ],
             "title": "Pr Url"
           },
-          "cost_inr": {
-            "type": "number",
-            "title": "Cost Inr"
-          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/EventOut"
@@ -1391,7 +1382,6 @@
           "project",
           "status",
           "pr_url",
-          "cost_inr",
           "events"
         ],
         "title": "RunTimeline"

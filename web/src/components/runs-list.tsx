@@ -35,7 +35,6 @@ export function RunsList() {
           <tr>
             <th className="px-5 py-3 font-normal">Ticket</th>
             <th className="px-3 py-3 font-normal">Status</th>
-            <th className="px-3 py-3 text-right font-normal">Cost</th>
             <th className="px-3 py-3 text-right font-normal">Time</th>
             <th className="px-3 py-3 font-normal">Started</th>
             <th className="px-5 py-3">
@@ -64,9 +63,6 @@ export function RunsList() {
               </td>
               <td className="sm:px-3 sm:py-4">
                 <StatusLabel run={run} />
-              </td>
-              <td className="text-muted tabular-nums sm:px-3 sm:py-4 sm:text-right">
-                ₹{run.cost_inr.toFixed(2)}
               </td>
               <td className="text-muted tabular-nums sm:px-3 sm:py-4 sm:text-right">
                 {duration(run)}

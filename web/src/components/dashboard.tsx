@@ -44,7 +44,7 @@ export function Overview() {
                 </Link>
                 <span className="ml-auto flex gap-4 text-muted">
                   <StatusLabel run={run} />
-                  <span className="tabular-nums">₹{run.cost_inr.toFixed(2)}</span>
+                  <span className="tabular-nums">{duration(run)}</span>
                 </span>
               </li>
             ))}
@@ -57,17 +57,15 @@ export function Overview() {
 
 function Stats({ runs }: { runs: Run[] }) {
   const prs = runs.filter((r) => r.pr_url).length;
-  const spent = runs.reduce((sum, r) => sum + r.cost_inr, 0);
   const middle = median(runs.filter((r) => r.pr_url));
   const typical = middle ? duration(middle) : "–";
   const items = [
     [String(runs.length), runs.length === 1 ? "run" : "runs"],
     [String(prs), prs === 1 ? "pull request" : "pull requests"],
-    [`₹${spent.toFixed(0)}`, "spent on models"],
     [typical, "typical run to PR"],
   ];
   return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3">
       {items.map(([value, label]) => (
         <div key={label} className="bg-surface px-5 py-4">
           <dd className="font-display text-4xl leading-none">{value}</dd>
@@ -86,9 +84,7 @@ function Latest({ run }: { run: Run }) {
         <StatusLabel run={run} />
       </p>
       <h2 className="mt-3 font-display text-3xl leading-tight">{run.title || run.ticket}</h2>
-      <p className="mt-2 text-sm text-muted">
-        ₹{run.cost_inr.toFixed(2)} · {duration(run)}
-      </p>
+      <p className="mt-2 text-sm text-muted">{duration(run)}</p>
       <div className="mt-5 flex flex-wrap gap-3 text-sm">
         <Link
           href={runHref(run)}
