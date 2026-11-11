@@ -74,6 +74,11 @@ class Workspace:
         """The full sha of the commit currently checked out."""
         return self._git("rev-parse", "HEAD").strip()
 
+    def ref_sha(self, ref: str) -> str:
+        """The full sha a branch or tag points at, e.g. "origin/main"."""
+        self._git("check-ref-format", "--allow-onelevel", ref)
+        return self._git("rev-parse", "--verify", f"{ref}^{{commit}}").strip()
+
     def tracked_files(self) -> list[str]:
         """Every file git tracks, as repo-relative paths (no node_modules or build output)."""
         return self._git("ls-files").splitlines()

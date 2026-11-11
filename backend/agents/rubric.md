@@ -1,6 +1,6 @@
 # Code quality rubric
 
-DRAFT: Shra reviews and approves this before any grader or agent uses it.
+<!-- DRAFT: in use for building the grader and reviewer; Shra reviews the wording. -->
 
 How good is the code an agent's pull request adds? Five areas, each scored 1 to 10. The
 examples come from real agent PRs on the demo repo (skher9/agent-playground).

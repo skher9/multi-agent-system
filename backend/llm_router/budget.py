@@ -28,6 +28,7 @@ AGENT_BUDGETS_INR: dict[str, Decimal] = {
     "developer": Decimal("15"),
     "fixer": Decimal("8"),
     "reviewer": Decimal("5"),
+    "grader": Decimal("40"),  # a strong outside model: about ₹10 a PR, with room
 }
 # A turn on the strong model (routing) costs more per token: its cap is this much higher
 STRONG_BUDGET_MULTIPLIER = Decimal("3")
