@@ -206,7 +206,7 @@ def test_with_e2b_node_modules_is_read_in_the_sandbox(
 
     sent: list[str] = []
 
-    def fake_sandbox(command: str, timeout_seconds: int = 60) -> tuple[int, str]:
+    def fake_sandbox(command: str, timeout_seconds: int = 60, label: str = "") -> tuple[int, str]:
         sent.append(command)
         return 0, "    1  docs here"
 
@@ -228,7 +228,7 @@ def test_packages_install_only_when_node_modules_is_opened(
 ) -> None:
     installs: list[str] = []
     monkeypatch.setattr(
-        tools, "_sandbox", lambda c, timeout_seconds=0: installs.append(c) or (0, "")
+        tools, "_sandbox", lambda c, timeout_seconds=0, label="": installs.append(c) or (0, "")
     )
     tools.call("read_file", '{"path": "src/app/page.tsx"}')
     tools.call("list_files", '{"path": "src"}')
@@ -236,3 +236,30 @@ def test_packages_install_only_when_node_modules_is_opened(
     tools.call("list_files", '{"path": "node_modules/pkg"}')
     tools.call("read_file", '{"path": "node_modules/pkg/index.js"}')
     assert installs == ["pnpm install --frozen-lockfile --prefer-offline"]
+
+
+def test_a_second_install_is_skipped_until_the_lockfile_changes(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from services.sandbox import SandboxResult
+
+    workspace = Workspace(repo, token=None)
+    commands: list[str] = []
+    monkeypatch.setattr(
+        Workspace,
+        "run",
+        lambda self, command, limits=None: (
+            commands.append(command[-1]) or SandboxResult(0, "", "", timed_out=False)
+        ),
+    )
+    (repo / "package.json").write_text("{}")
+    (repo / "pnpm-lock.yaml").write_text("lockfileVersion: 9\n")
+    first = RepoTools(workspace)
+    assert first.install() == ""
+    assert RepoTools(workspace).install() == ""  # e.g. the next subtask, or QA after the gate
+    assert len(commands) == 1
+    (repo / "pnpm-lock.yaml").write_text("lockfileVersion: 9\nnew: package\n")
+    assert RepoTools(workspace).install() == ""
+    assert len(commands) == 2
+    assert first.time_summary().startswith("Sandbox time: install ")
+    assert RepoTools(workspace).time_summary() == ""

@@ -29,6 +29,7 @@ from agents.project_context import file_blocks, project_context
 from agents.repo_tools import TEST_FILE, RepoTools, tool_definitions
 from agents.reviewer import Review
 from agents.ticket_reader import TicketSpec
+from db.models import EventKind
 from llm_router.models import Role
 from llm_router.router import LlmRouter
 from services.workspace import Workspace
@@ -119,6 +120,8 @@ def develop_ticket(
         on_event=on_event,
         senior=True,  # may ask the escalation model for advice when stuck
     )
+    if summary := tools.time_summary():
+        on_event(EventKind.STEP, {"role": role, "text": summary})
     return DevResult(
         summary=done.summary,
         changed_files=sorted(tools.changed_files),

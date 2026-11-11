@@ -53,6 +53,9 @@ class Workspace:
     def __init__(self, path: Path, token: str | None) -> None:
         self.path = path
         self._token = token
+        # Set by the agents' tools once packages are installed: a hash of the lockfile
+        # they were installed for, so the next agent on this copy doesn't install again
+        self.installed_lock = ""
 
     @classmethod
     @contextmanager

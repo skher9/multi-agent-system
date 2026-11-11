@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import shlex
+import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
@@ -189,6 +190,8 @@ class RepoTools:
         self._skills_loaded: set[str] = set()
         self.changed_files: set[str] = set()  # for the handoff: what the agent touched
         self._installed = False  # packages: installed on first need (see _needs_packages)
+        # Seconds spent in the sandbox, by kind of work -> [total seconds, runs]
+        self.sandbox_time: dict[str, list[float]] = {}
         self._handlers: dict[str, Callable[[Any], str]] = {
             "list_files": self._list_files,
             "search": self._search,
@@ -404,7 +407,7 @@ class RepoTools:
         """Type-check after every change (System Design doc), so mistakes surface at once."""
         if not self._typecheck_after_edit:
             return ""
-        result = self._sandbox("pnpm typecheck")
+        result = self._sandbox("pnpm typecheck", label="typecheck after edits")
         return " Type-check passed." if result[0] == 0 else f" Type-check FAILED:\n{result[1]}"
 
     # --- Running things ----------------------------------------------------
@@ -437,7 +440,7 @@ class RepoTools:
         report = self._root / TEST_REPORT
         report.unlink(missing_ok=True)
         exit_code, output = self._sandbox(
-            f"pnpm exec vitest run --reporter=json --outputFile={TEST_REPORT}"
+            f"pnpm exec vitest run --reporter=json --outputFile={TEST_REPORT}", label="unit tests"
         )
         if not report.exists():
             # The tests didn't even start (e.g. a syntax error): show the raw output.
@@ -445,10 +448,37 @@ class RepoTools:
         return summarise_test_report(json.loads(report.read_text()))
 
     def install(self) -> str:
-        """Install the repo's packages; return "" on success, else the error output."""
-        exit_code, output = self._sandbox(INSTALL)
+        """Install the repo's packages; return "" on success, else the error output.
+        Skipped when this workspace already has them for the same lockfile (an earlier
+        subtask's or agent's install), which saves a sandbox round trip each time."""
+        lock = self._lock_hash()
+        if lock and self._ws.installed_lock == lock:
+            self._installed = True
+            return ""
+        exit_code, output = self._sandbox(INSTALL, label="install")
         self._installed = exit_code == 0
+        if self._installed:
+            self._ws.installed_lock = lock
         return "" if exit_code == 0 else f"install failed (exit {exit_code}):\n{output}"
+
+    def _lock_hash(self) -> str:
+        """What the installed packages depend on: package.json and the lockfile."""
+        digest = hashlib.sha256()
+        found = False
+        for name in ("package.json", "pnpm-lock.yaml"):
+            path = self._root / name
+            if path.is_file():
+                digest.update(path.read_bytes())
+                found = True
+        return digest.hexdigest() if found else ""
+
+    def time_summary(self) -> str:
+        """Where the sandbox time went, for the run's timeline; "" if it never ran."""
+        parts = [
+            f"{name} {seconds:.0f}s" + (f" ({runs:.0f} runs)" if runs > 1 else "")
+            for name, (seconds, runs) in self.sandbox_time.items()
+        ]
+        return "Sandbox time: " + ", ".join(parts) if parts else ""
 
     def _count_library(self, path: Path) -> None:
         """Library code (node_modules) is read only a little: the project's facts are in
@@ -474,21 +504,29 @@ class RepoTools:
         """Run every check in CHECKS; return the failures with their output (empty: all pass)."""
         failures = []
         for name, command in CHECKS.items():
-            exit_code, output = self._sandbox(command)
+            exit_code, output = self._sandbox(command, label="checks")
             if exit_code != 0:
                 failures.append(f"{name} failed (exit code {exit_code}):\n{output}")
         return failures
 
     def run_e2e(self) -> tuple[int, str]:
         """The browser tests (Playwright): exit code and output."""
-        return self._sandbox(E2E, timeout_seconds=E2E_TIMEOUT_SECONDS)
+        return self._sandbox(E2E, timeout_seconds=E2E_TIMEOUT_SECONDS, label="browser tests")
 
     def _sandbox(
-        self, command: str, timeout_seconds: int = COMMAND_TIMEOUT_SECONDS
+        self,
+        command: str,
+        timeout_seconds: int = COMMAND_TIMEOUT_SECONDS,
+        *,
+        label: str = "other commands",
     ) -> tuple[int, str]:
+        started = time.monotonic()
         result = self._ws.run(
             ["bash", "-c", command], SandboxLimits(timeout_seconds=timeout_seconds)
         )
+        spent = self.sandbox_time.setdefault(label, [0.0, 0])
+        spent[0] += time.monotonic() - started
+        spent[1] += 1
         if result.timed_out:
             return -1, f"timed out after {timeout_seconds // 60} minutes"
         return result.exit_code, clean_output(result.stdout + result.stderr)

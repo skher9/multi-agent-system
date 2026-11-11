@@ -1,8 +1,9 @@
 """run_ticket(): one full pipeline run for a ticket, with its database records."""
 
 import logging
-from collections.abc import Callable
-from contextlib import AbstractContextManager
+import time
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -98,6 +99,16 @@ def step(on_event: EventSink, role: str, text: str) -> None:
     on_event(EventKind.STEP, {"role": role, "text": text})
 
 
+@contextmanager
+def cloned(pipeline: Pipeline, role: str, on_event: EventSink) -> Iterator[Workspace]:
+    """A fresh copy of the repo for one box of the pipeline; says how long the clone took
+    (each box clones again, so slow clones show up in the timeline)."""
+    started = time.monotonic()
+    with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
+        step(on_event, role, f"Cloned the repo in {time.monotonic() - started:.0f}s")
+        yield workspace
+
+
 def load_design(
     pipeline: Pipeline, spec: TicketSpec, root: Path, role: Role, on_event: EventSink
 ) -> Design | None:
@@ -128,7 +139,7 @@ def make_plan(
     if pipeline.storage is None or not pipeline.repo_url:
         raise RuntimeError("planning needs the pipeline's storage and repo_url")
     step(on_event, Role.PLANNER, "Cloning the repo")
-    with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
+    with cloned(pipeline, Role.PLANNER, on_event) as workspace:
         step(on_event, Role.PLANNER, "Loading the code map (files, functions, imports)")
         with open_code_graph(
             pipeline.factory, pipeline.storage, pipeline.project_id, workspace
@@ -171,7 +182,7 @@ def make_code(
     changed: set[str] = set()
     head = ""
     step(on_event, Role.DEVELOPER, "Cloning the repo")
-    with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
+    with cloned(pipeline, Role.DEVELOPER, on_event) as workspace:
         workspace.create_branch(branch, start=commit_sha)
         # Its images and icons go in with the first subtask's commit
         design = load_design(pipeline, spec, workspace.path, Role.DEVELOPER, on_event)
@@ -224,7 +235,7 @@ def make_review(
 ) -> Review:
     """Clone, switch to the agent's branch, and review it against the planned commit."""
     step(on_event, Role.REVIEWER, f"Reading the changes on {branch}")
-    with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
+    with cloned(pipeline, Role.REVIEWER, on_event) as workspace:
         workspace.checkout(branch)
         return review_changes(
             pipeline.router,
@@ -253,7 +264,7 @@ def make_fix(
 ) -> tuple[DevResult, str]:
     """Clone the agent's branch, fix the review's issues, commit on top and push."""
     step(on_event, Role.DEVELOPER, f"Fixing {len(review.issues)} review comment(s)")
-    with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
+    with cloned(pipeline, Role.DEVELOPER, on_event) as workspace:
         workspace.checkout(branch)
         dev = develop_ticket(
             pipeline.router,
@@ -290,7 +301,9 @@ def make_verify(
     3. the QA agent's browser tests, one or more per criterion.
     Each agent's work is its own commit; then one push.
     """
+    started = time.monotonic()
     with Workspace.clone(pipeline.repo_url, pipeline.github_token) as workspace:
+        clone_seconds = time.monotonic() - started
         workspace.checkout(branch)
         tools = RepoTools(workspace, typecheck_after_edit=False)
         if error := tools.install():
@@ -335,6 +348,12 @@ def make_verify(
             if pipeline.skip_qa:
                 raise _SkipQa
             with start_agent(Role.QA) as run_id:
+                # No agent runs during the clone and the gate: their times show here
+                step(
+                    events(run_id),
+                    Role.QA,
+                    f"Cloned the repo in {clone_seconds:.0f}s. {tools.time_summary()}".strip(),
+                )
                 qa, qa_files = qa_ticket(
                     pipeline.router,
                     spec,
