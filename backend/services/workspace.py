@@ -80,11 +80,17 @@ class Workspace:
         self._git("check-ref-format", "--branch", branch)
         self._git("switch", "--quiet", branch)
 
-    def diff(self, base: str) -> str:
-        """Everything changed since commit `base`, as a unified diff."""
+    def diff(self, base: str, *, uncommitted: bool = False) -> str:
+        """Everything changed since commit `base`, as a unified diff. uncommitted=True
+        also counts changes and new files not committed yet (an agent's work in
+        progress), instead of only what's committed."""
         if not SHA.fullmatch(base):
             raise ValueError(f"not a commit sha: {base!r}")
-        return self._git("diff", f"{base}..HEAD")
+        if not uncommitted:
+            return self._git("diff", f"{base}..HEAD")
+        # Marks new files as "will be added" (no content staged), so diff shows them
+        self._git("add", "--intent-to-add", "--all")
+        return self._git("diff", base)
 
     def create_branch(self, name: str, start: str | None = None) -> None:
         """Create and switch to a branch, from `start` (a commit sha) or the current commit."""

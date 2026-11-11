@@ -2,11 +2,13 @@
 
 Each subtask already passed lint, typecheck and the unit tests on its own; the gate runs
 them once more on the finished branch (a later subtask can break an earlier one), and
-adds two scans of the lines the agents added:
+adds scans of the lines the agents added:
 
 - placeholders: code swapped for "// ... rest of the code" or "TODO: implement", which
   models sometimes write instead of the real thing, silently deleting what was there.
 - secrets: API keys or private keys pasted into code.
+- code smells and duplication (agents/quality.py): SonarSource's rules and a copied-code
+  finder, stricter than most repos' own lint.
 
 Code checks, agents fix and judge: a failure here goes to the fixer agent.
 """
@@ -17,6 +19,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 
 from agents.qa import QaReport
+from agents.quality import scan_code
 from agents.repo_tools import CHECKS, RepoTools
 from services.workspace import Workspace
 
@@ -50,6 +53,7 @@ class AddedLine:
 class GateResult:
     passed: dict[str, bool]  # each check and scan by name -> passed?
     failures: list[str]  # what failed, with output, for the fixer
+    notes: tuple[str, ...] = ()  # small things that don't fail the gate, for the reviewer
 
     @property
     def ok(self) -> bool:
@@ -63,6 +67,7 @@ class VerifyResult(BaseModel):
     fixer_summary: str = ""  # empty: the gate passed first time
     qa: QaReport | None = None  # None: QA couldn't finish (the PR says so)
     head_sha: str = ""
+    notes: list[str] = []  # the gate's notes for the reviewer (small repeats)
     problem: str = ""  # non-empty: the gate still fails, a human needs to look
 
 
@@ -91,14 +96,20 @@ def scan(added: list[AddedLine]) -> dict[str, list[str]]:
 
 
 def run_gate(tools: RepoTools, workspace: Workspace, base_sha: str) -> GateResult:
-    """Every check and scan on the branch since base_sha (the planned commit)."""
+    """Every check and scan on the branch since base_sha (the planned commit), counting
+    work not committed yet: the fixer's finish runs this before its commit."""
     check_failures = tools.run_checks()
     passed = {
         name: not any(f.startswith(f"{name} failed") for f in check_failures) for name in CHECKS
     }
     failures = list(check_failures)
-    for name, findings in scan(added_lines(workspace.diff(base_sha))).items():
+    diff = workspace.diff(base_sha, uncommitted=True)
+    found = scan(added_lines(diff))
+    quality = scan_code(workspace, diff)
+    if quality.ran:
+        found |= {"code smells": quality.smells, "duplication": quality.duplication}
+    for name, findings in found.items():
         passed[name] = not findings
         if findings:
             failures.append(f"{name} found in added lines:\n" + "\n".join(findings))
-    return GateResult(passed=passed, failures=failures)
+    return GateResult(passed=passed, failures=failures, notes=tuple(quality.notes))

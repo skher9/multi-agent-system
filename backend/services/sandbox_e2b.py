@@ -310,6 +310,20 @@ def build_template(api_key: str) -> str:
             user=USER,
         )
         .run_cmd("pnpm fetch")  # the starter's packages, so installs come from disk
+        # The gate's code-quality scanners, outside any repo (see sandbox/Dockerfile)
+        .run_cmd(f"mkdir -p /opt/quality && chown {USER} /opt/quality", user="root")
+        .set_workdir("/opt/quality")
+        .copy(
+            [
+                "sandbox/quality/package.json",
+                "sandbox/quality/pnpm-lock.yaml",
+                "sandbox/quality/pnpm-workspace.yaml",
+                "sandbox/quality/eslint.config.mjs",
+            ],
+            "/opt/quality/",
+            user=USER,
+        )
+        .run_cmd("pnpm install --frozen-lockfile")
         # Playwright looks for browsers in ~/.cache/ms-playwright unless told otherwise;
         # the base image keeps them in /ms-playwright. A link works with or without env.
         .run_cmd(

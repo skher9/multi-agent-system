@@ -1,0 +1,3 @@
+# Its own root: not part of the repo's workspace.
+# Setup guide rule: skip package versions released in the last 14 days (in minutes).
+minimumReleaseAge: 20160
