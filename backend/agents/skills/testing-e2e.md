@@ -16,5 +16,13 @@ when: "@playwright/test" in package.json
 - Assert with auto-waiting matchers: `await expect(locator).toHaveText(...)`,
   `toBeVisible()`, `await expect(page).toHaveURL("/about")`.
 - Navigation: `await page.getByRole("link", { name: "About" }).click()` then `toHaveURL`.
-- Catch crashes: collect `page.on("pageerror", ...)` and expect none, as the home test does.
 - One test per acceptance criterion, named after it.
+
+## Share setup, don't copy it (checked by running it)
+What every test in a file needs goes in `test.beforeEach` / `test.afterEach`, once, as
+e2e/home.spec.ts does for crashes: it collects `page.on("pageerror", ...)` before each
+test and expects none after. A test added to that file gets this for free; a new file
+copies those few lines once, at the top, never into each test.
+- The same first steps in several tests (open a page, click a button): put them in
+  `test.beforeEach`, or in a small function at the top of the file that the tests call.
+- Each test then holds only what it alone does and checks.
