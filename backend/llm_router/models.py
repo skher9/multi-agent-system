@@ -18,6 +18,7 @@ class Role(StrEnum):
     FIXER = "fixer"  # a fresh developer that fixes what the gate found, nothing else
     QA = "qa"  # writes and runs browser tests per acceptance criterion
     LEARNER = "learner"  # turns human review comments into rules for the repo
+    GRADER = "grader"  # scores a finished PR against the rubric; never part of building it
 
 
 MODELS: dict[Role, str] = {
@@ -32,7 +33,14 @@ MODELS: dict[Role, str] = {
     Role.FIXER: "deepseek/deepseek-v4.1-flash",
     Role.QA: "deepseek/deepseek-v4.1-flash",
     Role.LEARNER: "deepseek/deepseek-v4.1-flash",
+    # The grader judges the other agents' code, so it is a strong model from a different
+    # family: a model marking its own family's work shares its blind spots. Claude Opus
+    # 5.5: $4 / $20 per 1M tokens on OpenRouter (checked 2026-11-11), about ₹10 a PR.
+    Role.GRADER: "anthropic/claude-opus-5.5",
 }
+# Roles that always use their own model: routing's strong model and escalation are
+# DeepSeek, which would defeat the point of an outside judge.
+FIXED_MODEL = frozenset({Role.GRADER})
 
 # Used only when a task has failed twice (System Design doc), for any role.
 # How long each role thinks per call. Reasoning is billed as output, ~40% of the cost in
@@ -47,6 +55,7 @@ REASONING_EFFORT: dict[Role, str] = {
     Role.FIXER: "low",
     Role.QA: "low",
     Role.LEARNER: "low",
+    Role.GRADER: "medium",
 }
 
 # The strongest DeepSeek model: when a task failed twice, and for ask_senior
@@ -58,6 +67,8 @@ STRONG_MODEL = ESCALATION_MODEL
 
 
 def model_for(role: Role, *, escalate: bool = False, strong: bool = False) -> str:
+    if role in FIXED_MODEL:
+        return MODELS[role]
     if escalate:
         return ESCALATION_MODEL
     return STRONG_MODEL if strong else MODELS[role]

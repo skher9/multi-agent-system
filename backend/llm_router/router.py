@@ -22,7 +22,7 @@ from llm_router.budget import (
     DailySpendLookup,
     SpendLookup,
 )
-from llm_router.models import REASONING_EFFORT, Role, model_for
+from llm_router.models import FIXED_MODEL, REASONING_EFFORT, Role, model_for
 from services.openrouter import ChatResponse, OpenRouterClient, OpenRouterError
 
 logger = logging.getLogger(__name__)
@@ -111,7 +111,7 @@ class LlmRouter:
                 raise AgentBudgetExceededError(str(role), mine, cap)
 
         model = model_for(role, escalate=escalate, strong=strong)
-        if self._model_override and not escalate and not strong:
+        if self._model_override and not escalate and not strong and role not in FIXED_MODEL:
             model = self._model_override
         attempt = 0
         while True:

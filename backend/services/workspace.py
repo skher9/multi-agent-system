@@ -53,6 +53,9 @@ class Workspace:
     def __init__(self, path: Path, token: str | None) -> None:
         self.path = path
         self._token = token
+        # Set by the agents' tools once packages are installed: a hash of the lockfile
+        # they were installed for, so the next agent on this copy doesn't install again
+        self.installed_lock = ""
 
     @classmethod
     @contextmanager
@@ -70,6 +73,11 @@ class Workspace:
     def head_sha(self) -> str:
         """The full sha of the commit currently checked out."""
         return self._git("rev-parse", "HEAD").strip()
+
+    def ref_sha(self, ref: str) -> str:
+        """The full sha a branch or tag points at, e.g. "origin/main"."""
+        self._git("check-ref-format", "--allow-onelevel", ref)
+        return self._git("rev-parse", "--verify", f"{ref}^{{commit}}").strip()
 
     def tracked_files(self) -> list[str]:
         """Every file git tracks, as repo-relative paths (no node_modules or build output)."""

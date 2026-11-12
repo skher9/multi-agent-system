@@ -8,8 +8,13 @@ reports the bug instead of fixing it, and the reviewer and fix loop take it from
 Its finish is checked by our code: every criterion exactly once, at least one e2e file
 written, and the browser tests run then. Failing tests are accepted only when the
 report names app bugs that explain them.
+
+A browser test run builds and starts the app (about half a minute or more), and QA can
+only change e2e/, so a passing run is repeated only when a test file changed since:
+finishing right after a passing run reuses its result.
 """
 
+import hashlib
 import json
 from typing import Self
 
@@ -19,6 +24,7 @@ from agents.loop import EventSink, ignore_events, run_agent
 from agents.planner import Plan
 from agents.repo_tools import READ_ONLY_TOOLS, TOOL_ARGS, RepoTools, definitions
 from agents.ticket_reader import TicketSpec
+from db.models import EventKind
 from llm_router.models import Role
 from llm_router.router import LlmRouter
 from services.workspace import Workspace
@@ -54,7 +60,8 @@ class AppBug(BaseModel):
 
 
 class QaReport(BaseModel):
-    """Call when the browser tests are written and run. They run again when you call this."""
+    """Call when the browser tests are written and run. They run again when you call this,
+    unless they just passed and no test file changed since."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -77,11 +84,13 @@ def qa_ticket(
     tools = RepoTools(workspace, typecheck_after_edit=False)
     if error := tools.install():
         raise RuntimeError(error)
+    e2e = _E2eRuns(tools, workspace)
 
     def handle(name: str, arguments: str) -> str:
         if name == "run_e2e":
-            exit_code, output = tools.run_e2e()
-            return f"exit code {exit_code}\n{output}"
+            exit_code, output, fresh = e2e.run()
+            note = "" if fresh else "(no test file changed since the last run: same result)\n"
+            return f"{note}exit code {exit_code}\n{output}"
         if name in WRITE_TOOLS:
             path = str(json.loads(arguments or "{}").get("path", ""))
             if not path.startswith(E2E_DIR) or ".." in path:
@@ -100,16 +109,47 @@ def qa_ticket(
         user=_task(spec, plan),
         tools=[*definitions(allowed), *definitions({"run_e2e": RunE2e})],
         handle=handle,
-        answer=_checked_report(len(spec.acceptance_criteria), tools),
+        answer=_checked_report(len(spec.acceptance_criteria), tools, e2e),
         max_tool_calls=MAX_TOOL_CALLS,
         max_tokens=MAX_OUTPUT_TOKENS,
         on_event=on_event,
         senior=True,  # may ask the escalation model for advice when stuck
     )
+    if summary := tools.time_summary():
+        on_event(EventKind.STEP, {"role": Role.QA, "text": summary})
     return report, sorted(tools.changed_files)
 
 
-def _checked_report(criteria_count: int, tools: RepoTools) -> type[QaReport]:
+class _E2eRuns:
+    """Runs the browser tests, and remembers a passing result with the test files it ran
+    on: asking again with the same files gets that result back, without a rebuild."""
+
+    def __init__(self, tools: RepoTools, workspace: Workspace) -> None:
+        self._tools = tools
+        self._folder = workspace.path / E2E_DIR
+        self._last: tuple[str, int, str] | None = None  # a pass: (files' hash, 0, output)
+
+    def run(self) -> tuple[int, str, bool]:
+        """(exit code, output, fresh): fresh is False when the last result was reused."""
+        files = self._files_hash()
+        if self._last is not None and self._last[0] == files:
+            return self._last[1], self._last[2], False
+        exit_code, output = self._tools.run_e2e()
+        # Only a pass is remembered: a failure may be a flaky test or a timeout, and
+        # asking again should really try again
+        self._last = (files, exit_code, output) if exit_code == 0 else None
+        return exit_code, output, True
+
+    def _files_hash(self) -> str:
+        digest = hashlib.sha256()
+        paths = sorted(p for p in self._folder.rglob("*") if p.is_file())
+        for path in paths:
+            digest.update(str(path.relative_to(self._folder)).encode())
+            digest.update(path.read_bytes())
+        return digest.hexdigest()
+
+
+def _checked_report(criteria_count: int, tools: RepoTools, e2e: _E2eRuns) -> type[QaReport]:
     """QaReport plus the checks that need the repo: they run each time QA calls finish."""
 
     class CheckedReport(QaReport):
@@ -122,7 +162,7 @@ def _checked_report(criteria_count: int, tools: RepoTools) -> type[QaReport]:
                 raise ValueError(f"results must cover criterion 1 to {criteria_count} exactly once")
             if not any(p.startswith(E2E_DIR) for p in tools.changed_files):
                 raise ValueError(f"write at least one browser test in {E2E_DIR} first")
-            exit_code, output = tools.run_e2e()
+            exit_code, output, _fresh = e2e.run()
             if exit_code != 0 and not self.bugs:
                 raise ValueError(
                     "the browser tests failed. Fix your tests, or if the app is wrong, "

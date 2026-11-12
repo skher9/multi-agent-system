@@ -169,6 +169,30 @@ def test_qa_writes_only_e2e_tests_and_they_must_pass(
     assert script.sent[0]["model"] == "deepseek/deepseek-v4.1-flash"
 
 
+def test_qa_reuses_a_browser_run_until_a_test_file_changes(
+    origin: str,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runs: list[int] = []
+    monkeypatch.setattr(RepoTools, "install", lambda self: "")
+    monkeypatch.setattr(RepoTools, "run_e2e", lambda self: (runs.append(1), (0, "2 passed"))[1])
+    spec = "e2e/contact.spec.ts"
+    script = Script(
+        reply(call("create_file", {"path": spec, "content": "test()\n"})),
+        reply(call("run_e2e", {})),  # run 1
+        reply(call("run_e2e", {})),  # nothing changed: reused
+        reply(call("edit_file", {"path": spec, "old_text": "test()", "new_text": "test(1)"})),
+        reply(call("run_e2e", {})),  # run 2
+        reply(call("finish", QA_OK)),  # nothing changed since run 2: reused
+    )
+    with Workspace.clone(origin) as ws:
+        qa_ticket(script.router(), SPEC, PLAN, ws, agent_run_id=1)
+    assert len(runs) == 2
+    results = [m["content"] for m in script.sent[-1]["messages"] if m["role"] == "tool"]
+    assert results[1] == "exit code 0\n2 passed"
+    assert results[2].startswith("(no test file changed since the last run: same result)")
+
+
 def test_qa_may_finish_with_failing_tests_when_it_names_the_bugs(
     origin: str,  # noqa: F811
     e2e: list[tuple[int, str]],
