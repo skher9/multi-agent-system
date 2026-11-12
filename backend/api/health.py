@@ -42,8 +42,12 @@ def _describe(exc: BaseException) -> str:
     return f"{type(exc).__name__}: {exc}"[:MAX_DETAIL_LENGTH]
 
 
-def run_checks(checks: dict[str, CheckFn], settings: Settings) -> HealthReport:
-    """Run every check in parallel so one slow service can't stall the others."""
+def run_checks(
+    checks: dict[str, CheckFn], settings: Settings, optional: frozenset[str] = frozenset()
+) -> HealthReport:
+    """Run every check in parallel so one slow service can't stall the others.
+    optional: services we can run without. One of these with no keys set is reported
+    as not_configured but doesn't make the report degraded; a broken one still does."""
     services: dict[str, ServiceStatus] = {}
     if checks:
         with ThreadPoolExecutor(max_workers=len(checks)) as pool:
@@ -59,5 +63,8 @@ def run_checks(checks: dict[str, CheckFn], settings: Settings) -> HealthReport:
                 except Exception as exc:  # any failure means "error", never a crash
                     services[name] = ServiceStatus(status="error", detail=_describe(exc))
 
-    all_ok = all(s.status == "ok" for s in services.values())
+    all_ok = all(
+        s.status == "ok" or (s.status == "not_configured" and name in optional)
+        for name, s in services.items()
+    )
     return HealthReport(status="ok" if all_ok else "degraded", services=services)

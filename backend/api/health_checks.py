@@ -111,3 +111,5 @@ CHECKS: dict[str, CheckFn] = {
     "openrouter": check_openrouter,
     "jira": check_jira,
 }
+# Not needed to run tickets: the run window reads events from the API, not from Pusher
+OPTIONAL = frozenset({"pusher"})

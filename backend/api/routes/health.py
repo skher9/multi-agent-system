@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Response, status
 
 from api.config import Settings, get_settings
 from api.health import HealthReport, run_checks
-from api.health_checks import CHECKS
+from api.health_checks import CHECKS, OPTIONAL
 
 router = APIRouter(tags=["health"])
 
@@ -19,7 +19,7 @@ def health(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> HealthReport:
     """Check every external service. 200 if all are ok, 503 otherwise."""
-    report = run_checks(CHECKS, settings)
+    report = run_checks(CHECKS, settings, OPTIONAL)
     if report.status != "ok":
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return report
