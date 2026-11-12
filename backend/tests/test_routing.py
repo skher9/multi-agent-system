@@ -32,10 +32,10 @@ def test_planner_gets_the_strong_model_only_for_big_tickets() -> None:
 
 def test_reviewer_routing_reasons() -> None:
     small = plan()
-    assert reviewer_tier(small, 1) is None
+    assert reviewer_tier(small, 1) == "every review gets the stronger model"
     assert reviewer_tier(small, 2) == "second review round: the first fix didn't settle it"
     change = {**GOOD_PLAN["changes"][0], "path": "src/app/api/login/route.ts", "action": "create"}
-    assert "risky code" in (reviewer_tier(plan(changes=[change]), 1) or "")
+    assert "risky code" in reviewer_tier(plan(changes=[change]), 1)
     fe = GOOD_PLAN["subtasks"][0]
     both = plan(subtasks=[{**fe, "area": "BE"}, fe], contract="POST /x")
     assert reviewer_tier(both, 1) == "backend and frontend change together"
@@ -65,7 +65,7 @@ def test_strong_turns_get_a_bigger_cap() -> None:
         Decimal("96.5"),
         story_spend=lambda _id: Decimal("0"),
         story_budget_inr=Decimal("50"),
-        agent_spend=lambda _id: Decimal("6"),  # over the reviewer's ₹5, under 3 x ₹5
+        agent_spend=lambda _id: Decimal("9"),  # over the reviewer's ₹8, under 3 x ₹8
     )
     with pytest.raises(AgentBudgetExceededError):
         router.complete(role=Role.REVIEWER, messages=[], agent_run_id=1)

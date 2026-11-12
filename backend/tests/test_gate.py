@@ -96,6 +96,33 @@ def test_run_gate_reports_each_check_and_scan(
     assert result.failures[1].startswith("placeholders found in added lines:\na.ts:")
 
 
+def test_the_gate_builds_the_app_when_the_repo_has_a_build_script(
+    origin: str,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from agents import quality
+    from services.sandbox import SandboxResult
+
+    commands: list[str] = []
+
+    def fake_run(self: Workspace, command: list[str], limits: Any = None) -> SandboxResult:
+        commands.append(command[-1])
+        failed = command[-1] == "pnpm build"
+        return SandboxResult(1 if failed else 0, "Route segment config", "", timed_out=False)
+
+    monkeypatch.setattr(Workspace, "run", fake_run)
+    monkeypatch.setattr(quality, "run_scanners", lambda workspace, files: None)
+    with Workspace.clone(origin) as ws:
+        base = ws.head_sha()
+        no_script = run_gate(RepoTools(ws), ws, base)
+        (ws.path / "package.json").write_text('{"scripts": {"build": "next build"}}')
+        result = run_gate(RepoTools(ws), ws, base)
+    assert "build" not in no_script.passed and no_script.ok
+    assert commands[-4:] == ["pnpm lint", "pnpm typecheck", "pnpm test", "pnpm build"]
+    assert result.passed["build"] is False and result.passed["lint"] is True
+    assert result.failures == ["build failed (exit code 1):\nRoute segment config"]
+
+
 def test_the_fixer_gets_only_the_failures_and_must_pass_the_gate(
     origin: str,  # noqa: F811
     fake_checks: list[list[str]],  # noqa: F811

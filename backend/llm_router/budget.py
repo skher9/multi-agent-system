@@ -27,7 +27,9 @@ AGENT_BUDGETS_INR: dict[str, Decimal] = {
     "planner": Decimal("6"),
     "developer": Decimal("15"),
     "fixer": Decimal("8"),
-    "reviewer": Decimal("5"),
+    # Every review runs on the strong model (x3 below: ₹24). On the benchmark a review of
+    # a 320-line change cost ₹16; a review cut off by its cap fails the whole run.
+    "reviewer": Decimal("8"),
     "grader": Decimal("40"),  # a strong outside model: about ₹10 a PR, with room
 }
 # A turn on the strong model (routing) costs more per token: its cap is this much higher

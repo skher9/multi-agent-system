@@ -47,6 +47,10 @@ TEST_REPORT = "node_modules/.cache/vitest-report.json"
 
 # What "done" means for code: every one must pass. Commands in the repo's package.json.
 CHECKS = {"lint": "pnpm lint", "typecheck": "pnpm typecheck", "unit tests": "pnpm test"}
+# The gate also builds the app, when the repo has a build script: some mistakes pass
+# lint, typecheck and unit tests and only fail the build (seen on the benchmark: a route
+# option the repo's Next.js config doesn't allow).
+BUILD_CHECK = ("build", "pnpm build")
 INSTALL = "pnpm install --frozen-lockfile --prefer-offline"
 TEST_FILE = re.compile(r"(\.test\.|\.spec\.|(^|/)__tests__/)")
 
@@ -500,10 +504,21 @@ class RepoTools:
             if error := self.install():
                 raise ToolError(f"packages couldn't be installed: {error[-300:]}")
 
-    def run_checks(self) -> list[str]:
-        """Run every check in CHECKS; return the failures with their output (empty: all pass)."""
+    def has_build_script(self) -> bool:
+        try:
+            scripts = json.loads((self._root / "package.json").read_text()).get("scripts", {})
+        except (OSError, json.JSONDecodeError, AttributeError):
+            return False
+        return isinstance(scripts, dict) and "build" in scripts
+
+    def run_checks(self, *, build: bool = False) -> list[str]:
+        """Run every check in CHECKS; return the failures with their output (empty: all pass).
+        build=True (the gate) also builds the app, if the repo has a build script."""
         failures = []
-        for name, command in CHECKS.items():
+        checks = dict(CHECKS)
+        if build and self.has_build_script():
+            checks[BUILD_CHECK[0]] = BUILD_CHECK[1]
+        for name, command in checks.items():
             exit_code, output = self._sandbox(command, label="checks")
             if exit_code != 0:
                 failures.append(f"{name} failed (exit code {exit_code}):\n{output}")
