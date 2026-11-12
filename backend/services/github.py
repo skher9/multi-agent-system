@@ -157,9 +157,12 @@ class GitHubClient:
         response.raise_for_status()
         return response.json()["login"]
 
-    def ping(self) -> None:
-        """Raise if the token can't read the organization's repos."""
-        self._http.get(f"/orgs/{self.org}/repos", params={"per_page": 1}).raise_for_status()
+    def ping(self, repo: str | None = None) -> None:
+        """Raise if the token is bad or expired, or (given a repo) can't push to it. Works
+        whether the owner is a person or an organization: /orgs/... is 404 for a person."""
+        self.login()
+        if repo is not None and not self.repo_access(repo).can_push:
+            raise PermissionError(f"the token can't push to {repo}")
 
     def close(self) -> None:
         self._http.close()

@@ -49,6 +49,25 @@ def test_ping_raises_on_bad_token() -> None:
         make_client(handler).ping()
 
 
+def test_ping_works_for_a_personal_account_and_checks_push_access() -> None:
+    asked: list[str] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        asked.append(request.url.path)
+        if request.url.path == "/user":
+            return httpx2.Response(200, json={"login": "skher9"})
+        can_push = request.url.path.endswith("/agent-playground")
+        body = {"full_name": "skher9/x", "private": False, "permissions": {"push": can_push}}
+        return httpx2.Response(200, json=body)
+
+    client = make_client(handler)
+    client.ping()
+    client.ping("skher9/agent-playground")
+    assert asked == ["/user", "/user", "/repos/skher9/agent-playground"]  # never /orgs/...
+    with pytest.raises(PermissionError, match="can't push to skher9/read-only"):
+        client.ping("skher9/read-only")
+
+
 def test_open_pull_request_creates_one_when_none_is_open() -> None:
     posted: list[dict[str, str]] = []
 

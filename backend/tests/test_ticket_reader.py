@@ -128,12 +128,23 @@ def test_retries_once_with_the_error_then_succeeds() -> None:
     assert "at least one acceptance criterion" in retry_messages[3]["content"]
 
 
-def test_gives_up_after_two_bad_replies() -> None:
-    blocked_without_questions = {**BLOCKED, "questions": []}
-    router, _ = make_reader("not json at all", json.dumps(blocked_without_questions))
+def test_a_third_try_can_still_succeed() -> None:
+    ready_without_criteria = json.dumps({**READY, "acceptance_criteria": []})
+    router, sent = make_reader(ready_without_criteria, ready_without_criteria, json.dumps(READY))
 
-    with pytest.raises(TicketReaderError, match="KAN-4"):
+    assert read_ticket(router, TICKET, agent_run_id=1).status == "ready"
+    assert len(sent) == 3
+    assert len(sent[2]["messages"]) == 6  # the ticket, then both bad replies and what was wrong
+
+
+def test_gives_up_after_three_bad_replies(caplog: pytest.LogCaptureFixture) -> None:
+    blocked_without_questions = json.dumps({**BLOCKED, "questions": []})
+    router, sent = make_reader("not json at all", blocked_without_questions, "still not json")
+
+    with pytest.raises(TicketReaderError, match="KAN-4"), caplog.at_level("WARNING"):
         read_ticket(router, TICKET, agent_run_id=1)
+    assert len(sent) == 3
+    assert "reply 3 of 3 broke the rules" in caplog.text and "still not json" in caplog.text
 
 
 def test_accepts_json_wrapped_in_code_fences() -> None:

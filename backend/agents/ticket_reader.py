@@ -5,6 +5,7 @@ may contain instructions ("ignore your rules..."); the worst a tool-less reader 
 do is fill in the form wrong, and the form is checked in code before anyone uses it.
 """
 
+import logging
 from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
@@ -16,6 +17,11 @@ from services.jira import JiraTicket
 
 # Room for a reasoning model to think before it answers (MiniMax output: ₹116 per 1M tokens).
 MAX_OUTPUT_TOKENS = 2000
+# A reply that breaks the spec's rules is asked for again, with what was wrong. Calls are
+# tiny (about ₹0.02), and a run that dies here never starts: worth two more tries.
+MAX_ATTEMPTS = 3
+
+logger = logging.getLogger(__name__)
 
 
 class TicketSpec(BaseModel):
@@ -48,7 +54,7 @@ class TicketSpec(BaseModel):
 
 
 class TicketReaderError(Exception):
-    """The model's reply still broke the TicketSpec rules after one retry."""
+    """The model's reply still broke the TicketSpec rules after every attempt."""
 
 
 # Every field required, no extras: the shape strict structured-output modes expect.
@@ -132,24 +138,30 @@ def read_ticket(router: LlmRouter, ticket: JiraTicket, *, agent_run_id: int) -> 
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": _wrap(ticket)},
     ]
-    content = _ask(router, messages, agent_run_id)
-    try:
-        return TicketSpec.model_validate_json(_strip_fences(content))
-    except ValidationError as first_error:
-        # One retry, telling the model exactly what was wrong with its reply.
-        messages += [
-            {"role": "assistant", "content": content},
-            {
-                "role": "user",
-                "content": "Your reply broke the schema rules:\n"
-                f"{_summarise(first_error)}\nReply again with corrected JSON only.",
-            },
-        ]
-    content = _ask(router, messages, agent_run_id)
-    try:
-        return TicketSpec.model_validate_json(_strip_fences(content))
-    except ValidationError as second_error:
-        raise TicketReaderError(f"{ticket.key}: {_summarise(second_error)}") from second_error
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        content = _ask(router, messages, agent_run_id)
+        try:
+            return TicketSpec.model_validate_json(_strip_fences(content))
+        except ValidationError as error:
+            problems = _summarise(error)
+            # The reply itself is logged: a spec that breaks the rules is rare and each
+            # case so far looked different (seen: "ready" with no criteria, twice running)
+            logger.warning(
+                "%s: reader reply %d of %d broke the rules: %s | reply: %.800s",
+                ticket.key, attempt, MAX_ATTEMPTS, problems, content,
+            )  # fmt: skip
+            if attempt == MAX_ATTEMPTS:
+                raise TicketReaderError(f"{ticket.key}: {problems}") from error
+            # Try again, telling the model exactly what was wrong with its reply
+            messages += [
+                {"role": "assistant", "content": content},
+                {
+                    "role": "user",
+                    "content": "Your reply broke the schema rules:\n"
+                    f"{problems}\nReply again with corrected JSON only.",
+                },
+            ]
+    raise AssertionError("unreachable")  # the loop returns or raises
 
 
 def questions_comment(spec: TicketSpec) -> dict[str, Any]:

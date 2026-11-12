@@ -53,7 +53,7 @@ def check_github(settings: Settings) -> None:
         raise NotConfiguredError("GITHUB_TOKEN, GITHUB_ORG")
     client = GitHubClient(settings.github_token.get_secret_value(), settings.github_org)
     try:
-        client.ping()
+        client.ping(settings.agent_repo)  # the demo repo the agents push to, if set
     finally:
         client.close()
 
