@@ -29,7 +29,9 @@ def fake_checks(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
     queue: list[list[str]] = []
     monkeypatch.setattr(RepoTools, "install", lambda self: "")
     monkeypatch.setattr(RepoTools, "_after_edit", lambda self: "")
-    monkeypatch.setattr(RepoTools, "run_checks", lambda self: queue.pop(0) if queue else [])
+    monkeypatch.setattr(
+        RepoTools, "run_checks", lambda self, build=False: queue.pop(0) if queue else []
+    )
     monkeypatch.setattr(quality, "run_scanners", lambda workspace, files: None)  # no sandbox
     return queue
 

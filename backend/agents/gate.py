@@ -1,8 +1,8 @@
 """The gate: plain-code checks on the whole branch before a PR opens. No model calls.
 
 Each subtask already passed lint, typecheck and the unit tests on its own; the gate runs
-them once more on the finished branch (a later subtask can break an earlier one), and
-adds scans of the lines the agents added:
+them once more on the finished branch (a later subtask can break an earlier one), builds
+the app, and adds scans of the lines the agents added:
 
 - placeholders: code swapped for "// ... rest of the code" or "TODO: implement", which
   models sometimes write instead of the real thing, silently deleting what was there.
@@ -20,7 +20,7 @@ from pydantic import BaseModel
 
 from agents.qa import QaReport
 from agents.quality import scan_code
-from agents.repo_tools import CHECKS, RepoTools
+from agents.repo_tools import BUILD_CHECK, CHECKS, RepoTools
 from services.workspace import Workspace
 
 PLACEHOLDERS = re.compile(
@@ -98,9 +98,10 @@ def scan(added: list[AddedLine]) -> dict[str, list[str]]:
 def run_gate(tools: RepoTools, workspace: Workspace, base_sha: str) -> GateResult:
     """Every check and scan on the branch since base_sha (the planned commit), counting
     work not committed yet: the fixer's finish runs this before its commit."""
-    check_failures = tools.run_checks()
+    check_failures = tools.run_checks(build=True)
+    names = [*CHECKS, *([BUILD_CHECK[0]] if tools.has_build_script() else [])]
     passed = {
-        name: not any(f.startswith(f"{name} failed") for f in check_failures) for name in CHECKS
+        name: not any(f.startswith(f"{name} failed") for f in check_failures) for name in names
     }
     failures = list(check_failures)
     diff = workspace.diff(base_sha, uncommitted=True)
