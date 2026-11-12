@@ -1,0 +1,15 @@
+{
+  "name": "mas-quality-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Code-quality scanners the gate runs on agent-written code. Installed in the sandbox image at /opt/quality, outside the repo being worked on, so a user's package.json is never touched.",
+  "type": "module",
+  "dependencies": {
+    "eslint": "9.39.5",
+    "eslint-plugin-sonarjs": "4.2.2",
+    "jscpd": "5.4.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1"
+  },
+  "packageManager": "pnpm@10.30.1"
+}

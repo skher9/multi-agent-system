@@ -20,6 +20,7 @@ from agents.learner import learn_rules
 from agents.loop import AgentLoopError, EventSink, ignore_events
 from agents.planner import Plan, plan_ticket
 from agents.qa import qa_ticket
+from agents.quality import scan_code
 from agents.repo_tools import RepoTools
 from agents.reviewer import Review, review_changes
 from agents.ticket_reader import TicketSpec, design_link
@@ -297,6 +298,12 @@ def make_verify(
         gate = run_gate(tools, workspace, base_sha)
         fixer_summary = ""
         if not gate.ok:
+            latest = [gate]  # the gate as the fixer's finish last ran it
+
+            def gate_failures() -> list[str]:
+                latest[0] = run_gate(tools, workspace, base_sha)
+                return latest[0].failures
+
             with start_agent(Role.FIXER) as run_id:
                 dev = develop_ticket(
                     pipeline.router,
@@ -305,7 +312,7 @@ def make_verify(
                     workspace,
                     agent_run_id=run_id,
                     failures=gate.failures,
-                    check=lambda: run_gate(tools, workspace, base_sha).failures,
+                    check=gate_failures,
                     role=Role.FIXER,
                     rules=project_rules(pipeline.factory, pipeline.project_id),
                     on_event=events(run_id),
@@ -317,8 +324,13 @@ def make_verify(
                 f"{ticket_key}: fix the final checks\n\n{dev.summary}", AGENT_AUTHOR
             )
             # The fixer's finish only passes when the whole gate does
-            gate = GateResult(passed=dict.fromkeys(gate.passed, True), failures=[])
+            gate = (
+                latest[0]
+                if latest[0].ok
+                else GateResult(passed=dict.fromkeys(gate.passed, True), failures=[])
+            )
         qa = None
+        notes = list(gate.notes)
         try:
             if pipeline.skip_qa:
                 raise _SkipQa
@@ -333,6 +345,9 @@ def make_verify(
                 )
             if qa_files:
                 workspace.commit_all(f"{ticket_key}: browser tests\n\n{qa.summary}", AGENT_AUTHOR)
+                # QA's tests came after the gate: its repeats are notes for the reviewer
+                after_qa = scan_code(workspace, workspace.diff(base_sha))
+                notes = [*after_qa.duplication, *after_qa.notes]
         except _SkipQa:
             pass
         except AgentLoopError:
@@ -341,7 +356,11 @@ def make_verify(
             workspace.discard_changes()
         workspace.push(branch)
         return VerifyResult(
-            checks=gate.passed, fixer_summary=fixer_summary, qa=qa, head_sha=workspace.head_sha()
+            checks=gate.passed,
+            fixer_summary=fixer_summary,
+            qa=qa,
+            head_sha=workspace.head_sha(),
+            notes=notes,
         )
 
 

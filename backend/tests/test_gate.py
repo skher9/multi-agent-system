@@ -10,6 +10,7 @@ from agents.developer import develop_ticket
 from agents.gate import added_lines, run_gate, scan
 from agents.planner import Plan
 from agents.qa import qa_markdown, qa_ticket
+from agents.quality import QualityFindings
 from agents.repo_tools import RepoTools
 from services.workspace import Workspace
 from tests.test_agent_loop import Script, call, reply
@@ -209,6 +210,8 @@ def test_make_verify_fixes_then_tests_then_pushes(
     monkeypatch.setattr(RepoTools, "install", lambda self: "")
     monkeypatch.setattr(runner, "run_gate", lambda tools, ws, base: gates.pop(0))
     monkeypatch.setattr(runner, "project_rules", lambda factory, project_id: [])  # no database
+    notes = QualityFindings(ran=True, notes=["e2e/contact.spec.ts:1-6 repeats itself"])
+    monkeypatch.setattr(runner, "scan_code", lambda ws, diff: notes)
 
     def fake_fixer(*args: Any, **kwargs: Any) -> DevResult:
         assert kwargs["failures"] == ["lint failed"]
@@ -244,6 +247,7 @@ def test_make_verify_fixes_then_tests_then_pushes(
     assert roles == ["fixer", "qa"]
     assert result.checks == {"lint": True, "secrets": True}
     assert result.fixer_summary == "Fixed lint"
+    assert result.notes == ["e2e/contact.spec.ts:1-6 repeats itself"]  # scanned after QA
     assert result.qa is not None and not result.problem
     remote = Path(origin.removeprefix("file://"))
     log = git("log", "--format=%s", "agent/KAN-4", cwd=remote)

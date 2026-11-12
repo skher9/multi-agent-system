@@ -27,6 +27,13 @@ WORKDIR /opt/template
 COPY --chown=pwuser templates/nextjs-starter/package.json templates/nextjs-starter/pnpm-lock.yaml templates/nextjs-starter/pnpm-workspace.yaml ./
 RUN pnpm fetch
 
+# The gate's code-quality scanners (ESLint with SonarSource's rules, jscpd for copied
+# code), in their own folder outside any repo: a user's package.json is never touched.
+# See backend/agents/quality.py. Versions pinned by the lockfile.
+WORKDIR /opt/quality
+COPY --chown=pwuser sandbox/quality/package.json sandbox/quality/pnpm-lock.yaml sandbox/quality/pnpm-workspace.yaml sandbox/quality/eslint.config.mjs ./
+RUN pnpm install --frozen-lockfile
+
 # Graphify maps a repo's code into a graph (files, functions, imports) for the
 # planner agent. Installed now, while the build has network: agent runs have none.
 # uv fetches its own Python for it; both versions pinned (14-day rule).

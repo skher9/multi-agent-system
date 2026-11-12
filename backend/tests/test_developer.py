@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from agents import developer
+from agents import developer, quality
 from agents.developer import develop_ticket
 from agents.planner import Plan
 from agents.repo_tools import RepoTools
@@ -30,6 +30,7 @@ def fake_checks(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
     monkeypatch.setattr(RepoTools, "install", lambda self: "")
     monkeypatch.setattr(RepoTools, "_after_edit", lambda self: "")
     monkeypatch.setattr(RepoTools, "run_checks", lambda self: queue.pop(0) if queue else [])
+    monkeypatch.setattr(quality, "run_scanners", lambda workspace, files: None)  # no sandbox
     return queue
 
 

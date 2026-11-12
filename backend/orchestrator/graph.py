@@ -282,6 +282,11 @@ def review(state: RunState, runtime: Runtime[RunContext]) -> Update:
         if qa and qa["bugs"]:
             bugs = "\n".join(f"- criterion {b['criterion']}: {b['problem']}" for b in qa["bugs"])
             summary += f"\n\nBrowser tests (QA agent) found app bugs:\n{bugs}"
+        if notes := state.get("verify", {}).get("notes"):
+            summary += (
+                "\n\nThe checks noticed small repeated blocks (allowed, but judge them):\n"
+                + "\n".join(f"- {n}" for n in notes)
+            )
         if "fix_dev" in state:
             summary += f"\n\nLatest fixes:\n{state['fix_dev']['summary']}"
         result = ctx.make_review(
