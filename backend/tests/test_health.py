@@ -40,6 +40,16 @@ def test_one_failure_marks_report_degraded() -> None:
     assert report.services["broken"].detail == "ConnectionError: connection refused"
 
 
+def test_an_optional_service_without_keys_does_not_degrade() -> None:
+    checks = {"good": ok_check, "extra": missing_check}
+    report = run_checks(checks, SETTINGS, optional=frozenset({"extra"}))
+    assert report.status == "ok"
+    assert report.services["extra"].status == "not_configured"  # still shown
+    assert run_checks(checks, SETTINGS).status == "degraded"  # a needed one does
+    broken = run_checks({"extra": broken_check}, SETTINGS, optional=frozenset({"extra"}))
+    assert broken.status == "degraded"  # configured but broken always counts
+
+
 def test_slow_check_times_out(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(health_module, "CHECK_TIMEOUT_SECONDS", 0.1)
 
