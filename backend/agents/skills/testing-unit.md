@@ -19,6 +19,13 @@ import { afterEach, expect, test } from "vitest";
 afterEach(cleanup);
 ```
 
+## Share setup, don't copy it
+- The same `render(...)` and first clicks in several tests: a small function at the top
+  of the file (e.g. `function renderForm() { render(<Contact />); return screen; }`),
+  or `beforeEach`. Each test holds only what it alone does and checks.
+- Data the page shows (a list of questions, labels): export it from the code and import
+  it in the test, instead of typing it again.
+
 ## next/link needs no mock
 `<Link>` renders as a plain `<a href>` in jsdom, no router needed (checked). Don't mock
 `next/link` and don't add a router provider:
