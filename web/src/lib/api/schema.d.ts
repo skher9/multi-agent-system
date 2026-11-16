@@ -183,6 +183,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recordings/{token}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recording
+         * @description One test's video. Answers byte ranges, which browsers need to seek (and Safari
+         *     needs to play at all).
+         */
+        get: operations["recording_recordings__token___name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runs": {
         parameters: {
             query?: never;
@@ -830,6 +851,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TestEventSent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recording_recordings__token___name__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Range?: string | null;
+            };
+            path: {
+                token: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "video/webm": unknown;
+                };
+            };
+            /** @description Partial Content */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "video/webm": unknown;
                 };
             };
             /** @description Validation Error */

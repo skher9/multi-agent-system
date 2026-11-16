@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # The website whose login tokens the API accepts (api/auth.py), e.g.
     # https://agent-dev-team-jade.vercel.app. Unset = protected endpoints refuse everyone.
     website_url: str | None = None
+    # This API's own public address, e.g. https://api-production-0731.up.railway.app.
+    # PRs link to QA's recordings under it (/recordings). Unset = recordings aren't kept.
+    public_api_url: str | None = None
 
     # Neon Postgres (connection strings contain the password)
     database_url: SecretStr | None = None

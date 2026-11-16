@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { feedItem, type FeedItem } from "@/lib/runs/feed";
 import { stagesFrom } from "@/lib/runs/stages";
+import { testsFrom } from "@/lib/runs/tests";
 import type { RunView } from "@/lib/runs/types";
 
 import { CodePanel } from "./code-panel";
@@ -11,6 +12,7 @@ import { Feed } from "./feed";
 import { NowBar } from "./now-bar";
 import { ResultCard } from "./result-card";
 import { Pipeline } from "./pipeline";
+import { TestingPanel } from "./testing-panel";
 
 // Replay pacing: real gaps are minutes long, so squeeze each into this range.
 const MIN_STEP_MS = 250;
@@ -66,6 +68,7 @@ export function RunWindow({
     () => events.map(feedItem).filter((item): item is FeedItem => item !== null),
     [events],
   );
+  const tests = useMemo(() => testsFrom(events), [events]);
   const finished = shown >= total;
   const working = live && !stopped;
   const thinkingRole = working ? lastRole(events) : null;
@@ -115,6 +118,7 @@ export function RunWindow({
 
       {working && <NowBar events={events} />}
       {live && stopped && <ResultCard run={run} events={events} />}
+      <TestingPanel tests={tests} />
 
       <div className="grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)_minmax(0,1.2fr)]">
         <Pipeline stages={stages} />

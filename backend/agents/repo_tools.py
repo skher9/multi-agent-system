@@ -18,7 +18,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from agents import skills
+from agents import recordings, skills
 from agents.project_context import context_files
 from services import sandbox_e2b
 from services.sandbox import SandboxLimits
@@ -524,9 +524,29 @@ class RepoTools:
                 failures.append(f"{name} failed (exit code {exit_code}):\n{output}")
         return failures
 
-    def run_e2e(self) -> tuple[int, str]:
-        """The browser tests (Playwright): exit code and output."""
-        return self._sandbox(E2E, timeout_seconds=E2E_TIMEOUT_SECONDS, label="browser tests")
+    def run_e2e(self, record_to: Path | None = None) -> tuple[int, str]:
+        """The browser tests (Playwright): exit code and output.
+        record_to: a host folder that gets a video of every test and a JSON report
+        (agents/recordings.py). A repo that can't be recorded gets a plain run."""
+        base = recordings.base_config(self._root) if record_to is not None else None
+        if record_to is None or base is None:
+            return self._sandbox(E2E, timeout_seconds=E2E_TIMEOUT_SECONDS, label="browser tests")
+        recordings.clear(record_to)
+        config = self._root / recordings.RECORD_CONFIG
+        config.write_text(recordings.record_config(base))
+        try:
+            exit_code, output = self._sandbox(
+                f"{E2E} -c {recordings.RECORD_CONFIG}",
+                timeout_seconds=E2E_TIMEOUT_SECONDS,
+                label="browser tests",
+                extra_mounts=((record_to, recordings.MOUNT),),
+            )
+        finally:
+            config.unlink(missing_ok=True)
+        if exit_code != 0 and not (record_to / recordings.REPORT).is_file():
+            # No report: our config broke the run (e.g. an older Playwright). Run it plain
+            return self._sandbox(E2E, timeout_seconds=E2E_TIMEOUT_SECONDS, label="browser tests")
+        return exit_code, output
 
     def _sandbox(
         self,
@@ -534,11 +554,15 @@ class RepoTools:
         timeout_seconds: int = COMMAND_TIMEOUT_SECONDS,
         *,
         label: str = "other commands",
+        extra_mounts: tuple[tuple[Path, str], ...] = (),
     ) -> tuple[int, str]:
         started = time.monotonic()
-        result = self._ws.run(
-            ["bash", "-c", command], SandboxLimits(timeout_seconds=timeout_seconds)
-        )
+        limits = SandboxLimits(timeout_seconds=timeout_seconds)
+        shell = ["bash", "-c", command]
+        if extra_mounts:
+            result = self._ws.run(shell, limits, extra_mounts=extra_mounts)
+        else:
+            result = self._ws.run(shell, limits)
         spent = self.sandbox_time.setdefault(label, [0.0, 0])
         spent[0] += time.monotonic() - started
         spent[1] += 1

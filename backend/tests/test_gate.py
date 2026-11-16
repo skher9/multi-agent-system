@@ -153,14 +153,52 @@ def test_the_fixer_gets_only_the_failures_and_must_pass_the_gate(
     assert "secrets found" in rejected
 
 
-QA_OK = {
-    "summary": "One test per criterion",
-    "results": [
-        {"number": 1, "test": "e2e/contact.spec.ts: shows the form", "passed": True},
-        {"number": 2, "test": "e2e/contact.spec.ts: thanks you", "passed": True},
-    ],
-    "bugs": [],
+CASES = {
+    "cases": [
+        {
+            "criterion": 1,
+            "title": "The contact page shows the form",
+            "steps": ["Open /contact"],
+            "expected": "A form with name, email and message",
+        },
+        {
+            "criterion": 2,
+            "title": "Sending the form thanks the user",
+            "steps": ["Open /contact", "Fill the form", "Click Send"],
+            "expected": "A thank-you message",
+        },
+    ]
 }
+QA_DONE = {"summary": "One test per case", "bugs": []}
+TEST_FILE = {"path": "e2e/contact.spec.ts", "content": "test()\n"}
+
+
+def report(folder: Path, failed: tuple[str, ...] = (), skip: tuple[str, ...] = ()) -> None:
+    """Write Playwright's JSON report for CASES into the recordings folder, with a video
+    per test."""
+    specs = []
+    for case in CASES["cases"]:
+        title = case["title"]
+        if title in skip:
+            continue
+        video = folder / "results" / f"{len(specs)}" / "video.webm"
+        video.parent.mkdir(parents=True, exist_ok=True)
+        video.write_bytes(b"webm")
+        inside = f"/mas-recordings/{video.relative_to(folder)}"
+        result = {
+            "duration": 1500,
+            "errors": [{"message": "expected thanks"}] if title in failed else [],
+            "attachments": [{"name": "video", "path": inside}],
+        }
+        specs.append(
+            {
+                "title": title,
+                "file": "contact.spec.ts",
+                "ok": title not in failed,
+                "tests": [{"results": [result]}],
+            }
+        )
+    (folder / "report.json").write_text(json.dumps({"suites": [{"specs": specs}]}))
 
 
 @pytest.fixture
@@ -168,7 +206,9 @@ def e2e(monkeypatch: pytest.MonkeyPatch) -> list[tuple[int, str]]:
     """Fake browser test runs: append (exit code, output); default passes."""
     runs: list[tuple[int, str]] = []
     monkeypatch.setattr(RepoTools, "install", lambda self: "")
-    monkeypatch.setattr(RepoTools, "run_e2e", lambda self: runs.pop(0) if runs else (0, "2 passed"))
+    monkeypatch.setattr(
+        RepoTools, "run_e2e", lambda self, record_to=None: runs.pop(0) if runs else (0, "2 passed")
+    )
     return runs
 
 
@@ -176,23 +216,37 @@ def test_qa_writes_only_e2e_tests_and_they_must_pass(
     origin: str,  # noqa: F811
     e2e: list[tuple[int, str]],
 ) -> None:
-    e2e.append((1, "1 failed: thanks you"))  # the run at its first finish
+    e2e.append((1, "1 failed: thanks you"))  # the run at its first real finish
     script = Script(
         reply(call("create_file", {"path": "src/app/page.tsx", "content": "hack"})),
-        reply(call("create_file", {"path": "e2e/contact.spec.ts", "content": "test()\n"})),
-        reply(call("finish", {**QA_OK, "results": QA_OK["results"][:1]})),  # misses criterion 2
-        reply(call("finish", QA_OK)),  # tests fail, no bugs listed
-        reply(call("finish", QA_OK)),
+        reply(call("finish", QA_DONE)),  # no cases yet
+        reply(call("plan_cases", {"cases": CASES["cases"][:1]})),  # misses criterion 2
+        reply(call("plan_cases", CASES)),
+        reply(call("create_file", TEST_FILE)),
+        reply(call("finish", QA_DONE)),  # tests fail, no bugs listed
+        reply(call("finish", QA_DONE)),
     )
+    events: list[dict[str, Any]] = []
     with Workspace.clone(origin) as ws:
-        report, files = qa_ticket(script.router(), SPEC, PLAN, ws, agent_run_id=1)
+        result, files, videos = qa_ticket(
+            script.router(),
+            SPEC,
+            PLAN,
+            ws,
+            agent_run_id=1,
+            on_event=lambda _kind, data: events.append(data),
+        )
         assert not (ws.path / "src/app/page.tsx").exists()
     assert files == ["e2e/contact.spec.ts"]
-    assert report.results[1].passed
+    assert [case.passed for case in result.cases] == [True, True]
+    assert videos == [None, None]  # nothing was recorded here
     results = [m["content"] for m in script.sent[-1]["messages"] if m["role"] == "tool"]
     assert results[0].startswith("ERROR: you can only change files in e2e/")
-    assert "criterion 1 to 2 exactly once" in results[2]
-    assert "the browser tests failed" in results[3] and "1 failed: thanks you" in results[3]
+    assert "save the test cases with plan_cases first" in results[1]
+    assert "every criterion (1 to 2) needs at least one case" in results[2]
+    assert results[3].startswith("2 test cases saved")
+    assert "the browser tests failed" in results[5] and "1 failed: thanks you" in results[5]
+    assert any("Planned 2 test cases" in str(e.get("text")) for e in events)
     assert script.sent[0]["model"] == "deepseek/deepseek-v4.1-flash"
 
 
@@ -202,40 +256,83 @@ def test_qa_reuses_a_browser_run_until_a_test_file_changes(
 ) -> None:
     runs: list[int] = []
     monkeypatch.setattr(RepoTools, "install", lambda self: "")
-    monkeypatch.setattr(RepoTools, "run_e2e", lambda self: (runs.append(1), (0, "2 passed"))[1])
+    monkeypatch.setattr(
+        RepoTools, "run_e2e", lambda self, record_to=None: (runs.append(1), (0, "2 passed"))[1]
+    )
     spec = "e2e/contact.spec.ts"
     script = Script(
+        reply(call("plan_cases", CASES)),
         reply(call("create_file", {"path": spec, "content": "test()\n"})),
         reply(call("run_e2e", {})),  # run 1
         reply(call("run_e2e", {})),  # nothing changed: reused
         reply(call("edit_file", {"path": spec, "old_text": "test()", "new_text": "test(1)"})),
         reply(call("run_e2e", {})),  # run 2
-        reply(call("finish", QA_OK)),  # nothing changed since run 2: reused
+        reply(call("finish", QA_DONE)),  # nothing changed since run 2: reused
     )
     with Workspace.clone(origin) as ws:
         qa_ticket(script.router(), SPEC, PLAN, ws, agent_run_id=1)
     assert len(runs) == 2
     results = [m["content"] for m in script.sent[-1]["messages"] if m["role"] == "tool"]
-    assert results[1] == "exit code 0\n2 passed"
-    assert results[2].startswith("(no test file changed since the last run: same result)")
+    assert results[2] == "exit code 0\n2 passed"
+    assert results[3].startswith("(no test file changed since the last run: same result)")
 
 
-def test_qa_may_finish_with_failing_tests_when_it_names_the_bugs(
+def test_qa_results_come_from_the_report_not_the_agent(
     origin: str,  # noqa: F811
-    e2e: list[tuple[int, str]],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
-    e2e.append((1, "1 failed"))
-    bug = {"criterion": 2, "problem": "Submit does nothing", "test": "e2e/contact.spec.ts"}
-    results: list[Any] = [QA_OK["results"][0], {**QA_OK["results"][1], "passed": False}]
+    thanks = CASES["cases"][1]["title"]
+    # Run 1: the second case has no test. Run 2: it fails. The agent says nothing failed
+    runs: list[dict[str, Any]] = [{"skip": (thanks,)}, {"failed": (thanks,)}, {"failed": (thanks,)}]
+
+    def fake_run(self: RepoTools, record_to: Path | None = None) -> tuple[int, str]:
+        assert record_to == tmp_path
+        run = runs.pop(0)
+        report(tmp_path, **run)
+        return (1, "1 failed") if run.get("failed") else (0, "1 passed")
+
+    monkeypatch.setattr(RepoTools, "install", lambda self: "")
+    monkeypatch.setattr(RepoTools, "run_e2e", fake_run)
+    bug = {"criterion": 2, "problem": "Send does nothing", "test": thanks}
     script = Script(
-        reply(call("create_file", {"path": "e2e/contact.spec.ts", "content": "test()\n"})),
-        reply(call("finish", {**QA_OK, "results": results, "bugs": [bug]})),
+        reply(call("plan_cases", CASES)),
+        reply(call("create_file", TEST_FILE)),
+        reply(call("finish", QA_DONE)),  # a case without a test
+        reply(
+            call("edit_file", {"path": TEST_FILE["path"], "old_text": "test()", "new_text": "t(2)"})
+        ),
+        reply(call("finish", {**QA_DONE, "bugs": [{**bug, "criterion": 1}]})),  # wrong criterion
+        reply(call("finish", {**QA_DONE, "bugs": [bug]})),
     )
     with Workspace.clone(origin) as ws:
-        report, _files = qa_ticket(script.router(), SPEC, PLAN, ws, agent_run_id=1)
-    table = qa_markdown(report, SPEC.acceptance_criteria)
-    assert "| 2. Submitting thanks you | ❌ | e2e/contact.spec.ts: thanks you |" in table
-    assert "- Criterion 2: Submit does nothing (`e2e/contact.spec.ts`)" in table
+        result, _files, videos = qa_ticket(
+            script.router(), SPEC, PLAN, ws, agent_run_id=1, record_to=tmp_path
+        )
+    results = [m["content"] for m in script.sent[-1]["messages"] if m["role"] == "tool"]
+    assert "have no browser test with exactly their title" in results[2] and thanks in results[2]
+    assert "the tests for criterion [2] fail and no bug explains them" in results[4]
+    assert [case.passed for case in result.cases] == [True, False]
+    assert result.cases[1].error == "expected thanks" and result.cases[1].seconds == 1.5
+    assert [video is not None and video.read_bytes() == b"webm" for video in videos] == [True, True]
+
+    linked = result.model_copy(
+        update={
+            "cases": [c.model_copy(update={"video": "https://x/t/1.webm"}) for c in result.cases]
+        }
+    )
+    table = qa_markdown(linked, SPEC.acceptance_criteria)
+    assert "2 test cases run in a real browser: 1 passed, 1 failed. Each one was recorded" in table
+    assert f"| 2 | {thanks} | 2 | ❌ | [▶ Watch (2s)](https://x/t/1.webm) |" in table
+    assert "Criterion 2: Submitting thanks you" in table and "3. Click Send" in table
+    assert f"- Criterion 2: Send does nothing (`{thanks}`)" in table
+
+
+def qa_report() -> Any:
+    from agents.qa import QaReport
+
+    cases = [{**case, "passed": True} for case in CASES["cases"]]
+    return QaReport.model_validate({"summary": "One test per case", "cases": cases})
 
 
 def test_make_verify_fixes_then_tests_then_pushes(
@@ -246,7 +343,6 @@ def test_make_verify_fixes_then_tests_then_pushes(
 
     from agents.developer import DevResult
     from agents.gate import GateResult
-    from agents.qa import QaReport
     from orchestrator import runner
 
     with Workspace.clone(origin) as ws:
@@ -272,7 +368,9 @@ def test_make_verify_fixes_then_tests_then_pushes(
     def fake_qa(router: Any, spec: Any, plan: Any, ws: Workspace, **_: Any) -> Any:
         (ws.path / "e2e").mkdir()
         (ws.path / "e2e/contact.spec.ts").write_text("test()\n")
-        return QaReport.model_validate(QA_OK), ["e2e/contact.spec.ts"]
+        videos = [ws.path.parent / "one.webm", None]
+        videos[0].write_bytes(b"webm")  # type: ignore[union-attr]
+        return qa_report(), ["e2e/contact.spec.ts"], videos
 
     monkeypatch.setattr(runner, "develop_ticket", fake_fixer)
     monkeypatch.setattr(runner, "qa_ticket", fake_qa)
@@ -283,7 +381,26 @@ def test_make_verify_fixes_then_tests_then_pushes(
         roles.append(role)
         yield len(roles)
 
-    pipeline = runner.Pipeline(None, None, None, 1, repo_url=origin)  # type: ignore[arg-type]
+    uploads: dict[str, bytes] = {}
+    seen: list[dict[str, Any]] = []
+
+    class Store:
+        def upload(self, key: str, data: bytes, content_type: str = "") -> None:
+            assert content_type == "video/webm"
+            uploads[key] = data
+
+        def download(self, key: str) -> bytes:
+            return uploads[key]
+
+    pipeline = runner.Pipeline(
+        None,  # type: ignore[arg-type]
+        None,  # type: ignore[arg-type]
+        None,  # type: ignore[arg-type]
+        1,
+        repo_url=origin,
+        storage=Store(),
+        recordings_url="https://api.test/recordings/",
+    )
     result = runner.make_verify(
         pipeline,
         "KAN-4",
@@ -292,7 +409,7 @@ def test_make_verify_fixes_then_tests_then_pushes(
         "agent/KAN-4",
         base,
         start_agent,
-        lambda _id: lambda k, d: None,
+        lambda _id: lambda k, d: seen.append(d),
     )
 
     assert roles == ["fixer", "qa"]
@@ -300,6 +417,15 @@ def test_make_verify_fixes_then_tests_then_pushes(
     assert result.fixer_summary == "Fixed lint"
     assert result.notes == ["e2e/contact.spec.ts:1-6 repeats itself"]  # scanned after QA
     assert result.qa is not None and not result.problem
+    (key,) = uploads  # one video uploaded, behind a long random token
+    assert key.startswith("recordings/") and key.endswith("/1.webm") and len(key) > 40
+    links = [case.video for case in result.qa.cases]
+    assert links == [f"https://api.test/{key}", ""]
+    # The run page gets every case, with its result and video, as one event
+    (shown,) = [d for d in seen if "tests" in d]
+    assert shown["text"] == "Tested 2 cases in the browser: 2 passed"
+    assert [t["video"] for t in shown["tests"]] == links
+    assert shown["tests"][1]["steps"] == ["Open /contact", "Fill the form", "Click Send"]
     remote = Path(origin.removeprefix("file://"))
     log = git("log", "--format=%s", "agent/KAN-4", cwd=remote)
     assert log.splitlines()[:2] == ["KAN-4: browser tests", "KAN-4: fix the final checks"]

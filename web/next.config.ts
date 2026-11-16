@@ -22,6 +22,8 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self'",
+  // QA's recordings of the browser tests play from the API (/recordings)
+  `media-src 'self' ${apiOrigin}`,
   `connect-src 'self' ${apiOrigin} ${pusherHosts}`.trim(),
   "object-src 'none'",
   "base-uri 'self'",

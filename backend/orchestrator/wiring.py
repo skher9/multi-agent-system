@@ -143,6 +143,11 @@ def open_pipeline(
                 github=github,
                 repo=own.repo,
                 figma=figma,
+                recordings_url=(
+                    f"{settings.public_api_url.rstrip('/')}/recordings"
+                    if settings.public_api_url
+                    else ""
+                ),
             )
     finally:
         jira.close()
