@@ -382,6 +382,7 @@ def test_make_verify_fixes_then_tests_then_pushes(
         yield len(roles)
 
     uploads: dict[str, bytes] = {}
+    seen: list[dict[str, Any]] = []
 
     class Store:
         def upload(self, key: str, data: bytes, content_type: str = "") -> None:
@@ -408,7 +409,7 @@ def test_make_verify_fixes_then_tests_then_pushes(
         "agent/KAN-4",
         base,
         start_agent,
-        lambda _id: lambda k, d: None,
+        lambda _id: lambda k, d: seen.append(d),
     )
 
     assert roles == ["fixer", "qa"]
@@ -420,6 +421,11 @@ def test_make_verify_fixes_then_tests_then_pushes(
     assert key.startswith("recordings/") and key.endswith("/1.webm") and len(key) > 40
     links = [case.video for case in result.qa.cases]
     assert links == [f"https://api.test/{key}", ""]
+    # The run page gets every case, with its result and video, as one event
+    (shown,) = [d for d in seen if "tests" in d]
+    assert shown["text"] == "Tested 2 cases in the browser: 2 passed"
+    assert [t["video"] for t in shown["tests"]] == links
+    assert shown["tests"][1]["steps"] == ["Open /contact", "Fill the form", "Click Send"]
     remote = Path(origin.removeprefix("file://"))
     log = git("log", "--format=%s", "agent/KAN-4", cwd=remote)
     assert log.splitlines()[:2] == ["KAN-4: browser tests", "KAN-4: fix the final checks"]

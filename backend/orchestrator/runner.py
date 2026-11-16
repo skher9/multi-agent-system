@@ -367,7 +367,17 @@ def make_verify(
                     on_event=events(run_id),
                     record_to=workspace.path.parent / "recordings",
                 )
-                qa = keep_recordings(pipeline, qa, videos, events(run_id))
+                qa = keep_recordings(pipeline, qa, videos)
+                # The website's run page shows these: each case, its result, its video
+                passed = sum(case.passed for case in qa.cases)
+                events(run_id)(
+                    EventKind.STEP,
+                    {
+                        "role": Role.QA,
+                        "text": f"Tested {len(qa.cases)} cases in the browser: {passed} passed",
+                        "tests": [case.model_dump() for case in qa.cases],
+                    },
+                )
             if qa_files:
                 workspace.commit_all(f"{ticket_key}: browser tests\n\n{qa.summary}", AGENT_AUTHOR)
                 # QA's tests came after the gate: its repeats are notes for the reviewer
@@ -389,9 +399,7 @@ def make_verify(
         )
 
 
-def keep_recordings(
-    pipeline: Pipeline, qa: QaReport, videos: list[Path | None], on_event: EventSink
-) -> QaReport:
+def keep_recordings(pipeline: Pipeline, qa: QaReport, videos: list[Path | None]) -> QaReport:
     """Upload each test case's video and put its link on the case. The link holds a long
     random token: whoever has the PR can watch, nobody can guess another run's videos.
     A failed upload never fails the run: the cases just have no recording."""
@@ -407,8 +415,6 @@ def keep_recordings(
         case.model_copy(update={"video": f"{base}/{name}" if name else ""})
         for case, name in zip(qa.cases, names, strict=True)
     ]
-    kept = sum(1 for name in names if name)
-    step(on_event, Role.QA, f"Saved {kept} recordings of the browser tests")
     return qa.model_copy(update={"cases": cases})
 
 
