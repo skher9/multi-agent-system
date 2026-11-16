@@ -520,6 +520,78 @@
         }
       }
     },
+    "/recordings/{token}/{name}": {
+      "get": {
+        "tags": [
+          "recordings"
+        ],
+        "summary": "Recording",
+        "description": "One test's video. Answers byte ranges, which browsers need to seek (and Safari\nneeds to play at all).",
+        "operationId": "recording_recordings__token___name__get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{24,64}$",
+              "title": "Token"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{1,3}\\.webm$",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Range"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "video/webm": {}
+            }
+          },
+          "206": {
+            "content": {
+              "video/webm": {}
+            },
+            "description": "Partial Content"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/runs": {
       "post": {
         "tags": [

@@ -1,6 +1,7 @@
 """run_ticket(): one full pipeline run for a ticket, with its database records."""
 
 import logging
+import secrets
 import time
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
@@ -13,6 +14,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.types import Command
 from sqlalchemy.orm import Session, sessionmaker
 
+from agents import recordings
 from agents.code_graph import Storage, open_code_graph
 from agents.design import Design, read_design
 from agents.developer import DevResult, develop_ticket
@@ -20,7 +22,7 @@ from agents.gate import GateResult, VerifyResult, run_gate
 from agents.learner import learn_rules
 from agents.loop import AgentLoopError, EventSink, ignore_events
 from agents.planner import Plan, plan_ticket
-from agents.qa import qa_ticket
+from agents.qa import QaReport, qa_ticket
 from agents.quality import scan_code
 from agents.repo_tools import RepoTools
 from agents.reviewer import Review, review_changes
@@ -82,6 +84,8 @@ class Pipeline:
     skip_qa: bool = False
     # Reads Figma designs linked from tickets. None: tickets with a design can't be built
     figma: FigmaClient | None = None
+    # Where people watch QA's recordings (the API's /recordings). Empty: videos aren't kept
+    recordings_url: str = ""
 
 
 def open_pr(pipeline: Pipeline, branch: str, title: str, body: str) -> tuple[int, str]:
@@ -354,14 +358,16 @@ def make_verify(
                     Role.QA,
                     f"Cloned the repo in {clone_seconds:.0f}s. {tools.time_summary()}".strip(),
                 )
-                qa, qa_files = qa_ticket(
+                qa, qa_files, videos = qa_ticket(
                     pipeline.router,
                     spec,
                     plan,
                     workspace,
                     agent_run_id=run_id,
                     on_event=events(run_id),
+                    record_to=workspace.path.parent / "recordings",
                 )
+                qa = keep_recordings(pipeline, qa, videos, events(run_id))
             if qa_files:
                 workspace.commit_all(f"{ticket_key}: browser tests\n\n{qa.summary}", AGENT_AUTHOR)
                 # QA's tests came after the gate: its repeats are notes for the reviewer
@@ -381,6 +387,29 @@ def make_verify(
             head_sha=workspace.head_sha(),
             notes=notes,
         )
+
+
+def keep_recordings(
+    pipeline: Pipeline, qa: QaReport, videos: list[Path | None], on_event: EventSink
+) -> QaReport:
+    """Upload each test case's video and put its link on the case. The link holds a long
+    random token: whoever has the PR can watch, nobody can guess another run's videos.
+    A failed upload never fails the run: the cases just have no recording."""
+    if pipeline.storage is None or not pipeline.recordings_url or not any(videos):
+        return qa
+    try:
+        names = recordings.publish(pipeline.storage, videos, secrets.token_urlsafe(24))
+    except Exception:  # storage is evidence, not the work: keep going without videos
+        logger.warning("recordings weren't uploaded", exc_info=True)
+        return qa
+    base = pipeline.recordings_url.rstrip("/")
+    cases = [
+        case.model_copy(update={"video": f"{base}/{name}" if name else ""})
+        for case, name in zip(qa.cases, names, strict=True)
+    ]
+    kept = sum(1 for name in names if name)
+    step(on_event, Role.QA, f"Saved {kept} recordings of the browser tests")
+    return qa.model_copy(update={"cases": cases})
 
 
 class _SkipQa(Exception):  # noqa: N818  (a jump out of the QA block, not an error)

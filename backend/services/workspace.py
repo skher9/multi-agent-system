@@ -108,10 +108,21 @@ class Workspace:
             raise ValueError(f"not a commit sha: {start!r}")
         self._git("switch", "--quiet", "-c", name, *([start] if start else []))
 
-    def run(self, command: list[str], limits: SandboxLimits | None = None) -> SandboxResult:
-        """Run a command in the sandbox with this repo mounted and .git masked."""
+    def run(
+        self,
+        command: list[str],
+        limits: SandboxLimits | None = None,
+        *,
+        extra_mounts: tuple[tuple[Path, str], ...] = (),
+    ) -> SandboxResult:
+        """Run a command in the sandbox with this repo mounted and .git masked.
+        extra_mounts: (host folder, sandbox path) pairs for output kept out of the repo."""
         return sandbox.run(
-            command, workspace=self.path, limits=limits or SandboxLimits(), masked_paths=(".git",)
+            command,
+            workspace=self.path,
+            limits=limits or SandboxLimits(),
+            masked_paths=(".git",),
+            extra_mounts=extra_mounts,
         )
 
     def discard_changes(self) -> None:

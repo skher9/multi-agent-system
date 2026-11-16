@@ -183,8 +183,16 @@ class Fakes:
         if self._verify_problem:
             return VerifyResult(checks={**checks, "lint": False}, problem=self._verify_problem)
         qa = QaReport(
-            summary="One browser test per criterion",
-            results=[{"number": 1, "test": "e2e/contact.spec.ts: shows the form", "passed": True}],  # type: ignore[list-item]
+            summary="One browser test per case",
+            cases=[
+                {  # type: ignore[list-item]
+                    "criterion": 1,
+                    "title": "The contact page shows the form",
+                    "steps": ["Open /contact"],
+                    "expected": "A form",
+                    "passed": True,
+                }
+            ],
             bugs=self._qa_bugs,  # type: ignore[arg-type]
         )
         return VerifyResult(checks=checks, qa=qa, head_sha="ver789")
@@ -419,9 +427,8 @@ def test_the_pr_shows_the_checks_and_browser_tests() -> None:
     body = fakes.pr[2]
     assert "| lint | ✅ |" in body
     assert "| secrets | ✅ |" in body
-    assert (
-        "| 1. Visiting /contact shows a form | ✅ | e2e/contact.spec.ts: shows the form |" in body
-    )
+    assert "1 test case run in a real browser: 1 passed." in body
+    assert "| 1 | The contact page shows the form | 1 | ✅ | – |" in body
 
 
 def test_a_gate_the_fixer_cannot_fix_stops_for_a_human() -> None:
