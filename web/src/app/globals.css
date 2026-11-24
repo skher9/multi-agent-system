@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* One light theme: cream paper, plum ink, a pastel per agent. Text tokens pass WCAG AA
-   (4.5:1) on canvas and surface. */
+   (4.5:1) on canvas and surface. No dark mode: the design is light only. */
 
 @theme {
   --font-sans: var(--font-figtree);
