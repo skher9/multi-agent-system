@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/button";
+import { TONE_SHADOW } from "@/components/ui/tone";
+
 import type { TestCase } from "@/lib/runs/tests";
 
 /**
@@ -21,11 +24,11 @@ export function TestingPanel({ tests }: { tests: TestCase[] }) {
   return (
     <section
       aria-label="Browser testing"
-      className={`rounded-lg border bg-surface ${allPassed ? "border-ok/40" : "border-warn/50"}`}
+      className={`rounded-3xl border-ink-line bg-surface ${TONE_SHADOW[allPassed ? "mint" : "peach"]}`}
     >
-      <div className="flex flex-wrap items-center gap-4 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-4 px-6 py-5">
         <div className="mr-auto">
-          <p className="font-medium text-ink">
+          <p className="font-display text-xl">
             Tested in a real browser: {passed} of {tests.length} test cases passed
           </p>
           <p className="text-sm text-muted">
@@ -34,18 +37,13 @@ export function TestingPanel({ tests }: { tests: TestCase[] }) {
               : "The test cases and their steps. No recordings were kept for this run."}
           </p>
         </div>
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
-          className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-ink hover:brightness-110"
-        >
+        <Button type="button" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
           {open ? "Hide the testing" : recorded ? "▶ Watch the testing" : "See the test cases"}
-        </button>
+        </Button>
       </div>
 
       {open && current && (
-        <div className="grid gap-4 border-t border-line p-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
+        <div className="grid gap-5 border-t-[1.5px] border-dashed border-ink/20 p-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
           <ol className="space-y-1.5" aria-label="Test cases">
             {tests.map((test, index) => (
               <li key={test.title}>
@@ -53,10 +51,8 @@ export function TestingPanel({ tests }: { tests: TestCase[] }) {
                   type="button"
                   aria-current={index === picked}
                   onClick={() => setPicked(index)}
-                  className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
-                    index === picked
-                      ? "border-accent bg-accent/8 text-ink"
-                      : "border-line text-muted hover:border-muted/60 hover:text-ink"
+                  className={`flex min-h-11 w-full items-start gap-2 rounded-xl border-ink-line px-3 py-2 text-left text-sm transition ${
+                    index === picked ? "bg-sky shadow-hard-sm" : "bg-surface hover:-translate-y-0.5"
                   }`}
                 >
                   <span aria-hidden className={test.passed ? "text-ok" : "text-bad"}>
@@ -80,17 +76,17 @@ export function TestingPanel({ tests }: { tests: TestCase[] }) {
                 muted
                 playsInline
                 preload="metadata"
-                className="aspect-video w-full rounded-lg border border-line bg-black"
+                className="aspect-video w-full rounded-2xl border-ink-line bg-ink"
               >
                 Your browser can&apos;t play this recording.
               </video>
             ) : (
-              <p className="rounded-lg border border-line px-3 py-6 text-center text-sm text-muted">
+              <p className="rounded-2xl border-[1.5px] border-dashed border-ink/30 px-3 py-6 text-center text-sm text-muted">
                 No recording for this test case.
               </p>
             )}
             <div className="text-sm">
-              <p className="font-medium text-ink">
+              <p className="font-semibold">
                 <span className={current.passed ? "text-ok" : "text-bad"}>
                   {current.passed ? "Passed" : "Failed"}
                 </span>{" "}
@@ -105,7 +101,7 @@ export function TestingPanel({ tests }: { tests: TestCase[] }) {
                 <span className="text-ink">Should see:</span> {current.expected}
               </p>
               {!current.passed && current.error && (
-                <pre className="mt-2 overflow-x-auto rounded-lg border border-bad/40 bg-bad/8 p-2 text-xs whitespace-pre-wrap text-ink">
+                <pre className="mt-2 overflow-x-auto rounded-xl border-ink-line bg-rose p-3 font-mono text-xs whitespace-pre-wrap">
                   {current.error}
                 </pre>
               )}

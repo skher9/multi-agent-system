@@ -6,7 +6,7 @@ import type { HTMLAttributes } from "react";
 import { TONE_SHADOW, type Tone } from "./tone";
 
 type CardProps = HTMLAttributes<HTMLElement> & {
-  as?: "section" | "article" | "aside" | "li" | "div";
+  as?: "section" | "article" | "aside" | "header" | "li" | "div";
   tone?: Tone;
 };
 

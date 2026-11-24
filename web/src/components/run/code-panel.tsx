@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { Chip } from "@/components/ui/chip";
+import { TONE_SHADOW } from "@/components/ui/tone";
 import type { RunEvent } from "@/lib/runs/types";
 
 // Typing speed: fast enough that a 100-line file appears in a few seconds
@@ -45,10 +47,10 @@ export function CodePanel({ events }: { events: RunEvent[] }) {
   return (
     <section
       aria-label="Code being written"
-      className="flex h-[28rem] flex-col overflow-hidden rounded-lg border border-line bg-canvas"
+      className={`flex h-[28rem] flex-col overflow-hidden rounded-3xl border-ink-line bg-surface ${TONE_SHADOW.mint}`}
     >
-      <header className="flex items-center gap-2 border-b border-line px-3 py-2 text-xs">
-        <span className="size-2 rounded-full bg-accent/80" aria-hidden />
+      <header className="flex items-center gap-2 border-b-[1.5px] border-dashed border-ink/20 px-4 py-3 text-xs">
+        <span className="size-2.5 rounded-full border-ink-line bg-mint" aria-hidden />
         {latest ? (
           <>
             <span className="truncate font-mono text-ink">{latest.path}</span>
@@ -66,16 +68,16 @@ export function CodePanel({ events }: { events: RunEvent[] }) {
         <p className="p-4 text-sm text-muted">Code appears here when an agent writes a file.</p>
       )}
       {files.length > 0 && (
-        <footer className="flex gap-1.5 overflow-x-auto border-t border-line px-3 py-2">
+        <footer className="flex gap-1.5 overflow-x-auto border-t-[1.5px] border-dashed border-ink/20 px-4 py-2.5">
           {files.map((path) => (
-            <span
+            <Chip
               key={path}
-              className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px] ${
-                path === latest?.path ? "bg-accent/15 text-accent" : "bg-raised text-muted"
-              }`}
+              mono
+              tone={path === latest?.path ? "mint" : "plain"}
+              className="shrink-0 py-0 text-[11px]"
             >
               {path.split("/").at(-1)}
-            </span>
+            </Chip>
           ))}
         </footer>
       )}
@@ -103,9 +105,9 @@ function Typed({ write }: { write: CodeWrite }) {
       <Lines
         text={typed}
         sign={write.oldText !== undefined ? "+" : " "}
-        className={write.oldText !== undefined ? "bg-accent/10 text-ink" : "text-ink"}
+        className={write.oldText !== undefined ? "bg-mint/60 text-ink" : "text-ink"}
       />
-      {shown < target.length && <span className="animate-pulse text-accent">▍</span>}
+      {shown < target.length && <span className="animate-pulse">▍</span>}
     </pre>
   );
 }

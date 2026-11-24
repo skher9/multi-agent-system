@@ -7,6 +7,10 @@ import { stagesFrom } from "@/lib/runs/stages";
 import { testsFrom } from "@/lib/runs/tests";
 import type { RunView } from "@/lib/runs/types";
 
+import { Button } from "@/components/button";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+
 import { CodePanel } from "./code-panel";
 import { Feed } from "./feed";
 import { NowBar } from "./now-bar";
@@ -76,10 +80,16 @@ export function RunWindow({
 
   return (
     <section className="space-y-4">
-      <header className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-line bg-surface px-4 py-3">
+      <Card
+        as="header"
+        tone="butter"
+        className="flex flex-wrap items-center gap-x-6 gap-y-3 py-5! sm:py-5!"
+      >
         <div className="mr-auto min-w-0">
-          <h1 className="font-display text-2xl">
-            <span className="font-mono text-gray-500">{run.ticket}</span>{" "}
+          <h1 className="flex flex-wrap items-center gap-3 font-display text-3xl sm:text-4xl">
+            <Chip tone="butter" mono className="text-base">
+              {run.ticket}
+            </Chip>
             {run.title || (live ? "Fetching the ticket…" : "")}
           </h1>
           {run.links && <RunLinksRow run={run} />}
@@ -96,25 +106,17 @@ export function RunWindow({
         </Stat>
         {replay && (
           <span className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setShown(0)}
-              className="rounded-md border border-line px-2.5 py-1 text-sm hover:bg-raised"
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setShown(0)}>
               Replay
-            </button>
+            </Button>
             {!finished && (
-              <button
-                type="button"
-                onClick={() => setShown(total)}
-                className="rounded-md border border-line px-2.5 py-1 text-sm hover:bg-raised"
-              >
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShown(total)}>
                 Skip to end
-              </button>
+              </Button>
             )}
           </span>
         )}
-      </header>
+      </Card>
 
       {working && <NowBar events={events} />}
       {live && stopped && <ResultCard run={run} events={events} />}
@@ -134,7 +136,7 @@ export function RunWindow({
 function Stat({ label, children }: { label: string; children: ReactNode }) {
   return (
     <span className="text-sm">
-      <span className="text-gray-500">{label} </span>
+      <span className="text-muted">{label} </span>
       <span className="font-medium tabular-nums">{children}</span>
     </span>
   );

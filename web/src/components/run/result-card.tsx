@@ -1,3 +1,6 @@
+import { ButtonLink } from "@/components/button";
+import { Card } from "@/components/ui/card";
+import type { Tone } from "@/components/ui/tone";
 import type { RunEvent, RunView } from "@/lib/runs/types";
 
 /** How the run ended, and what to do next. Shown once the run stops. */
@@ -7,63 +10,53 @@ export function ResultCard({ run, events }: { run: RunView; events: RunEvent[] }
     .find((e) => ["run_ended", "run_failed", "run_paused"].includes(e.kind));
   if (!end) return null;
   const outcome = String(end.data.outcome ?? "");
-  const card =
+  const card: { tone: Tone; title: string; text: string } =
     end.kind === "run_failed"
-      ? { tone: "bad", title: "The run failed", text: `Error: ${String(end.data.error)}` }
+      ? { tone: "rose", title: "The run failed", text: `Error: ${String(end.data.error)}` }
       : end.kind === "run_paused"
         ? {
-            tone: "warn",
+            tone: "butter",
             title: "The plan is waiting for your approval",
             text: "It's posted on the Jira ticket. Approve, revise or reject it there.",
           }
         : outcome === "ready_to_merge"
           ? {
-              tone: "good",
+              tone: "mint",
               title: "Pull request ready",
               text: "Built, tested and approved by the reviewer. Review it and merge.",
             }
           : outcome === "blocked"
             ? {
-                tone: "warn",
+                tone: "butter",
                 title: "The agents need answers",
                 text: "Questions are posted on the Jira ticket. Answer them and run it again.",
               }
             : {
-                tone: "warn",
+                tone: "butter",
                 title: "A person needs to look",
                 text: "The details are on the Jira ticket and the pull request.",
               };
-  const color = {
-    good: "border-accent/40 bg-accent/10",
-    warn: "border-warn/40 bg-warn/8",
-    bad: "border-bad/40 bg-bad/8",
-  }[card.tone];
   return (
-    <div className={`flex flex-wrap items-center gap-4 rounded-lg border px-4 py-3 ${color}`}>
-      <div className="mr-auto">
-        <p className="font-medium text-ink">{card.title}</p>
+    <Card
+      as="aside"
+      tone={card.tone}
+      aria-label="How the run ended"
+      className="flex flex-wrap items-center gap-4 py-5! sm:py-5!"
+    >
+      <header className="mr-auto">
+        <h2 className="font-display text-xl">{card.title}</h2>
         <p className="text-sm text-muted">{card.text}</p>
-      </div>
+      </header>
       {run.prUrl && (
-        <a
-          href={run.prUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-ink hover:brightness-110"
-        >
+        <ButtonLink href={run.prUrl} target="_blank" rel="noreferrer">
           Open the pull request ↗
-        </a>
+        </ButtonLink>
       )}
       {run.links?.ticketUrl && (
-        <a
-          href={run.links.ticketUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-lg border border-line px-3 py-2 text-sm text-ink hover:border-muted/60"
-        >
+        <ButtonLink href={run.links.ticketUrl} target="_blank" rel="noreferrer" variant="ghost">
           Jira ticket ↗
-        </a>
+        </ButtonLink>
       )}
-    </div>
+    </Card>
   );
 }
