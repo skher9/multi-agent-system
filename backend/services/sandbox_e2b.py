@@ -40,6 +40,9 @@ ALL_TRAFFIC = "0.0.0.0/0"
 SANDBOX_ONLY = frozenset(
     {"node_modules", ".next", ".pnpm-store", "test-results", "playwright-report", "coverage"}
 )
+# Folders the pipeline mounts outside the repo (agents/code_graph.py, agents/recordings.py).
+# Commands never run as root, so the image creates them, owned by the sandbox user
+MOUNT_DIRS = ("/graph", "/mas-recordings")
 MAX_FILE_BYTES = 5_000_000  # a file the command made bigger than this stays behind
 # Kept alive this long after each command; E2B kills it after, if we never do
 IDLE_SECONDS = 15 * 60
@@ -295,8 +298,10 @@ def build_template(api_key: str) -> str:
         .from_image("mcr.microsoft.com/playwright:v1.64.0-noble")
         .run_cmd("npm install -g pnpm@10.30.1 && npm cache clean --force", user="root")
         .run_cmd("command -v curl || (apt-get update && apt-get install -y curl)", user="root")
-        .run_cmd(f"mkdir -p /opt/template {CONTAINER_WORKDIR}", user="root")
-        .run_cmd(f"chown {USER} /opt/template {CONTAINER_WORKDIR}", user="root")
+        .run_cmd(f"mkdir -p /opt/template {CONTAINER_WORKDIR} {' '.join(MOUNT_DIRS)}", user="root")
+        .run_cmd(
+            f"chown {USER} /opt/template {CONTAINER_WORKDIR} {' '.join(MOUNT_DIRS)}", user="root"
+        )
         .set_user(USER)
         .set_envs({"npm_config_store_dir": f"/home/{USER}/.pnpm-store"})
         .set_workdir("/opt/template")
