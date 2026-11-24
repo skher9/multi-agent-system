@@ -25,20 +25,20 @@ export function NowBar({ events }: { events: RunEvent[] }) {
     <div
       role="status"
       aria-live="polite"
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 text-sm"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border-ink-line bg-sky px-4 py-3 text-sm shadow-hard-sm"
     >
       <span className="relative flex size-2.5">
-        <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent opacity-60" />
-        <span className="relative inline-flex size-2.5 rounded-full bg-accent" />
+        <span className="absolute inline-flex size-full animate-ping rounded-full bg-ink opacity-40" />
+        <span className="relative inline-flex size-2.5 rounded-full bg-ink" />
       </span>
-      <span className="font-medium capitalize text-ink">{role}</span>
+      <span className="font-semibold capitalize">{role}</span>
       <span className="text-ink">{doing}</span>
       {latest && <span className="truncate text-muted">· {latest}</span>}
-      <span className="ml-auto font-mono text-xs tabular-nums text-muted">
+      <span className="ml-auto font-mono text-xs tabular-nums">
         {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")} since the last step
       </span>
       {quiet && (
-        <span className="w-full text-xs text-muted">
+        <span className="w-full text-xs">
           Still working: the model is thinking or a step is running. This can take up to a minute.
         </span>
       )}

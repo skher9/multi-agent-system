@@ -12,20 +12,26 @@ export type StageStatus = "waiting" | "running" | "done" | "failed" | "paused";
 
 export type Stage = {
   name: string;
+  role: string; // the agent that owns the box, for its colour (lib/agents.ts)
   nodes: string[];
   status: StageStatus;
   note: string; // short live detail, e.g. "agent 2" or "waiting for your OK"
 };
 
-const STAGES: { name: string; nodes: string[] }[] = [
-  { name: "Reader", nodes: ["fetch_ticket", "read_ticket", "post_questions"] },
+const STAGES: { name: string; role: string; nodes: string[] }[] = [
+  {
+    name: "Reader",
+    role: "ticket_reader",
+    nodes: ["fetch_ticket", "read_ticket", "post_questions"],
+  },
   {
     name: "Planner",
+    role: "planner",
     nodes: ["plan", "post_conflicts", "post_plan", "await_plan_approval", "create_subtasks"],
   },
-  { name: "Developer", nodes: ["develop"] },
-  { name: "Verify", nodes: ["verify"] },
-  { name: "PR + review", nodes: ["open_pr", "review", "fix", "post_review"] },
+  { name: "Developer", role: "developer", nodes: ["develop"] },
+  { name: "Checks and QA", role: "qa", nodes: ["verify"] },
+  { name: "PR and review", role: "reviewer", nodes: ["open_pr", "review", "fix", "post_review"] },
 ];
 
 function stageOf(node: unknown): number {
