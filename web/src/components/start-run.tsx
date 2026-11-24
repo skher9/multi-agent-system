@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
-import Link from "next/link";
-
-import { FormError, INPUT } from "@/components/auth-form";
+import { Button, ButtonLink } from "@/components/button";
 import { useOwnProject, type OwnProjectState } from "@/components/own-project";
-import { Button } from "@/components/site";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { FormError, INPUT } from "@/components/ui/field";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { runHref } from "@/lib/runs/use-runs";
@@ -88,21 +88,19 @@ export function StartRun() {
   }, [jobId, running]);
 
   return (
-    <section className="h-fit rounded-lg border border-line bg-surface p-5">
+    <Card tone="sky" className="h-fit">
       <h2 className="font-display text-2xl">Start a run</h2>
       <p className="mt-1 text-sm text-muted">
         Enter a Jira ticket. The agents read it, plan, build, test and open a pull request.
       </p>
       {own?.ready && (
-        <fieldset className="mt-4 grid grid-cols-2 gap-1 rounded-md border border-line bg-canvas p-1 text-sm">
+        <fieldset className="mt-4 grid grid-cols-2 gap-1 rounded-2xl border-ink-line bg-canvas p-1 text-sm">
           <legend className="sr-only">Project</legend>
           {(["own", "demo"] as const).map((value) => (
             <label
               key={value}
-              className={`cursor-pointer rounded px-3 py-1.5 text-center transition has-focus-visible:ring-2 has-focus-visible:ring-accent ${
-                (value === "own") === useOwn
-                  ? "bg-surface font-medium shadow-sm"
-                  : "text-muted hover:text-ink"
+              className={`flex min-h-10 cursor-pointer items-center justify-center rounded-xl px-3 font-semibold transition has-focus-visible:outline-3 has-focus-visible:outline-accent ${
+                (value === "own") === useOwn ? "bg-ink text-canvas" : "text-muted hover:text-ink"
               }`}
             >
               <input
@@ -141,8 +139,8 @@ export function StartRun() {
             &ldquo;Anyone with the link can view&rdquo;.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-muted">
-          <input type="checkbox" name="approve_plan" className="accent-accent" />
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input type="checkbox" name="approve_plan" className="size-5 accent-ink" />
           Pause for me to approve the plan
         </label>
         <FormError message={error} />
@@ -151,17 +149,22 @@ export function StartRun() {
         </Button>
       </form>
       {job && (
-        <div className="mt-4 rounded-md border border-line bg-canvas p-3 text-sm">
-          <p>
-            <span className="font-mono">{job.ticket}</span>
-            <span className="text-muted"> · {describe(job)}</span>
+        <aside
+          aria-live="polite"
+          className="mt-4 rounded-2xl border-ink-line bg-canvas p-3 text-sm"
+        >
+          <p className="flex flex-wrap items-center gap-2">
+            <Chip tone="butter" mono>
+              {job.ticket}
+            </Chip>
+            <span className="text-muted">{describe(job)}</span>
           </p>
-          <Link href={job.href} className="mt-1 inline-block text-xs text-accent hover:underline">
+          <ButtonLink href={job.href} size="sm" className="mt-3">
             Watch it live →
-          </Link>
-        </div>
+          </ButtonLink>
+        </aside>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -193,7 +196,7 @@ function ownLinks(own: OwnProjectState): Project {
 /** Which repo and Jira project runs work on, with links to both. */
 function ProjectCard({ project }: { project: Project }) {
   return (
-    <dl className="mt-4 grid grid-cols-[4.5rem_1fr] gap-y-1.5 rounded-md border border-line bg-canvas p-3 text-xs">
+    <dl className="mt-4 grid grid-cols-[4.5rem_1fr] gap-y-1.5 rounded-2xl border-ink-line bg-canvas p-3 text-xs">
       <dt className="text-muted">GitHub</dt>
       <dd className="truncate">
         {project.repo_url ? (

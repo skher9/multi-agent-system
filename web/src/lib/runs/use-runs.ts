@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import type { Tone } from "@/components/ui/tone";
+
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 
@@ -35,24 +37,16 @@ export function useRuns(): { runs: Run[] | null; error: boolean } {
   return { runs, error };
 }
 
-// How each feature status reads, and its colour
-export const STATUS: Record<string, { label: string; tone: Tone }> = {
-  running: { label: "Running", tone: "live" },
-  in_review: { label: "In review", tone: "live" },
-  waiting_for_plan_approval: { label: "Waiting for your approval", tone: "warn" },
-  ready_to_merge: { label: "PR ready", tone: "good" },
-  needs_human: { label: "Needs you", tone: "warn" },
-  blocked: { label: "Questions on Jira", tone: "warn" },
-  plan_rejected: { label: "Plan rejected", tone: "muted" },
-  failed: { label: "Failed", tone: "bad" },
-};
-export type Tone = "live" | "good" | "warn" | "bad" | "muted";
-export const TONE: Record<Tone, string> = {
-  live: "text-accent",
-  good: "text-ok",
-  warn: "text-warn",
-  bad: "text-bad",
-  muted: "text-muted",
+// How each feature status reads, its colour, and whether work is still going on
+export const STATUS: Record<string, { label: string; tone: Tone; live?: boolean }> = {
+  running: { label: "Running", tone: "sky", live: true },
+  in_review: { label: "In review", tone: "sky", live: true },
+  waiting_for_plan_approval: { label: "Waiting for your approval", tone: "peach" },
+  ready_to_merge: { label: "PR ready", tone: "mint" },
+  needs_human: { label: "Needs you", tone: "peach" },
+  blocked: { label: "Questions on Jira", tone: "butter" },
+  plan_rejected: { label: "Plan rejected", tone: "plain" },
+  failed: { label: "Failed", tone: "rose" },
 };
 
 /** A run's page. Runs on the user's own project name it, since ticket keys can repeat
@@ -67,7 +61,7 @@ export function runKey(run: Run): string {
 }
 
 export function statusOf(run: Run) {
-  return STATUS[run.status] ?? { label: run.status.replaceAll("_", " "), tone: "muted" as const };
+  return STATUS[run.status] ?? { label: run.status.replaceAll("_", " "), tone: "plain" as const };
 }
 
 /** How long a run took (or has taken so far), e.g. "9 min". */

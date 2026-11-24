@@ -3,14 +3,15 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { AppNav } from "@/components/app-nav";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
 import { Overview, OwnProjectCard } from "@/components/dashboard";
 import { SiteFooter } from "@/components/site";
 import { StartRun } from "@/components/start-run";
+import { AGENTS } from "@/lib/agents";
 import { verifySession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Dashboard" };
-
-const TEAM = ["Reader", "Planner", "Developer", "Fixer", "QA", "Reviewer", "Learner"];
 
 const TIPS = [
   "One change per ticket: a page, a component, an endpoint.",
@@ -27,7 +28,7 @@ export default function DashboardPage() {
     <>
       <AppNav />
       <main className="mx-auto max-w-6xl px-4 py-12">
-        <Suspense fallback={<div className="h-20 w-80 animate-pulse rounded bg-surface" />}>
+        <Suspense fallback={<div className="h-20 w-80 animate-pulse rounded-2xl bg-raised" />}>
           <Greeting />
         </Suspense>
         {/* Phones: runs, then Start run, then the team. Wide screens: the aside spans
@@ -37,19 +38,19 @@ export default function DashboardPage() {
           <aside className="space-y-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
             <StartRun />
             <OwnProjectCard />
-            <section className="rounded-lg border border-line p-5">
+            <Card tone="lime">
               <h2 className="font-display text-xl">Writing a good ticket</h2>
               <ul className="mt-3 space-y-2 text-sm text-muted">
                 {TIPS.map((tip) => (
                   <li key={tip} className="flex gap-2">
-                    <span aria-hidden className="text-accent">
-                      —
+                    <span aria-hidden className="font-bold">
+                      ✓
                     </span>
                     {tip}
                   </li>
                 ))}
               </ul>
-            </section>
+            </Card>
           </aside>
           <Team />
         </div>
@@ -64,7 +65,7 @@ async function Greeting() {
   const first = user.name.trim().split(/\s+/)[0] || "there";
   return (
     <div>
-      <h1 className="font-display text-5xl leading-tight">Welcome back, {first}.</h1>
+      <h1 className="font-display text-5xl leading-tight sm:text-6xl">Welcome back, {first}.</h1>
       <p className="mt-2 max-w-2xl text-muted">
         Your AI dev team turns Jira tickets into tested, reviewed pull requests. Try it on the demo
         repo, or connect your own Jira and GitHub, then give it a ticket and watch it work.
@@ -76,13 +77,15 @@ async function Greeting() {
 /** What happens to a ticket, at a glance. */
 function Team() {
   return (
-    <section className="border-t border-line pt-8 lg:col-start-1">
+    <section className="lg:col-start-1">
       <h2 className="font-display text-2xl">How your team works</h2>
       <ol className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-3 text-sm">
-        {TEAM.map((name, i) => (
-          <li key={name} className="flex items-center gap-3">
-            <span className="rounded-full border border-line bg-surface px-3 py-1">{name}</span>
-            {i < TEAM.length - 1 && (
+        {AGENTS.map((agent, i) => (
+          <li key={agent.role} className="flex items-center gap-3">
+            <Chip tone={agent.tone} className="text-sm">
+              {agent.name}
+            </Chip>
+            {i < AGENTS.length - 1 && (
               <span aria-hidden className="text-muted">
                 →
               </span>

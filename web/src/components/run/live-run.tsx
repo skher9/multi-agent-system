@@ -107,7 +107,7 @@ export function LiveRun() {
           <>Run stopped. Scroll the feed to see every step.</>
         ) : (
           <>
-            <span className="size-2 animate-pulse rounded-full bg-accent" /> Live: updates every 2
+            <span className="size-2 animate-pulse rounded-full bg-ink" /> Live: updates every 2
             seconds
           </>
         )}

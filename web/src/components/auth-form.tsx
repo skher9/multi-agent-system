@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import { Button, Logo } from "@/components/site";
+import { Card } from "@/components/ui/card";
+import { Field, FormError, INPUT } from "@/components/ui/field";
 import { authClient } from "@/lib/auth-client";
 import type { SocialProvider } from "@/lib/auth";
 
@@ -129,9 +131,9 @@ export function AuthForm({ mode, providers }: { mode: Mode; providers: SocialPro
             ))}
           </div>
           <div className="my-5 flex items-center gap-3 text-xs text-muted">
-            <span className="h-px flex-1 bg-line" />
+            <span className="h-px flex-1 border-t-[1.5px] border-dashed border-ink/20" />
             or with email
-            <span className="h-px flex-1 bg-line" />
+            <span className="h-px flex-1 border-t-[1.5px] border-dashed border-ink/20" />
           </div>
         </>
       )}
@@ -196,50 +198,18 @@ export function AuthShell({
   children: ReactNode;
 }) {
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
-      <div className="relative w-full max-w-sm">
-        <div className="mb-8 flex justify-center">
+    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+      <div className="w-full max-w-sm">
+        <header className="mb-8 flex justify-center">
           <Logo />
-        </div>
-        <div className="rounded-lg border border-line bg-surface p-6 shadow-[0_24px_60px_-30px_rgb(27_25_21/0.35)]">
+        </header>
+        <Card tone="lilac">
           <h1 className="font-display text-3xl">{title}</h1>
           {children}
-        </div>
+        </Card>
         {footer && <p className="mt-6 text-center text-sm text-muted">{footer}</p>}
       </div>
     </main>
-  );
-}
-
-export const INPUT =
-  "h-10 rounded-md border border-line bg-canvas px-3 text-sm text-ink outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20";
-
-export function Field({
-  label,
-  aside,
-  children,
-}: {
-  label: string;
-  aside?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5 text-sm text-muted">
-      <span className="flex items-center justify-between">
-        {label}
-        {aside}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-export function FormError({ message }: { message: string }) {
-  if (!message) return null;
-  return (
-    <p role="alert" className="text-sm text-bad">
-      {message}
-    </p>
   );
 }
 
