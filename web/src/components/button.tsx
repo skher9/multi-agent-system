@@ -1,19 +1,26 @@
-/** Buttons and button-styled links, in the site's two looks. */
+/** Buttons and button-styled links: an ink outline with a hard shadow that presses in. */
 
 import Link from "next/link";
 import type { ComponentProps } from "react";
 
-const BUTTON = {
-  primary: "bg-ink text-canvas hover:bg-accent hover:text-accent-ink",
-  ghost: "border border-ink/15 bg-transparent text-ink hover:border-ink/40 hover:bg-surface",
-  danger: "bg-bad text-canvas hover:brightness-110",
+const VARIANT = {
+  primary: "bg-ink text-canvas hover:bg-ink/85",
+  ghost: "bg-surface text-ink hover:bg-raised",
+  danger: "bg-rose text-ink hover:brightness-95",
 };
-const SIZE = { sm: "h-8 px-3 text-sm", md: "h-11 px-5" };
+const SIZE = { sm: "min-h-9 px-3 text-sm", md: "min-h-11 px-5" };
 
-type Look = { variant?: keyof typeof BUTTON; size?: keyof typeof SIZE };
+type Look = { variant?: keyof typeof VARIANT; size?: keyof typeof SIZE };
 
 function buttonClass({ variant = "primary", size = "md" }: Look, extra = "") {
-  return `inline-flex items-center justify-center gap-2 rounded-md font-medium transition disabled:opacity-50 ${BUTTON[variant]} ${SIZE[size]} ${extra}`;
+  return [
+    "inline-flex items-center justify-center gap-2 rounded-[14px] border-ink-line font-semibold",
+    "shadow-hard-sm transition hover:-translate-px hover:shadow-hard",
+    "active:translate-0.75 active:shadow-none disabled:pointer-events-none disabled:opacity-45",
+    VARIANT[variant],
+    SIZE[size],
+    extra,
+  ].join(" ");
 }
 
 export function ButtonLink({

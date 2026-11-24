@@ -4,1048 +4,1048 @@
  */
 
 export interface paths {
-    "/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Health
-         * @description Check every external service. 200 if all are ok, 503 otherwise.
-         */
-        get: operations["health_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+  "/health": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/jobs/ping": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start Ping
-         * @description Queue the ping task. 202 = accepted, not finished.
-         */
-        post: operations["start_ping_jobs_ping_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Health
+     * @description Check every external service. 200 if all are ok, 503 otherwise.
+     */
+    get: operations["health_health_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/jobs/ping": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/jobs/{job_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Job */
-        get: operations["get_job_jobs__job_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Start Ping
+     * @description Queue the ping task. 202 = accepted, not finished.
+     */
+    post: operations["start_ping_jobs_ping_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/jobs/{job_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/learn": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Learn */
-        post: operations["learn_learn_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Get Job */
+    get: operations["get_job_jobs__job_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/learn": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/me/project": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Own Project */
-        get: operations["get_own_project_me_project_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** Learn */
+    post: operations["learn_learn_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/me/project": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/me/jira": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Connect Jira */
-        put: operations["connect_jira_me_jira_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Get Own Project */
+    get: operations["get_own_project_me_project_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/me/jira": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/me/github": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Connect Github */
-        put: operations["connect_github_me_github_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    /** Connect Jira */
+    put: operations["connect_jira_me_jira_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/me/github": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/me/{kind}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Disconnect Integration
-         * @description Delete our copy of the token. 404 if that wasn't connected.
-         */
-        delete: operations["disconnect_integration_me__kind__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    /** Connect Github */
+    put: operations["connect_github_me_github_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/me/{kind}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/project": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Project */
-        get: operations["get_project_project_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Disconnect Integration
+     * @description Delete our copy of the token. 404 if that wasn't connected.
+     */
+    delete: operations["disconnect_integration_me__kind__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/project": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/realtime/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Send Test Event */
-        post: operations["send_test_event_realtime_test_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Get Project */
+    get: operations["get_project_project_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/realtime/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/recordings/{token}/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Recording
-         * @description One test's video. Answers byte ranges, which browsers need to seek (and Safari
-         *     needs to play at all).
-         */
-        get: operations["recording_recordings__token___name__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** Send Test Event */
+    post: operations["send_test_event_realtime_test_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/recordings/{token}/{name}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/runs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Recent Runs
-         * @description The latest runs the user may see (the demo's and their own), newest first.
-         */
-        get: operations["recent_runs_runs_get"];
-        put?: never;
-        /**
-         * Start Run
-         * @description Queue a run. 202 = accepted, not finished. On the user's own project, the ticket
-         *     must be in their Jira project, and their runs share a daily budget (429 past it). The
-         *     budget is ours to know: the message names a run limit, never an amount.
-         */
-        post: operations["start_run_runs_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Recording
+     * @description One test's video. Answers byte ranges, which browsers need to seek (and Safari
+     *     needs to play at all).
+     */
+    get: operations["recording_recordings__token___name__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/runs/{ticket}/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Run Events
-         * @description A ticket's run timeline, for the live run window. Poll with `after` = the last
-         *     event id you have, and only newer events come back.
-         */
-        get: operations["run_events_runs__ticket__events_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Recent Runs
+     * @description The latest runs the user may see (the demo's and their own), newest first.
+     */
+    get: operations["recent_runs_runs_get"];
+    put?: never;
+    /**
+     * Start Run
+     * @description Queue a run. 202 = accepted, not finished. On the user's own project, the ticket
+     *     must be in their Jira project, and their runs share a daily budget (429 past it). The
+     *     budget is ours to know: the message names a run limit, never an amount.
+     */
+    post: operations["start_run_runs_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/runs/{ticket}/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/runs/{ticket}/plan-decision": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Decide Plan
-         * @description Answer a run paused for plan approval: approve, revise (with feedback) or reject.
-         *     The job's result is "not_waiting" if no plan was waiting.
-         */
-        post: operations["decide_plan_runs__ticket__plan_decision_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Run Events
+     * @description A ticket's run timeline, for the live run window. Poll with `after` = the last
+     *     event id you have, and only newer events come back.
+     */
+    get: operations["run_events_runs__ticket__events_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/runs/{ticket}/plan-decision": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
+    get?: never;
+    put?: never;
+    /**
+     * Decide Plan
+     * @description Answer a run paused for plan approval: approve, revise (with feedback) or reject.
+     *     The job's result is "not_waiting" if no plan was waiting.
+     */
+    post: operations["decide_plan_runs__ticket__plan_decision_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        /** EventOut */
-        EventOut: {
-            /** Id */
-            id: number;
-            /** Kind */
-            kind: string;
-            /** Data */
-            data: {
-                [key: string]: unknown;
-            };
-            /** Agent Run Id */
-            agent_run_id: number | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-        };
-        /** GitHubConnect */
-        GitHubConnect: {
-            /**
-             * Token
-             * Format: password
-             */
-            token: string;
-            /** Repo */
-            repo: string;
-        };
-        /** GitHubConnection */
-        GitHubConnection: {
-            /** Login */
-            login: string;
-            /** Repo */
-            repo: string;
-            /**
-             * Connected At
-             * Format: date-time
-             */
-            connected_at: string;
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /** HealthReport */
-        HealthReport: {
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "ok" | "degraded";
-            /** Services */
-            services: {
-                [key: string]: components["schemas"]["ServiceStatus"];
-            };
-        };
-        /**
-         * IntegrationKind
-         * @enum {string}
-         */
-        IntegrationKind: "jira" | "github";
-        /** JiraConnect */
-        JiraConnect: {
-            /** Site */
-            site: string;
-            /** Email */
-            email: string;
-            /**
-             * Api Token
-             * Format: password
-             */
-            api_token: string;
-            /** Project Key */
-            project_key: string;
-        };
-        /** JiraConnection */
-        JiraConnection: {
-            /** Site */
-            site: string;
-            /** Email */
-            email: string;
-            /** Project Key */
-            project_key: string;
-            /**
-             * Connected At
-             * Format: date-time
-             */
-            connected_at: string;
-        };
-        /** JobStarted */
-        JobStarted: {
-            /** Job Id */
-            job_id: string;
-        };
-        /** JobStatus */
-        JobStatus: {
-            /** Job Id */
-            job_id: string;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "PENDING" | "STARTED" | "RETRY" | "FAILURE" | "SUCCESS";
-            /** Result */
-            result?: unknown;
-        };
-        /** LearnRequest */
-        LearnRequest: {
-            /**
-             * Pr
-             * @description Pull request number in the agent's repo
-             */
-            pr: number;
-        };
-        /** OwnProject */
-        OwnProject: {
-            /** Available */
-            available: boolean;
-            jira: components["schemas"]["JiraConnection"] | null;
-            github: components["schemas"]["GitHubConnection"] | null;
-            /** Project Id */
-            project_id: number | null;
-            /** Ready */
-            ready: boolean;
-        };
-        /**
-         * PlanDecision
-         * @description A human's answer to a paused plan.
-         */
-        PlanDecision: {
-            /**
-             * Decision
-             * @enum {string}
-             */
-            decision: "approve" | "revise" | "reject";
-            /**
-             * Feedback
-             * @default
-             */
-            feedback: string;
-        };
-        /**
-         * ProjectLinks
-         * @description Where a run's work lives, so the run window can link to it.
-         */
-        ProjectLinks: {
-            /** Repo */
-            repo: string | null;
-            /** Repo Url */
-            repo_url: string | null;
-            /** Jira Site */
-            jira_site: string | null;
-            /** Jira Project */
-            jira_project: string | null;
-            /** Board Url */
-            board_url: string | null;
-        };
-        /** RunRequest */
-        RunRequest: {
-            /** Ticket */
-            ticket: string;
-            /**
-             * Approve Plan
-             * @default false
-             */
-            approve_plan: boolean;
-            /**
-             * Figma Url
-             * @default
-             */
-            figma_url: string;
-            /** Project Id */
-            project_id?: number | null;
-        };
-        /** RunSummary */
-        RunSummary: {
-            /** Ticket */
-            ticket: string;
-            /** Project Id */
-            project_id: number;
-            /** Demo */
-            demo: boolean;
-            /** Title */
-            title: string;
-            /** Status */
-            status: string;
-            /** Pr Url */
-            pr_url: string | null;
-            /**
-             * Started At
-             * Format: date-time
-             */
-            started_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** RunTimeline */
-        RunTimeline: {
-            /** Ticket */
-            ticket: string;
-            /** Project Id */
-            project_id: number;
-            /** Demo */
-            demo: boolean;
-            /** Title */
-            title: string;
-            /** Ticket Url */
-            ticket_url: string | null;
-            /** Branch Url */
-            branch_url: string | null;
-            project: components["schemas"]["ProjectLinks"];
-            /** Status */
-            status: string;
-            /** Pr Url */
-            pr_url: string | null;
-            /** Events */
-            events: components["schemas"]["EventOut"][];
-        };
-        /** ServiceStatus */
-        ServiceStatus: {
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "ok" | "error" | "not_configured";
-            /** Detail */
-            detail?: string | null;
-        };
-        /** TestEventSent */
-        TestEventSent: {
-            /** Channel */
-            channel: string;
-            /** Event */
-            event: string;
-            /**
-             * Sent At
-             * Format: date-time
-             */
-            sent_at: string;
-        };
-        /** ValidationError */
-        ValidationError: {
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
-        };
+  schemas: {
+    /** EventOut */
+    EventOut: {
+      /** Id */
+      id: number;
+      /** Kind */
+      kind: string;
+      /** Data */
+      data: {
+        [key: string]: unknown;
+      };
+      /** Agent Run Id */
+      agent_run_id: number | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    /** GitHubConnect */
+    GitHubConnect: {
+      /**
+       * Token
+       * Format: password
+       */
+      token: string;
+      /** Repo */
+      repo: string;
+    };
+    /** GitHubConnection */
+    GitHubConnection: {
+      /** Login */
+      login: string;
+      /** Repo */
+      repo: string;
+      /**
+       * Connected At
+       * Format: date-time
+       */
+      connected_at: string;
+    };
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components["schemas"]["ValidationError"][];
+    };
+    /** HealthReport */
+    HealthReport: {
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "ok" | "degraded";
+      /** Services */
+      services: {
+        [key: string]: components["schemas"]["ServiceStatus"];
+      };
+    };
+    /**
+     * IntegrationKind
+     * @enum {string}
+     */
+    IntegrationKind: "jira" | "github";
+    /** JiraConnect */
+    JiraConnect: {
+      /** Site */
+      site: string;
+      /** Email */
+      email: string;
+      /**
+       * Api Token
+       * Format: password
+       */
+      api_token: string;
+      /** Project Key */
+      project_key: string;
+    };
+    /** JiraConnection */
+    JiraConnection: {
+      /** Site */
+      site: string;
+      /** Email */
+      email: string;
+      /** Project Key */
+      project_key: string;
+      /**
+       * Connected At
+       * Format: date-time
+       */
+      connected_at: string;
+    };
+    /** JobStarted */
+    JobStarted: {
+      /** Job Id */
+      job_id: string;
+    };
+    /** JobStatus */
+    JobStatus: {
+      /** Job Id */
+      job_id: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "PENDING" | "STARTED" | "RETRY" | "FAILURE" | "SUCCESS";
+      /** Result */
+      result?: unknown;
+    };
+    /** LearnRequest */
+    LearnRequest: {
+      /**
+       * Pr
+       * @description Pull request number in the agent's repo
+       */
+      pr: number;
+    };
+    /** OwnProject */
+    OwnProject: {
+      /** Available */
+      available: boolean;
+      jira: components["schemas"]["JiraConnection"] | null;
+      github: components["schemas"]["GitHubConnection"] | null;
+      /** Project Id */
+      project_id: number | null;
+      /** Ready */
+      ready: boolean;
+    };
+    /**
+     * PlanDecision
+     * @description A human's answer to a paused plan.
+     */
+    PlanDecision: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: "approve" | "revise" | "reject";
+      /**
+       * Feedback
+       * @default
+       */
+      feedback: string;
+    };
+    /**
+     * ProjectLinks
+     * @description Where a run's work lives, so the run window can link to it.
+     */
+    ProjectLinks: {
+      /** Repo */
+      repo: string | null;
+      /** Repo Url */
+      repo_url: string | null;
+      /** Jira Site */
+      jira_site: string | null;
+      /** Jira Project */
+      jira_project: string | null;
+      /** Board Url */
+      board_url: string | null;
+    };
+    /** RunRequest */
+    RunRequest: {
+      /** Ticket */
+      ticket: string;
+      /**
+       * Approve Plan
+       * @default false
+       */
+      approve_plan: boolean;
+      /**
+       * Figma Url
+       * @default
+       */
+      figma_url: string;
+      /** Project Id */
+      project_id?: number | null;
+    };
+    /** RunSummary */
+    RunSummary: {
+      /** Ticket */
+      ticket: string;
+      /** Project Id */
+      project_id: number;
+      /** Demo */
+      demo: boolean;
+      /** Title */
+      title: string;
+      /** Status */
+      status: string;
+      /** Pr Url */
+      pr_url: string | null;
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** RunTimeline */
+    RunTimeline: {
+      /** Ticket */
+      ticket: string;
+      /** Project Id */
+      project_id: number;
+      /** Demo */
+      demo: boolean;
+      /** Title */
+      title: string;
+      /** Ticket Url */
+      ticket_url: string | null;
+      /** Branch Url */
+      branch_url: string | null;
+      project: components["schemas"]["ProjectLinks"];
+      /** Status */
+      status: string;
+      /** Pr Url */
+      pr_url: string | null;
+      /** Events */
+      events: components["schemas"]["EventOut"][];
+    };
+    /** ServiceStatus */
+    ServiceStatus: {
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "ok" | "error" | "not_configured";
+      /** Detail */
+      detail?: string | null;
+    };
+    /** TestEventSent */
+    TestEventSent: {
+      /** Channel */
+      channel: string;
+      /** Event */
+      event: string;
+      /**
+       * Sent At
+       * Format: date-time
+       */
+      sent_at: string;
+    };
+    /** ValidationError */
+    ValidationError: {
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
+      /** Input */
+      input?: unknown;
+      /** Context */
+      ctx?: Record<string, never>;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    health_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthReport"];
-                };
-            };
-            /** @description One or more services are down */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthReport"];
-                };
-            };
-        };
+  health_health_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    start_ping_jobs_ping_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobStarted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["HealthReport"];
         };
+      };
+      /** @description One or more services are down */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HealthReport"];
+        };
+      };
     };
-    get_job_jobs__job_id__get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobStatus"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  start_ping_jobs_ping_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
     };
-    learn_learn_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LearnRequest"];
-            };
+        content: {
+          "application/json": components["schemas"]["JobStarted"];
         };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobStarted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    get_own_project_me_project_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OwnProject"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_job_jobs__job_id__get: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
     };
-    connect_jira_me_jira_put: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["JiraConnect"];
-            };
+        content: {
+          "application/json": components["schemas"]["JobStatus"];
         };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OwnProject"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    connect_github_me_github_put: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GitHubConnect"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OwnProject"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  learn_learn_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
     };
-    disconnect_integration_me__kind__delete: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                kind: components["schemas"]["IntegrationKind"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LearnRequest"];
+      };
     };
-    get_project_project_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectLinks"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["JobStarted"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    send_test_event_realtime_test_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TestEventSent"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_own_project_me_project_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
     };
-    recording_recordings__token___name__get: {
-        parameters: {
-            query?: never;
-            header?: {
-                Range?: string | null;
-            };
-            path: {
-                token: string;
-                name: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "video/webm": unknown;
-                };
-            };
-            /** @description Partial Content */
-            206: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "video/webm": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["OwnProject"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    recent_runs_runs_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RunSummary"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  connect_jira_me_jira_put: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
     };
-    start_run_runs_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RunRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobStarted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["JiraConnect"];
+      };
     };
-    run_events_runs__ticket__events_get: {
-        parameters: {
-            query?: {
-                project_id?: number | null;
-                after?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                ticket: string;
-            };
-            cookie?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RunTimeline"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["OwnProject"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    decide_plan_runs__ticket__plan_decision_post: {
-        parameters: {
-            query?: {
-                project_id?: number | null;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                ticket: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlanDecision"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JobStarted"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  connect_github_me_github_put: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
     };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GitHubConnect"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OwnProject"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  disconnect_integration_me__kind__delete: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        kind: components["schemas"]["IntegrationKind"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_project_project_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProjectLinks"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  send_test_event_realtime_test_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TestEventSent"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  recording_recordings__token___name__get: {
+    parameters: {
+      query?: never;
+      header?: {
+        Range?: string | null;
+      };
+      path: {
+        token: string;
+        name: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "video/webm": unknown;
+        };
+      };
+      /** @description Partial Content */
+      206: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "video/webm": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  recent_runs_runs_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RunSummary"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  start_run_runs_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RunRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobStarted"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  run_events_runs__ticket__events_get: {
+    parameters: {
+      query?: {
+        project_id?: number | null;
+        after?: number;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        ticket: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RunTimeline"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  decide_plan_runs__ticket__plan_decision_post: {
+    parameters: {
+      query?: {
+        project_id?: number | null;
+      };
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        ticket: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PlanDecision"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JobStarted"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
 }
