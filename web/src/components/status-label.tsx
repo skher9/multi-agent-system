@@ -1,15 +1,13 @@
-import { TONE, type Run, statusOf } from "@/lib/runs/use-runs";
+import { Chip } from "@/components/ui/chip";
+import { type Run, statusOf } from "@/lib/runs/use-runs";
 
-/** A run's status in words, with a dot that pulses while it's live. */
+/** A run's status as a coloured pill, with a dot that pulses while it's live. */
 export function StatusLabel({ run }: { run: Run }) {
   const status = statusOf(run);
   return (
-    <span className={`inline-flex items-center gap-1.5 ${TONE[status.tone]}`}>
-      <span
-        aria-hidden
-        className={`size-1.5 rounded-full bg-current ${status.tone === "live" ? "animate-pulse" : ""}`}
-      />
+    <Chip tone={status.tone}>
+      {status.live && <span aria-hidden className="size-2 animate-pulse rounded-full bg-ink" />}
       {status.label}
-    </span>
+    </Chip>
   );
 }

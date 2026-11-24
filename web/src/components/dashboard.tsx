@@ -3,6 +3,9 @@
 import Link from "next/link";
 
 import { ButtonLink } from "@/components/button";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import type { Tone } from "@/components/ui/tone";
 import { useOwnProject } from "@/components/own-project";
 import { StatusLabel } from "@/components/status-label";
 import { duration, type Run, runHref, runKey, useRuns } from "@/lib/runs/use-runs";
@@ -13,7 +16,7 @@ export function Overview() {
 
   if (error && runs === null)
     return <p className="text-sm text-bad">Couldn&apos;t load your runs. Retrying…</p>;
-  if (runs === null) return <div className="h-72 animate-pulse rounded-lg bg-surface" />;
+  if (runs === null) return <div className="h-72 animate-pulse rounded-3xl bg-raised" />;
   if (runs.length === 0) return <FirstRun />;
 
   const [latest, ...earlier] = runs as [Run, ...Run[]]; // not empty: checked above
@@ -29,18 +32,17 @@ export function Overview() {
               All runs →
             </Link>
           </div>
-          <ul className="mt-3 divide-y divide-line border-y border-line">
+          <ul className="mt-4 space-y-3">
             {earlier.slice(0, 3).map((run) => (
               <li
                 key={runKey(run)}
-                className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-3 text-sm"
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border-ink-line bg-surface px-4 py-3 text-sm transition hover:-translate-px hover:shadow-hard-sm"
               >
-                <Link
-                  href={runHref(run)}
-                  className="flex min-w-0 items-baseline gap-3 hover:underline hover:underline-offset-4"
-                >
-                  <span className="font-mono text-xs text-muted">{run.ticket}</span>
-                  <span className="truncate">{run.title || run.ticket}</span>
+                <Link href={runHref(run)} className="flex min-w-0 items-center gap-3">
+                  <Chip tone="butter" mono>
+                    {run.ticket}
+                  </Chip>
+                  <span className="truncate font-semibold">{run.title || run.ticket}</span>
                 </Link>
                 <span className="ml-auto flex gap-4 text-muted">
                   <StatusLabel run={run} />
@@ -59,18 +61,18 @@ function Stats({ runs }: { runs: Run[] }) {
   const prs = runs.filter((r) => r.pr_url).length;
   const middle = median(runs.filter((r) => r.pr_url));
   const typical = middle ? duration(middle) : "–";
-  const items = [
-    [String(runs.length), runs.length === 1 ? "run" : "runs"],
-    [String(prs), prs === 1 ? "pull request" : "pull requests"],
-    [typical, "typical run to PR"],
+  const items: [value: string, label: string, tone: Tone][] = [
+    [String(runs.length), runs.length === 1 ? "run" : "runs", "lilac"],
+    [String(prs), prs === 1 ? "pull request" : "pull requests", "mint"],
+    [typical, "typical run to PR", "butter"],
   ];
   return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3">
-      {items.map(([value, label]) => (
-        <div key={label} className="bg-surface px-5 py-4">
-          <dd className="font-display text-4xl leading-none">{value}</dd>
-          <dt className="mt-2 text-xs text-muted">{label}</dt>
-        </div>
+    <dl className="grid gap-5 sm:grid-cols-3">
+      {items.map(([value, label, tone]) => (
+        <Card as="div" key={label} tone={tone} className="animate-rise py-5! sm:py-5!">
+          <dt className="text-xs font-semibold tracking-wider text-muted uppercase">{label}</dt>
+          <dd className="mt-1 font-display text-4xl">{value}</dd>
+        </Card>
       ))}
     </dl>
   );
@@ -78,38 +80,30 @@ function Stats({ runs }: { runs: Run[] }) {
 
 function Latest({ run }: { run: Run }) {
   return (
-    <section className="rounded-lg border border-line bg-surface p-6">
-      <p className="flex items-center justify-between text-xs text-muted">
-        <span className="font-mono">Latest · {run.ticket}</span>
+    <Card tone="sky">
+      <p className="flex items-center justify-between gap-3 text-sm">
+        <Chip tone="butter" mono>
+          Latest · {run.ticket}
+        </Chip>
         <StatusLabel run={run} />
       </p>
       <h2 className="mt-3 font-display text-3xl leading-tight">{run.title || run.ticket}</h2>
       <p className="mt-2 text-sm text-muted">{duration(run)}</p>
-      <div className="mt-5 flex flex-wrap gap-3 text-sm">
-        <Link
-          href={runHref(run)}
-          className="rounded-md bg-ink px-4 py-2 font-medium text-canvas transition hover:bg-accent hover:text-accent-ink"
-        >
-          Open the run
-        </Link>
+      <p className="mt-5 flex flex-wrap gap-3">
+        <ButtonLink href={runHref(run)}>Open the run</ButtonLink>
         {run.pr_url && (
-          <a
-            href={run.pr_url}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-md border border-ink/15 px-4 py-2 font-medium transition hover:border-ink/40"
-          >
+          <ButtonLink href={run.pr_url} target="_blank" rel="noreferrer" variant="ghost">
             See the pull request ↗
-          </a>
+          </ButtonLink>
         )}
-      </div>
-    </section>
+      </p>
+    </Card>
   );
 }
 
 function FirstRun() {
   return (
-    <section className="rounded-lg border border-dashed border-line px-6 py-12 text-center">
+    <Card tone="butter" className="px-6 py-12 text-center">
       <h2 className="font-display text-3xl">Your team is ready.</h2>
       <p className="mx-auto mt-3 max-w-md text-muted">
         Start a run with a ticket on the right. Not sure what to try?{" "}
@@ -118,7 +112,7 @@ function FirstRun() {
         </Link>{" "}
         first.
       </p>
-    </section>
+    </Card>
   );
 }
 
@@ -138,20 +132,20 @@ export function OwnProjectCard() {
   if (!project?.available) return null;
   if (project.ready)
     return (
-      <section className="rounded-lg border border-line p-5 text-sm">
+      <Card tone="mint" className="text-sm">
         <h2 className="font-display text-xl">Your project</h2>
         <p className="mt-2 text-muted">
           <span className="font-mono text-xs text-ink">{project.github?.repo}</span> with Jira{" "}
           <span className="font-mono text-xs text-ink">{project.jira?.project_key}</span>. Only you
           see its runs.
         </p>
-        <Link href="/settings#project" className="mt-3 inline-block text-accent hover:underline">
+        <ButtonLink href="/settings#project" size="sm" variant="ghost" className="mt-4">
           Manage or disconnect
-        </Link>
-      </section>
+        </ButtonLink>
+      </Card>
     );
   return (
-    <section className="rounded-lg border border-line p-5 text-sm">
+    <Card tone="peach" className="text-sm">
       <h2 className="font-display text-xl">Use your own project</h2>
       <p className="mt-2 text-muted">
         Connect your Jira and a GitHub repo, and the same team works on your tickets. Pull requests
@@ -160,6 +154,6 @@ export function OwnProjectCard() {
       <ButtonLink href="/setup" size="sm" variant="ghost" className="mt-4">
         Set it up · 5 min
       </ButtonLink>
-    </section>
+    </Card>
   );
 }

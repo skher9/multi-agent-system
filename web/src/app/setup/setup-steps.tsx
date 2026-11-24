@@ -8,7 +8,7 @@ export function SetupSteps() {
   return (
     <div className="mt-8 space-y-6">
       <OwnProject numbered after={(project) => <Done project={project} />} />
-      <section className="border-t border-line pt-6 text-sm text-muted">
+      <section className="border-t-[1.5px] border-dashed border-ink/20 pt-6 text-sm text-muted">
         <h2 className="font-medium text-ink">What agents can do with these</h2>
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>Read the ticket you start a run on, comment on it, and add subtasks under it.</li>
@@ -26,7 +26,7 @@ export function SetupSteps() {
 function Done({ project }: { project: OwnProjectState }) {
   if (!project.ready) return null;
   return (
-    <div className="flex flex-wrap items-center gap-4 rounded-lg border border-ok/40 bg-surface p-5">
+    <div className="flex flex-wrap items-center gap-4 rounded-3xl border-ink-line bg-mint p-5 shadow-hard-sm">
       <p className="text-sm">
         You&apos;re set up. Start a run on{" "}
         <span className="font-mono text-xs">{project.github?.repo}</span> from the dashboard.

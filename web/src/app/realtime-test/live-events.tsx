@@ -49,12 +49,12 @@ export function LiveEvents() {
 
   return (
     <section className="space-y-4">
-      <button type="button" onClick={send} className="rounded border px-3 py-1 text-sm">
+      <button type="button" onClick={send} className="rounded-xl border-ink-line px-3 py-1 text-sm">
         Send test event
       </button>
       {sendError && <p className="text-red-700">{sendError}</p>}
       <ul className="space-y-1 font-mono text-sm">
-        {received.length === 0 && <li className="text-gray-500">Waiting for events…</li>}
+        {received.length === 0 && <li className="text-muted">Waiting for events…</li>}
         {received.map((line) => (
           <li key={line}>{line}</li>
         ))}

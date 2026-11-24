@@ -3,6 +3,8 @@
 import Link from "next/link";
 
 import { StatusLabel } from "@/components/status-label";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
 import { day, duration, runHref, runKey, useRuns } from "@/lib/runs/use-runs";
 
 /** Every run, newest first, refreshed every 10 seconds: a table on wide screens, a
@@ -15,7 +17,7 @@ export function RunsList() {
   if (runs === null) return <TableSkeleton />;
   if (runs.length === 0)
     return (
-      <p className="rounded-lg border border-dashed border-line px-5 py-10 text-center text-muted">
+      <p className="rounded-3xl border-[1.5px] border-dashed border-ink/30 px-5 py-10 text-center text-muted">
         No runs yet. Start one from the{" "}
         <Link href="/dashboard" className="text-ink underline underline-offset-4">
           dashboard
@@ -29,34 +31,36 @@ export function RunsList() {
     );
 
   return (
-    <div className="overflow-hidden rounded-lg border border-line bg-surface">
+    <Card as="div" tone="lilac" className="overflow-hidden p-0! sm:p-0!">
       <table className="w-full text-sm">
-        <thead className="hidden border-b border-line text-left text-xs text-muted sm:table-header-group">
+        <thead className="hidden border-b-[1.5px] border-ink text-left text-xs font-semibold tracking-wider text-muted uppercase sm:table-header-group">
           <tr>
-            <th className="px-5 py-3 font-normal">Ticket</th>
-            <th className="px-3 py-3 font-normal">Status</th>
-            <th className="px-3 py-3 text-right font-normal">Time</th>
-            <th className="px-3 py-3 font-normal">Started</th>
+            <th className="px-5 py-3">Ticket</th>
+            <th className="px-3 py-3">Status</th>
+            <th className="px-3 py-3 text-right">Time</th>
+            <th className="px-3 py-3">Started</th>
             <th className="px-5 py-3">
               <span className="sr-only">Links</span>
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-line">
+        <tbody className="divide-y-[1.5px] divide-dashed divide-ink/20">
           {runs.map((run) => (
             <tr
               key={runKey(run)}
-              className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-4 transition hover:bg-raised/60 sm:table-row sm:p-0"
+              className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4 transition hover:bg-raised/60 sm:table-row sm:p-0"
             >
               <td className="w-full sm:w-auto sm:px-5 sm:py-4">
-                <Link href={runHref(run)} className="group flex min-w-0 items-baseline gap-3">
-                  <span className="font-mono text-xs text-muted">{run.ticket}</span>
+                <Link href={runHref(run)} className="group flex min-w-0 items-center gap-3">
+                  <Chip tone="butter" mono className="shrink-0">
+                    {run.ticket}
+                  </Chip>
                   {!run.demo && (
-                    <span className="shrink-0 rounded-sm border border-line px-1.5 text-xs text-muted">
+                    <Chip tone="lime" className="shrink-0">
                       your project
-                    </span>
+                    </Chip>
                   )}
-                  <span className="truncate font-medium group-hover:underline group-hover:underline-offset-4">
+                  <span className="truncate font-semibold group-hover:underline group-hover:underline-offset-4">
                     {run.title || run.ticket}
                   </span>
                 </Link>
@@ -72,7 +76,7 @@ export function RunsList() {
               </td>
               <td className="ml-auto sm:px-5 sm:py-4 sm:text-right">
                 <span className="inline-flex gap-4">
-                  <Link href={runHref(run)} className="text-muted hover:text-ink">
+                  <Link href={runHref(run)} className="font-semibold hover:text-accent">
                     Watch
                   </Link>
                   {run.pr_url && (
@@ -80,7 +84,7 @@ export function RunsList() {
                       href={run.pr_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-ink hover:text-accent"
+                      className="font-semibold hover:text-accent"
                     >
                       PR ↗
                     </a>
@@ -91,18 +95,15 @@ export function RunsList() {
           ))}
         </tbody>
       </table>
-    </div>
+    </Card>
   );
 }
 
 function TableSkeleton() {
   return (
-    <div
-      className="space-y-px overflow-hidden rounded-lg border border-line"
-      aria-label="Loading runs"
-    >
+    <div className="space-y-3" aria-label="Loading runs">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="h-14 animate-pulse bg-surface" />
+        <div key={i} className="h-14 animate-pulse rounded-2xl bg-raised" />
       ))}
     </div>
   );
