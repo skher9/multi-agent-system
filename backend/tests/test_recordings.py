@@ -152,3 +152,19 @@ def test_recording_route_serves_the_video_with_ranges(monkeypatch: pytest.Monkey
     assert client.get(f"/recordings/{TOKEN}/2.webm").status_code == 404
     assert client.get("/recordings/short/1.webm").status_code == 422
     assert client.get(f"/recordings/{TOKEN}/1.mp4").status_code == 422
+
+
+def test_agent_output_inlines_the_failure_snapshot_and_hides_our_paths(tmp_path: Path) -> None:
+    failed = tmp_path / "results" / "footer-home-link-chromium"
+    failed.mkdir(parents=True)
+    (failed / "error-context.md").write_text('- link "Home" [ref=e3]\n')
+    output = (
+        "> playwright test -c playwright.mas.config.ts\n"
+        "Error Context: ../mas-recordings/results/footer-home-link-chromium/error-context.md\n"
+        "1 failed"
+    )
+    text = recordings.agent_output(output, tmp_path)
+    assert "playwright.mas.config.ts" not in text and "mas-recordings" not in text
+    assert "> playwright test\n" in text and "1 failed" in text
+    assert '--- Page when footer-home-link-chromium failed ---\n- link "Home" [ref=e3]' in text
+    assert recordings.agent_output("2 passed", tmp_path / "none") == "2 passed"
