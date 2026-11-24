@@ -86,15 +86,21 @@ def test_open_pull_request_creates_one_when_none_is_open() -> None:
     assert posted == [{"head": "agent/KAN-4", "base": "main", "title": "T", "body": "B"}]
 
 
-def test_open_pull_request_reuses_the_open_one() -> None:
+def test_open_pull_request_reuses_the_open_one_with_this_runs_text() -> None:
+    patched: list[tuple[str, dict[str, str]]] = []
+
     def handler(request: httpx2.Request) -> httpx2.Response:
-        assert request.method == "GET", "must not open a second PR"
+        assert request.method != "POST", "must not open a second PR"
+        if request.method == "PATCH":
+            patched.append((request.url.path, json.loads(request.content)))
+            return httpx2.Response(200, json={"number": 3})
         return httpx2.Response(200, json=[{"number": 3, "html_url": "https://github.com/x/pull/3"}])
 
     pr = make_client(handler).open_pull_request(
         "skher9/agent-playground", head="agent/KAN-4", base="main", title="T", body="B"
     )
     assert pr.number == 3
+    assert patched == [("/repos/skher9/agent-playground/pulls/3", {"title": "T", "body": "B"})]
 
 
 def test_pull_request_diff_asks_for_the_diff_format() -> None:

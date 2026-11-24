@@ -79,8 +79,8 @@ class GitHubClient:
     def open_pull_request(
         self, repo: str, *, head: str, base: str, title: str, body: str
     ) -> PullRequest:
-        """Open a PR from branch `head` into `base`, or return the one already open for it
-        (a rerun after a crash must not open a second PR)."""
+        """Open a PR from branch `head` into `base`. If one is already open for it (a rerun),
+        update its title and description to this run's instead of opening a second PR."""
         owner = _checked(repo).split("/")[0]
         found = self._http.get(
             f"/repos/{repo}/pulls", params={"head": f"{owner}:{head}", "state": "open"}
@@ -88,6 +88,10 @@ class GitHubClient:
         found.raise_for_status()
         if found.json():
             pr = found.json()[0]
+            updated = self._http.patch(
+                f"/repos/{repo}/pulls/{pr['number']}", json={"title": title, "body": body}
+            )
+            updated.raise_for_status()
             return PullRequest(pr["number"], pr["html_url"])
         response = self._http.post(
             f"/repos/{repo}/pulls", json={"head": head, "base": base, "title": title, "body": body}
