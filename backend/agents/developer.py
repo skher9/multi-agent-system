@@ -24,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from agents.design import Design, design_block
 from agents.learner import repo_rules_block
 from agents.loop import EventSink, ignore_events, run_agent
-from agents.planner import Plan, Subtask
+from agents.planner import MAX_DECISIONS, Decision, Plan, Subtask
 from agents.project_context import file_blocks, project_context
 from agents.repo_tools import TEST_FILE, RepoTools, tool_definitions
 from agents.reviewer import Review
@@ -41,6 +41,20 @@ MAX_CHECK_OUTPUT_CHARS = 6000  # failure output sent back to the model
 
 class DeveloperError(Exception):
     """The repo couldn't be prepared (e.g. packages failed to install)."""
+
+
+class Risk(BaseModel):
+    """A spot a reviewer should look at closely, and why."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: str = Field(
+        min_length=1, max_length=150, description="A file, or a behaviour, e.g. layout.tsx"
+    )
+    what: str = Field(min_length=1, max_length=250, description="What could go wrong there")
+
+
+MAX_RISKS = 3
 
 
 class Done(BaseModel):
@@ -60,12 +74,26 @@ class Done(BaseModel):
         description="Only if the plan is wrong in a way that changes what gets built: what "
         "and why. Leave empty otherwise",
     )
+    decisions: list[Decision] = Field(
+        default_factory=list,
+        max_length=MAX_DECISIONS,
+        description="Real choices you made while building that the plan didn't settle; "
+        "usually empty",
+    )
+    risks: list[Risk] = Field(
+        default_factory=list,
+        max_length=MAX_RISKS,
+        description="Up to 3 spots a reviewer should check closely, each naming a file or "
+        "behaviour; empty when there are none",
+    )
 
 
 class DevResult(BaseModel):
     summary: str
     changed_files: list[str]
     problem: str = ""  # non-empty: stopped, a human needs to look
+    decisions: list[Decision] = []
+    risks: list[Risk] = []
 
 
 def develop_ticket(
@@ -126,6 +154,8 @@ def develop_ticket(
         summary=done.summary,
         changed_files=sorted(tools.changed_files),
         problem=done.problem.strip(),
+        decisions=done.decisions,
+        risks=done.risks,
     )
 
 
@@ -275,7 +305,9 @@ How to work:
 4. If <review_comments> are given, address every comment. If <check_failures> are given,
    fix exactly those. If a repro script is given, run it and make sure it passes.
 5. Call finish with a summary: files changed, which test covers which criterion, and any
-   deviation from the plan with the reason. Lint, typecheck and the unit tests run then;
+   deviation from the plan with the reason. Add decisions only for real choices the plan
+   didn't settle, and risks only for spots a reviewer should check closely, each naming a
+   file or a behaviour (never "please test carefully"). Lint, typecheck and the unit tests run then;
    if anything fails you get the output back: fix it and call finish again.
 
 Never cheat to make checks pass:

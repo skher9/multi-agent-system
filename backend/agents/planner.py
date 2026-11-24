@@ -91,6 +91,21 @@ class Dependency(BaseModel):
     why: str = Field(min_length=1)
 
 
+class Decision(BaseModel):
+    """A real choice: another reasonable way existed, and this one was picked."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    choice: str = Field(min_length=1, max_length=200, description="What was chosen")
+    why: str = Field(min_length=1, max_length=200)
+    rejected: str = Field(
+        min_length=1, max_length=200, description="The other reasonable way, and why not"
+    )
+
+
+MAX_DECISIONS = 3
+
+
 class Subtask(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -120,6 +135,12 @@ class Plan(BaseModel):
     )
     dependencies: list[Dependency] = Field(description="New packages; usually empty")
     unrelated_issues: list[str] = Field(description="Problems noticed outside the ticket")
+    decisions: list[Decision] = Field(
+        default_factory=list,
+        max_length=MAX_DECISIONS,
+        description="Up to 3 real choices in the plan (another reasonable way existed); "
+        "empty when there were none",
+    )
 
 
 def plan_ticket(
@@ -381,7 +402,11 @@ Work in this order:
 4. Record assumptions: small choices the ticket doesn't settle but that don't change what
    gets built (e.g. where a button sits when the page has an obvious spot). Decide them by
    following existing patterns, and list each one in a sentence.
-5. Split the work into subtasks: FE for pages, components, styles and their tests; BE for
+5. Record decisions: at most 3 real choices, where another reasonable way existed (e.g.
+   the footer goes in the layout instead of on each page). For each: what you chose, why,
+   and what you rejected. Leave it empty when every choice was obvious; never list
+   choices like "used TypeScript".
+6. Split the work into subtasks: FE for pages, components, styles and their tests; BE for
    API routes, server actions, data and their tests. Usually one or two subtasks; each
    lists its files from the changes. If there are both, BE comes first, and the plan
    defines the contract between them: each route or action, its input, and its output.

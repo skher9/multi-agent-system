@@ -46,7 +46,7 @@ from agents.reviewer import Review, review_markdown
 from agents.ticket_reader import TicketSpec, questions_comment, read_ticket, with_design_link
 from llm_router.router import LlmRouter
 from orchestrator.decisions import PlanDecision
-from orchestrator.handback import pr_body, pr_comment, pr_title, problem_comment
+from orchestrator.handback import pr_body, pr_comment, pr_risks, pr_title, problem_comment
 from services.jira import JiraClient, JiraTicket
 
 # A node returns only the keys it changes; LangGraph merges them into RunState.
@@ -286,6 +286,11 @@ def review(state: RunState, runtime: Runtime[RunContext]) -> Update:
             summary += (
                 "\n\nThe checks noticed small repeated blocks (allowed, but judge them):\n"
                 + "\n".join(f"- {n}" for n in notes)
+            )
+        risks = pr_risks(Plan.model_validate(state["plan"]), DevResult.model_validate(state["dev"]))
+        if risks:
+            summary += "\n\nCheck these spots closely first:\n" + "\n".join(
+                f"- {r.where}: {r.what}" for r in risks
             )
         if "fix_dev" in state:
             summary += f"\n\nLatest fixes:\n{state['fix_dev']['summary']}"
