@@ -192,7 +192,7 @@ function Trust() {
 function Closing() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-24">
-      <Card tone="butter" className="bg-[#fff8e6] px-6 py-14 text-center sm:px-12">
+      <Card tone="butter" className="px-6 py-14 text-center sm:px-12">
         <h2 className="font-display text-5xl leading-tight text-balance sm:text-6xl">
           Give it a ticket. Watch it ship.
         </h2>
