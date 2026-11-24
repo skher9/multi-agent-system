@@ -546,7 +546,7 @@ class RepoTools:
         if exit_code != 0 and not (record_to / recordings.REPORT).is_file():
             # No report: our config broke the run (e.g. an older Playwright). Run it plain
             return self._sandbox(E2E, timeout_seconds=E2E_TIMEOUT_SECONDS, label="browser tests")
-        return exit_code, output
+        return exit_code, recordings.agent_output(output, record_to)
 
     def _sandbox(
         self,
