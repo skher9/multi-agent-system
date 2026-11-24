@@ -255,3 +255,9 @@ def test_closing_the_workspace_kills_its_sandbox(boxes: list[FakeBox], tmp_path:
     sandbox_e2b.close(workspace)
     assert boxes[0].killed
     assert not sandbox_e2b._sessions
+
+
+def test_every_folder_the_pipeline_mounts_is_made_by_the_image() -> None:
+    from agents import code_graph, recordings
+
+    assert {code_graph.CONTAINER_GRAPH_DIR, recordings.MOUNT} <= set(sandbox_e2b.MOUNT_DIRS)
