@@ -7,34 +7,42 @@ it's unclear, study the codebase, plan the work, write the code, test it in a re
 review it, and open a PR. A person approves the plan before any code is written, and a
 person decides whether to merge.
 
-**Live site:** https://agent-dev-team-jade.vercel.app · **Example PR written by the agents:**
-[skher9/agent-playground#1](https://github.com/skher9/agent-playground/pull/1)
+**Live site:** https://agent-dev-team-jade.vercel.app · **Latest PR written by the agents:**
+[skher9/agent-playground#13](https://github.com/skher9/agent-playground/pull/13), with a
+video of every browser test
 
-> Built by Shravani Kher as a portfolio project. The website is live; the agent backend
-> runs locally and is being deployed.
+> Built by Shravani Kher. The website runs on Vercel, the API and agent workers on
+> Railway, and agent-written code in E2B cloud sandboxes.
 
 ---
 
 ## What a run looks like
 
-Ticket **KAN-4: "Add a contact page"**, with six acceptance criteria (form fields, email
-validation, a thank-you message, a link from the home page, no backend call).
+Ticket **KAN-10: "Add a site footer"**, with three acceptance criteria (a copyright line,
+a link home, the footer on every page).
 
 1. **Ticket reader** checks the ticket is clear enough to build. If not, it posts questions
    on the ticket and stops.
-2. **Planner** reads the code and plans the change: create `src/app/contact/page.tsx`,
-   modify `src/app/page.tsx`, add tests. It checks the ticket against the code for
+2. **Planner** reads the code and plans the change: create `src/components/Footer.tsx`,
+   modify `src/app/layout.tsx`, add tests. It checks the ticket against the code for
    conflicts, and the plan goes on the ticket for a human to **approve, revise or reject**.
 3. **Developer** builds each subtask. It can't say "done" until lint, typecheck and the
    unit tests pass, which our code runs, not the model.
-4. **Verify:** the whole branch is checked again and scanned for leaked keys and
-   placeholder code. Then a **QA agent** writes Playwright tests, one or more per
-   acceptance criterion, and runs them against a production build.
-5. **Reviewer** reads the diff against the ticket and either approves or lists issues.
-   A fixer handles them, up to two rounds, and then the PR opens with a delivery report.
+4. **Verify:** the whole branch is checked again: lint, typecheck, unit tests, a production
+   build, and scans of the lines the agents added for leaked keys, placeholder code, code
+   smells and copied code. If anything fails, a **fixer** must make all of it pass.
+5. **QA** writes test cases from the ticket (steps a user takes, what they should see),
+   then one Playwright test per case that clicks and types like a person. Every test is
+   recorded on video, and pass or fail is read from Playwright's own report, not from the
+   agent.
+6. **Reviewer**, on a stronger model, scores the change 1 to 10 in five areas
+   (correctness, tests, readability, fits the repo, robustness). Any area below 6 goes back
+   to the fixer, up to two rounds. The PR opens with the checks, the test cases and a link
+   to each recording.
 
-The result for KAN-4: [5 files, 208 lines](https://github.com/skher9/agent-playground/pull/1),
-4 unit tests and 5 browser tests, every criterion mapped to a test.
+The result for KAN-10: [PR #13](https://github.com/skher9/agent-playground/pull/13), with
+5 test cases (two of them edge cases QA thought of itself), all passing, each with a video.
+On the website, the run page has a "Watch the testing" player.
 
 ## How it works
 
@@ -63,9 +71,9 @@ again.
 
 ## Design decisions
 
-- **Code checks, models don't grade themselves.** "Done" means lint, typecheck, unit tests
-  and browser tests pass, run by our code. The QA agent's report is accepted only if it
-  covers every acceptance criterion exactly once.
+- **Code checks, models don't grade themselves.** "Done" means lint, typecheck, unit tests,
+  the build and browser tests pass, run by our code. QA's results come from Playwright's
+  report, and every reviewer finding must quote real code, which our code verifies.
 - **Each agent gets only the tools its job needs.** The ticket reader has none, the planner
   and reviewer can only read, and only the developer can edit. Requests for any other tool
   are refused in code.
@@ -76,13 +84,16 @@ again.
 - **It learns from reviews.** When a person leaves review comments on a merged agent PR,
   the learner turns them into short rules ("use the shared Button") that later runs follow
   ([`agents/learner.py`](backend/agents/learner.py)).
+- **Cheap models, hard checks.** Most agents run on DeepSeek V4.1 Flash; the reviewer and
+  any agent that gets stuck move to DeepSeek V4 Pro. A build costs about ₹8 a ticket.
 - **Every model call goes through one router**, which logs the cost in ₹ and stops a run
   at its budget (₹50 by default). Model IDs live in one file, and a new model must pass the
   eval set first ([`evals/`](backend/evals)).
 
 ## Security
 
-- **Sandboxed code.** Everything the agents write runs in a throwaway Docker container:
+- **Sandboxed code.** Everything the agents write runs in a throwaway sandbox (Docker
+  locally, an E2B microVM in production):
   non-root, all Linux capabilities dropped, CPU, memory, process and time limits, and a
   network that reaches only the npm registry through a proxy
   ([`services/sandbox.py`](backend/services/sandbox.py)).
@@ -98,14 +109,15 @@ again.
 
 ## Tech
 
-| Part         | What                                                                       |
-| ------------ | -------------------------------------------------------------------------- |
-| Agents       | Python 3.12, LangGraph, OpenRouter (MiniMax M3, GLM-5.2 as escalation)     |
-| API, workers | FastAPI, Celery, Redis                                                     |
-| Data         | Postgres on Neon, SQLAlchemy + Alembic, Cloudflare R2 for code graphs      |
-| Website      | Next.js 16, React 19, Tailwind CSS v4, Better Auth, Pusher for live events |
-| Testing      | pytest (299 tests), Playwright, a golden-ticket eval set                   |
-| Integrations | Jira, GitHub                                                               |
+| Part         | What                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------- |
+| Agents       | Python 3.12, LangGraph, OpenRouter (DeepSeek V4.1 Flash, V4 Pro)                      |
+| API, workers | FastAPI, Celery, Redis                                                                |
+| Data         | Postgres on Neon, SQLAlchemy + Alembic, Cloudflare R2 for code graphs and test videos |
+| Website      | Next.js 16, React 19, Tailwind CSS v4, Better Auth, Pusher for live events            |
+| Testing      | pytest (412 tests), Playwright, a golden-ticket eval set, a 9-ticket benchmark        |
+| Hosting      | Vercel (website), Railway (API, workers), E2B (sandboxes)                             |
+| Integrations | Jira, GitHub                                                                          |
 
 ## Repo layout
 
@@ -115,6 +127,7 @@ again.
 | `backend/orchestrator/`     | The LangGraph pipeline, run records, plan approval              |
 | `backend/llm_router/`       | The only code that calls models: routing, cost logging, budgets |
 | `backend/services/`         | Jira, GitHub, sandbox, R2 and workspace clients                 |
+| `backend/experiments/`      | The benchmark: fixed tickets, cost and quality per agent        |
 | `backend/evals/`            | Golden tickets scored in code after a prompt or model change    |
 | `web/`                      | The website: landing page, login, dashboard, run window         |
 | `sandbox/`                  | The Docker image agent code runs in, and its npm-only proxy     |
