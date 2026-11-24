@@ -32,6 +32,9 @@ BASE_CONFIGS = (
 VIDEO_TYPE = "video/webm"
 MAX_VIDEO_BYTES = 20_000_000  # a longer recording than this isn't uploaded
 MAX_ERROR_CHARS = 600
+MAX_CONTEXT_CHARS = 2500  # per failed test: the page as Playwright saw it
+CONTEXT_FILE = "error-context.md"
+MOUNT_PATH = re.compile(r"(?:\.\./)*" + re.escape(MOUNT) + r"/\S*")
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 KEY_PREFIX = "recordings"
 
@@ -150,6 +153,22 @@ def _video(attachments: Any, folder: Path) -> Path | None:
         if path.is_relative_to(folder) and path.is_file() and not path.is_symlink():
             return path
     return None
+
+
+def agent_output(output: str, folder: Path) -> str:
+    """A recorded run's output as the agent should read it. Playwright points at files in
+    the recordings folder, which the agent's tools can't open, and names our temporary
+    config: both are dropped, and each failed test's page snapshot (error-context.md, the
+    page's text and roles when the test failed) is put inline instead."""
+    text = output.replace(f" -c {RECORD_CONFIG}", "")
+    text = MOUNT_PATH.sub("(see the page snapshot below)", text)
+    snapshots = []
+    for context in sorted((folder / "results").glob(f"*/{CONTEXT_FILE}")):
+        if context.is_symlink() or not context.resolve().is_relative_to(folder.resolve()):
+            continue
+        page = context.read_text(errors="replace").strip()[:MAX_CONTEXT_CHARS]
+        snapshots.append(f"--- Page when {context.parent.name} failed ---\n{page}")
+    return "\n\n".join([text, *snapshots]) if snapshots else text
 
 
 def publish(storage: Storage, videos: list[Path | None], token: str) -> list[str]:
