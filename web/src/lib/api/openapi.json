@@ -7,7 +7,9 @@
   "paths": {
     "/health": {
       "get": {
-        "tags": ["health"],
+        "tags": [
+          "health"
+        ],
         "summary": "Health",
         "description": "Check every external service. 200 if all are ok, 503 otherwise.",
         "operationId": "health_health_get",
@@ -37,7 +39,9 @@
     },
     "/jobs/ping": {
       "post": {
-        "tags": ["jobs"],
+        "tags": [
+          "jobs"
+        ],
         "summary": "Start Ping",
         "description": "Queue the ping task. 202 = accepted, not finished.",
         "operationId": "start_ping_jobs_ping_post",
@@ -85,7 +89,9 @@
     },
     "/jobs/{job_id}": {
       "get": {
-        "tags": ["jobs"],
+        "tags": [
+          "jobs"
+        ],
         "summary": "Get Job",
         "operationId": "get_job_jobs__job_id__get",
         "parameters": [
@@ -141,7 +147,9 @@
     },
     "/learn": {
       "post": {
-        "tags": ["learn"],
+        "tags": [
+          "learn"
+        ],
         "summary": "Learn",
         "operationId": "learn_learn_post",
         "parameters": [
@@ -198,7 +206,9 @@
     },
     "/me/project": {
       "get": {
-        "tags": ["me"],
+        "tags": [
+          "me"
+        ],
         "summary": "Get Own Project",
         "operationId": "get_own_project_me_project_get",
         "parameters": [
@@ -245,7 +255,9 @@
     },
     "/me/jira": {
       "put": {
-        "tags": ["me"],
+        "tags": [
+          "me"
+        ],
         "summary": "Connect Jira",
         "operationId": "connect_jira_me_jira_put",
         "parameters": [
@@ -302,7 +314,9 @@
     },
     "/me/github": {
       "put": {
-        "tags": ["me"],
+        "tags": [
+          "me"
+        ],
         "summary": "Connect Github",
         "operationId": "connect_github_me_github_put",
         "parameters": [
@@ -359,7 +373,9 @@
     },
     "/me/{kind}": {
       "delete": {
-        "tags": ["me"],
+        "tags": [
+          "me"
+        ],
         "summary": "Disconnect Integration",
         "description": "Delete our copy of the token. 404 if that wasn't connected.",
         "operationId": "disconnect_integration_me__kind__delete",
@@ -408,7 +424,9 @@
     },
     "/project": {
       "get": {
-        "tags": ["project"],
+        "tags": [
+          "project"
+        ],
         "summary": "Get Project",
         "operationId": "get_project_project_get",
         "parameters": [
@@ -455,7 +473,9 @@
     },
     "/realtime/test": {
       "post": {
-        "tags": ["realtime"],
+        "tags": [
+          "realtime"
+        ],
         "summary": "Send Test Event",
         "operationId": "send_test_event_realtime_test_post",
         "parameters": [
@@ -502,7 +522,9 @@
     },
     "/recordings/{token}/{name}": {
       "get": {
-        "tags": ["recordings"],
+        "tags": [
+          "recordings"
+        ],
         "summary": "Recording",
         "description": "One test's video. Answers byte ranges, which browsers need to seek (and Safari\nneeds to play at all).",
         "operationId": "recording_recordings__token___name__get",
@@ -572,7 +594,9 @@
     },
     "/runs": {
       "post": {
-        "tags": ["runs"],
+        "tags": [
+          "runs"
+        ],
         "summary": "Start Run",
         "description": "Queue a run. 202 = accepted, not finished. On the user's own project, the ticket\nmust be in their Jira project, and their runs share a daily budget (429 past it). The\nbudget is ours to know: the message names a run limit, never an amount.",
         "operationId": "start_run_runs_post",
@@ -628,7 +652,9 @@
         }
       },
       "get": {
-        "tags": ["runs"],
+        "tags": [
+          "runs"
+        ],
         "summary": "Recent Runs",
         "description": "The latest runs the user may see (the demo's and their own), newest first.",
         "operationId": "recent_runs_runs_get",
@@ -680,7 +706,9 @@
     },
     "/runs/{ticket}/events": {
       "get": {
-        "tags": ["runs"],
+        "tags": [
+          "runs"
+        ],
         "summary": "Run Events",
         "description": "A ticket's run timeline, for the live run window. Poll with `after` = the last\nevent id you have, and only newer events come back.",
         "operationId": "run_events_runs__ticket__events_get",
@@ -766,7 +794,9 @@
     },
     "/runs/{ticket}/plan-decision": {
       "post": {
-        "tags": ["runs"],
+        "tags": [
+          "runs"
+        ],
         "summary": "Decide Plan",
         "description": "Answer a run paused for plan approval: approve, revise (with feedback) or reject.\nThe job's result is \"not_waiting\" if no plan was waiting.",
         "operationId": "decide_plan_runs__ticket__plan_decision_post",
@@ -885,7 +915,13 @@
           }
         },
         "type": "object",
-        "required": ["id", "kind", "data", "agent_run_id", "created_at"],
+        "required": [
+          "id",
+          "kind",
+          "data",
+          "agent_run_id",
+          "created_at"
+        ],
         "title": "EventOut"
       },
       "GitHubConnect": {
@@ -905,7 +941,10 @@
           }
         },
         "type": "object",
-        "required": ["token", "repo"],
+        "required": [
+          "token",
+          "repo"
+        ],
         "title": "GitHubConnect"
       },
       "GitHubConnection": {
@@ -925,7 +964,11 @@
           }
         },
         "type": "object",
-        "required": ["login", "repo", "connected_at"],
+        "required": [
+          "login",
+          "repo",
+          "connected_at"
+        ],
         "title": "GitHubConnection"
       },
       "HTTPValidationError": {
@@ -945,7 +988,10 @@
         "properties": {
           "status": {
             "type": "string",
-            "enum": ["ok", "degraded"],
+            "enum": [
+              "ok",
+              "degraded"
+            ],
             "title": "Status"
           },
           "services": {
@@ -957,12 +1003,18 @@
           }
         },
         "type": "object",
-        "required": ["status", "services"],
+        "required": [
+          "status",
+          "services"
+        ],
         "title": "HealthReport"
       },
       "IntegrationKind": {
         "type": "string",
-        "enum": ["jira", "github"],
+        "enum": [
+          "jira",
+          "github"
+        ],
         "title": "IntegrationKind"
       },
       "JiraConnect": {
@@ -992,7 +1044,12 @@
           }
         },
         "type": "object",
-        "required": ["site", "email", "api_token", "project_key"],
+        "required": [
+          "site",
+          "email",
+          "api_token",
+          "project_key"
+        ],
         "title": "JiraConnect"
       },
       "JiraConnection": {
@@ -1016,7 +1073,12 @@
           }
         },
         "type": "object",
-        "required": ["site", "email", "project_key", "connected_at"],
+        "required": [
+          "site",
+          "email",
+          "project_key",
+          "connected_at"
+        ],
         "title": "JiraConnection"
       },
       "JobStarted": {
@@ -1027,7 +1089,9 @@
           }
         },
         "type": "object",
-        "required": ["job_id"],
+        "required": [
+          "job_id"
+        ],
         "title": "JobStarted"
       },
       "JobStatus": {
@@ -1038,7 +1102,13 @@
           },
           "status": {
             "type": "string",
-            "enum": ["PENDING", "STARTED", "RETRY", "FAILURE", "SUCCESS"],
+            "enum": [
+              "PENDING",
+              "STARTED",
+              "RETRY",
+              "FAILURE",
+              "SUCCESS"
+            ],
             "title": "Status"
           },
           "result": {
@@ -1046,7 +1116,10 @@
           }
         },
         "type": "object",
-        "required": ["job_id", "status"],
+        "required": [
+          "job_id",
+          "status"
+        ],
         "title": "JobStatus"
       },
       "LearnRequest": {
@@ -1059,7 +1132,9 @@
           }
         },
         "type": "object",
-        "required": ["pr"],
+        "required": [
+          "pr"
+        ],
         "title": "LearnRequest"
       },
       "OwnProject": {
@@ -1105,14 +1180,24 @@
           }
         },
         "type": "object",
-        "required": ["available", "jira", "github", "project_id", "ready"],
+        "required": [
+          "available",
+          "jira",
+          "github",
+          "project_id",
+          "ready"
+        ],
         "title": "OwnProject"
       },
       "PlanDecision": {
         "properties": {
           "decision": {
             "type": "string",
-            "enum": ["approve", "revise", "reject"],
+            "enum": [
+              "approve",
+              "revise",
+              "reject"
+            ],
             "title": "Decision"
           },
           "feedback": {
@@ -1124,7 +1209,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["decision"],
+        "required": [
+          "decision"
+        ],
         "title": "PlanDecision",
         "description": "A human's answer to a paused plan."
       },
@@ -1187,7 +1274,13 @@
           }
         },
         "type": "object",
-        "required": ["repo", "repo_url", "jira_site", "jira_project", "board_url"],
+        "required": [
+          "repo",
+          "repo_url",
+          "jira_site",
+          "jira_project",
+          "board_url"
+        ],
         "title": "ProjectLinks",
         "description": "Where a run's work lives, so the run window can link to it."
       },
@@ -1222,7 +1315,9 @@
           }
         },
         "type": "object",
-        "required": ["ticket"],
+        "required": [
+          "ticket"
+        ],
         "title": "RunRequest"
       },
       "RunSummary": {
@@ -1367,7 +1462,11 @@
         "properties": {
           "status": {
             "type": "string",
-            "enum": ["ok", "error", "not_configured"],
+            "enum": [
+              "ok",
+              "error",
+              "not_configured"
+            ],
             "title": "Status"
           },
           "detail": {
@@ -1383,7 +1482,9 @@
           }
         },
         "type": "object",
-        "required": ["status"],
+        "required": [
+          "status"
+        ],
         "title": "ServiceStatus"
       },
       "TestEventSent": {
@@ -1403,7 +1504,11 @@
           }
         },
         "type": "object",
-        "required": ["channel", "event", "sent_at"],
+        "required": [
+          "channel",
+          "event",
+          "sent_at"
+        ],
         "title": "TestEventSent"
       },
       "ValidationError": {
@@ -1439,7 +1544,11 @@
           }
         },
         "type": "object",
-        "required": ["loc", "msg", "type"],
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
         "title": "ValidationError"
       }
     }
