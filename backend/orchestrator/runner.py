@@ -17,11 +17,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from agents import recordings
 from agents.code_graph import Storage, open_code_graph
 from agents.design import Design, read_design
-from agents.developer import DevResult, develop_ticket
+from agents.developer import DevResult, Risk, develop_ticket
 from agents.gate import GateResult, VerifyResult, run_gate
 from agents.learner import learn_rules
 from agents.loop import AgentLoopError, EventSink, ignore_events
-from agents.planner import Plan, plan_ticket
+from agents.planner import Decision, Plan, plan_ticket
 from agents.qa import QaReport, qa_ticket
 from agents.quality import scan_code
 from agents.repo_tools import RepoTools
@@ -184,6 +184,8 @@ def make_code(
     branch = f"agent/{ticket_key}"
     summaries: list[str] = []
     changed: set[str] = set()
+    decisions: list[Decision] = []
+    risks: list[Risk] = []
     head = ""
     step(on_event, Role.DEVELOPER, "Cloning the repo")
     with cloned(pipeline, Role.DEVELOPER, on_event) as workspace:
@@ -214,6 +216,8 @@ def make_code(
             label = f"[{subtask.area}] {subtask.title}"
             summaries.append(f"**{label}**\n{dev.summary}")
             changed.update(dev.changed_files)
+            decisions += dev.decisions
+            risks += dev.risks
             head = (
                 workspace.commit_all(f"{ticket_key}: {label}\n\n{dev.summary}", AGENT_AUTHOR)
                 or head
@@ -223,7 +227,13 @@ def make_code(
         # replace: the branch is ours; a rerun after a crash builds it again from scratch
         step(on_event, Role.DEVELOPER, f"Pushing the branch {branch}")
         workspace.push(branch, replace=True)
-    return DevResult(summary="\n\n".join(summaries), changed_files=sorted(changed)), branch, head
+    result = DevResult(
+        summary="\n\n".join(summaries),
+        changed_files=sorted(changed),
+        decisions=decisions,
+        risks=risks,
+    )
+    return result, branch, head
 
 
 def make_review(
