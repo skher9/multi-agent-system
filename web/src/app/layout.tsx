@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
-import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, DM_Mono, Figtree } from "next/font/google";
 import "./globals.css";
 
-const sans = Instrument_Sans({ subsets: ["latin"], variable: "--font-instrument-sans" });
-const serif = Instrument_Serif({
+import { Backdrop } from "@/components/ui/backdrop";
+
+const sans = Figtree({ subsets: ["latin"], variable: "--font-figtree" });
+const display = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
-  variable: "--font-instrument-serif",
+  weight: ["500", "700"],
+  variable: "--font-bricolage",
 });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" });
+const mono = DM_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-dm-mono" });
 
 export const metadata: Metadata = {
   title: { default: "Agent Dev Team", template: "%s · Agent Dev Team" },
@@ -18,8 +19,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${sans.variable} ${serif.variable} ${mono.variable}`}>
-      <body className="flex min-h-dvh flex-col font-sans">{children}</body>
+    <html lang="en" className={`${sans.variable} ${display.variable} ${mono.variable}`}>
+      <body className="flex min-h-dvh flex-col font-sans">
+        <Backdrop />
+        {children}
+      </body>
     </html>
   );
 }
