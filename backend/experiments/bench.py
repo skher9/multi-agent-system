@@ -9,7 +9,8 @@ is local and fake, so nothing real is touched:
 - Jira and GitHub: in-memory stand-ins that record what would have been posted
 - database: the Neon *test* branch; each round is its own project (bench-<round>@local)
 - sandbox: local Docker (needs `docker compose up -d` and the mas-sandbox image)
-- QA is off: this measures the reader, planner, developer and reviewer
+- QA is off: this measures the reader, planner, developer and reviewer. With --qa it is
+  on, and its test recordings go to R2 behind PUBLIC_API_URL (real, watchable links)
 
 Then: `uv run python -m experiments.report <round>`.
 """
@@ -24,7 +25,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from agents.recordings import KEY_PREFIX
 from api.config import get_settings
+from api.health_checks import r2_from_settings
 from db.session import make_session_factory
 from llm_router.budget import db_agent_spend, db_story_spend
 from llm_router.recorder import db_recorder
@@ -34,6 +37,7 @@ from orchestrator.runner import Pipeline, run_ticket
 from services.github import PullRequest
 from services.jira import JiraTicket
 from services.openrouter import OpenRouterClient
+from services.r2 import R2Storage
 
 HERE = Path(__file__).resolve().parent
 WORK = HERE / ".work"  # gitignored: the local repo copy, code graphs, round results
@@ -95,6 +99,20 @@ class FakeGitHub:
         self.comments.append((number, body))
 
 
+class VideosToR2:
+    """Code graphs stay on disk; QA's recordings go to R2, where the API serves them."""
+
+    def __init__(self, local: "LocalStorage", r2: R2Storage) -> None:
+        self._local, self._r2 = local, r2
+
+    def upload(self, key: str, data: bytes, content_type: str = "") -> None:
+        target = self._r2 if key.startswith(f"{KEY_PREFIX}/") else self._local
+        target.upload(key, data, content_type)
+
+    def download(self, key: str) -> bytes:
+        return self._local.download(key)
+
+
 class LocalStorage:
     """Code graphs on disk instead of R2."""
 
@@ -144,6 +162,9 @@ def main() -> None:
     parser.add_argument(
         "--no-routing", action="store_true", help="standard model only (routing off)"
     )
+    parser.add_argument(
+        "--qa", action="store_true", help="run QA too, with recordings uploaded to R2"
+    )
     parser.add_argument("only", nargs="*", help="ticket ids from tickets.json (default: all)")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
@@ -187,16 +208,25 @@ def main() -> None:
         model_override=args.model,
         routing=not args.no_routing,
     )
+    graphs = LocalStorage(WORK / "graphs")
+    recordings_url = ""
+    storage: LocalStorage | VideosToR2 = graphs
+    if args.qa:
+        if not settings.public_api_url:
+            raise SystemExit("--qa needs PUBLIC_API_URL, so the recordings get real links")
+        storage = VideosToR2(graphs, r2_from_settings(settings))
+        recordings_url = f"{settings.public_api_url.rstrip('/')}/recordings"
     pipeline = Pipeline(
         factory,
         jira,  # type: ignore[arg-type]  (duck-typed stand-in)
         router,
         project_id,
-        storage=LocalStorage(WORK / "graphs"),
+        storage=storage,
         repo_url=str(repo),
         github=FakeGitHub(),  # type: ignore[arg-type]
         repo="local/playground",
-        skip_qa=True,
+        skip_qa=not args.qa,
+        recordings_url=recordings_url,
     )
 
     results: dict[str, Any] = {
