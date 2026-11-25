@@ -34,7 +34,7 @@ dev = [
 [tool.uv]
 # Setup guide rule: avoid package versions released in the last 14 days.
 # Bump this date deliberately when upgrading dependencies.
-exclude-newer = "2026-10-22T00:00:00Z"
+exclude-newer = "2026-11-11T00:00:00Z"
 
 [tool.ruff]
 line-length = 100
