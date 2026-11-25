@@ -493,6 +493,8 @@ export interface components {
             status: string;
             /** Pr Url */
             pr_url: string | null;
+            /** Node */
+            node: string | null;
             /**
              * Started At
              * Format: date-time

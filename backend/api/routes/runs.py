@@ -139,6 +139,7 @@ class RunSummary(BaseModel):
     title: str
     status: str  # running, in_review, ready_to_merge, needs_human, blocked, failed...
     pr_url: str | None
+    node: str | None  # the pipeline box the run last entered (graph.py), for its stage
     started_at: datetime
     updated_at: datetime
 
@@ -166,6 +167,18 @@ def recent_runs(user: CurrentUser, factory: SessionFactory) -> list[RunSummary]:
                 .group_by(RunEvent.feature_id)
             ).all()
         )
+        latest_box = (
+            select(func.max(RunEvent.id))
+            .where(RunEvent.feature_id.in_(ids), RunEvent.kind == EventKind.NODE_STARTED)
+            .group_by(RunEvent.feature_id)
+        )
+        nodes = dict(
+            session.execute(
+                select(RunEvent.feature_id, RunEvent.data["node"].astext).where(
+                    RunEvent.id.in_(latest_box)
+                )
+            ).all()
+        )
         return [
             RunSummary(
                 ticket=f.jira_key or "",
@@ -174,6 +187,7 @@ def recent_runs(user: CurrentUser, factory: SessionFactory) -> list[RunSummary]:
                 title=f.title.removeprefix(f"{f.jira_key}: "),
                 status=f.status,
                 pr_url=prs.get(f.id),
+                node=nodes.get(f.id),
                 started_at=f.created_at,
                 updated_at=f.updated_at,
             )

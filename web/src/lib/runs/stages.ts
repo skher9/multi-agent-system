@@ -18,7 +18,7 @@ export type Stage = {
   note: string; // short live detail, e.g. "agent 2" or "waiting for your OK"
 };
 
-const STAGES: { name: string; role: string; nodes: string[] }[] = [
+export const STAGES: { name: string; role: string; nodes: string[] }[] = [
   {
     name: "Reader",
     role: "ticket_reader",
@@ -34,7 +34,8 @@ const STAGES: { name: string; role: string; nodes: string[] }[] = [
   { name: "PR and review", role: "reviewer", nodes: ["open_pr", "review", "fix", "post_review"] },
 ];
 
-function stageOf(node: unknown): number {
+/** Which box a graph node belongs to; -1 for nodes outside the boxes. */
+export function stageOf(node: unknown): number {
   return STAGES.findIndex((s) => s.nodes.includes(String(node)));
 }
 
