@@ -11,6 +11,7 @@ import { Chip } from "@/components/ui/chip";
 import { FormError, INPUT } from "@/components/ui/field";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
+import { useCredits } from "@/lib/runs/use-credits";
 import { runHref } from "@/lib/runs/use-runs";
 
 type Project = components["schemas"]["ProjectLinks"];
@@ -20,7 +21,6 @@ const POLL_MS = 5000;
 const FIGMA_LINK = /^https:\/\/(www\.)?figma\.com\/(design|file|proto)\/[A-Za-z0-9]{10,64}/;
 
 type Job = { id: string; ticket: string; status: string; result?: unknown; href: string };
-type Credits = components["schemas"]["Credits"];
 
 /** Start a run for a Jira ticket, on the demo project or the user's own, then open its
  * live run window. */
@@ -34,12 +34,11 @@ export function StartRun() {
   const [choice, setChoice] = useState<"own" | "demo" | null>(null); // null = not picked yet
   const useOwn = own?.ready === true && choice !== "demo"; // your project once it's set up
   const project = useOwn && own ? ownLinks(own) : demo;
-  const [credits, setCredits] = useState<Credits | null>(null);
+  const { credits, spendOne } = useCredits();
   const outOfRuns = credits?.left === 0;
 
   useEffect(() => {
     api.GET("/project").then(({ data }) => data && setDemo(data));
-    api.GET("/me/credits").then(({ data }) => data && setCredits(data));
   }, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -74,7 +73,7 @@ export function StartRun() {
       );
       return;
     }
-    setCredits((c) => (c?.left ? { ...c, left: c.left - 1 } : c));
+    spendOne();
     const href = runHref({ ticket, project_id: projectId ?? 0, demo: projectId === null });
     setJob({ id: data.job_id, ticket, status: "PENDING", href });
     router.push(href); // watch it live

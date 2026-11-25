@@ -36,11 +36,34 @@
 
   --animate-rise: rise 0.6s cubic-bezier(0.3, 1.3, 0.5, 1) both;
   --animate-drift: drift 18s ease-in-out infinite alternate;
+  --animate-wobble: wobble 1.6s ease-in-out infinite;
+  --animate-blink: blink 1s ease-in-out infinite;
+  --animate-beat: beat 1.2s ease-in-out infinite;
 
   @keyframes rise {
     from {
       opacity: 0;
       transform: translateY(16px) scale(0.97);
+    }
+  }
+  @keyframes wobble {
+    0%,
+    100% {
+      transform: rotate(-1.2deg);
+    }
+    50% {
+      transform: rotate(1.2deg);
+    }
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0.35;
+    }
+  }
+  @keyframes beat {
+    50% {
+      transform: scale(1.7);
+      opacity: 0.35;
     }
   }
   @keyframes drift {

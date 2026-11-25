@@ -77,10 +77,13 @@ def test_recent_runs_lists_the_ticket_with_its_pr(
 ) -> None:
     key, feature_id = ticket
     url = "https://github.com/o/r/pull/3"
+    record_event(factory, feature_id, EventKind.NODE_STARTED, {"node": "open_pr"})
     record_event(factory, feature_id, EventKind.NODE_FINISHED, {"node": "open_pr", "pr_url": url})
+    record_event(factory, feature_id, EventKind.NODE_STARTED, {"node": "review"})
     runs = client.get("/runs").json()
     mine = next(r for r in runs if r["ticket"] == key)
     assert mine["pr_url"] == url
+    assert mine["node"] == "review"  # the box it last entered, for the stage pips
     assert "cost_inr" not in mine  # spend stays internal
 
 

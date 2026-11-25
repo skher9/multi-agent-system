@@ -1428,6 +1428,17 @@
             ],
             "title": "Pr Url"
           },
+          "node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node"
+          },
           "started_at": {
             "type": "string",
             "format": "date-time",
@@ -1447,6 +1458,7 @@
           "title",
           "status",
           "pr_url",
+          "node",
           "started_at",
           "updated_at"
         ],

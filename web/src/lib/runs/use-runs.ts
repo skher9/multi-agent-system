@@ -37,16 +37,21 @@ export function useRuns(): { runs: Run[] | null; error: boolean } {
   return { runs, error };
 }
 
-// How each feature status reads, its colour, and whether work is still going on
-export const STATUS: Record<string, { label: string; tone: Tone; live?: boolean }> = {
-  running: { label: "Running", tone: "sky", live: true },
-  in_review: { label: "In review", tone: "sky", live: true },
-  waiting_for_plan_approval: { label: "Waiting for your approval", tone: "peach" },
-  ready_to_merge: { label: "PR ready", tone: "mint" },
-  needs_human: { label: "Needs you", tone: "peach" },
-  blocked: { label: "Questions on Jira", tone: "butter" },
-  plan_rejected: { label: "Plan rejected", tone: "plain" },
-  failed: { label: "Failed", tone: "rose" },
+export type RunGroup = "needs" | "running" | "done" | "stopped";
+
+// How each feature status reads, its colour, its filter group, and whether work goes on
+export const STATUS: Record<
+  string,
+  { label: string; tone: Tone; group: RunGroup; live?: boolean }
+> = {
+  running: { label: "Running", tone: "sky", group: "running", live: true },
+  in_review: { label: "In review", tone: "sky", group: "running", live: true },
+  waiting_for_plan_approval: { label: "Waiting for your approval", tone: "peach", group: "needs" },
+  ready_to_merge: { label: "PR ready", tone: "mint", group: "done" },
+  needs_human: { label: "Needs you", tone: "peach", group: "needs" },
+  blocked: { label: "Questions on Jira", tone: "butter", group: "needs" },
+  plan_rejected: { label: "Plan rejected", tone: "plain", group: "stopped" },
+  failed: { label: "Failed", tone: "rose", group: "stopped" },
 };
 
 /** A run's page. Runs on the user's own project name it, since ticket keys can repeat
@@ -61,7 +66,13 @@ export function runKey(run: Run): string {
 }
 
 export function statusOf(run: Run) {
-  return STATUS[run.status] ?? { label: run.status.replaceAll("_", " "), tone: "plain" as const };
+  return (
+    STATUS[run.status] ?? {
+      label: run.status.replaceAll("_", " "),
+      tone: "plain" as const,
+      group: "stopped" as const,
+    }
+  );
 }
 
 /** How long a run took (or has taken so far), e.g. "9 min". */
