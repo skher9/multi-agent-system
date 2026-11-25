@@ -46,6 +46,12 @@ export default function PrivacyPage() {
             code they produced, and usage records for each step.
           </li>
           <li>
+            <strong>Test recordings:</strong> a video of each browser test, showing only the app
+            being built, never your screen. Each run&apos;s videos sit behind a long random link:
+            anyone you share the pull request or the link with can watch them, nobody can guess
+            them.
+          </li>
+          <li>
             <strong>Login attempts,</strong> counted for a short time per IP address, to slow down
             password guessing.
           </li>
@@ -90,7 +96,7 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Cloudflare R2:</strong> stores the code maps agents use to find their way around
-            the playground repository.
+            a repository, and the test recordings.
           </li>
           <li>
             <strong>Figma:</strong> only when a ticket links a design; the agents read that file.

@@ -2,14 +2,10 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV === "development";
 
-// The browser talks to our Python API and to Pusher (live run events), nothing else.
+// The browser talks to our Python API, nothing else.
 const apiOrigin = process.env.NEXT_PUBLIC_API_URL
   ? new URL(process.env.NEXT_PUBLIC_API_URL).origin
   : "http://localhost:8000";
-const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
-const pusherHosts = pusherCluster
-  ? `wss://ws-${pusherCluster}.pusher.com https://sockjs-${pusherCluster}.pusher.com`
-  : "";
 
 // Content Security Policy: which sources the browser may load from. Pages, scripts and
 // fonts are same-origin (next/font self-hosts fonts). Scripts keep 'unsafe-inline' because
@@ -24,7 +20,7 @@ const csp = [
   "font-src 'self'",
   // QA's recordings of the browser tests play from the API (/recordings)
   `media-src 'self' ${apiOrigin}`,
-  `connect-src 'self' ${apiOrigin} ${pusherHosts}`.trim(),
+  `connect-src 'self' ${apiOrigin}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
