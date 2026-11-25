@@ -6,7 +6,7 @@ another's data once the app opens to more users.
 
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, ForeignKey, LargeBinary, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.base import Base, IdMixin, TimestampMixin, text_enum
@@ -23,6 +23,9 @@ class User(IdMixin, TimestampMixin, Base):
     email: Mapped[str] = mapped_column(String(320), unique=True)
     # The Better Auth user (website login) this is; set on their first API call
     auth_user_id: Mapped[str | None] = mapped_column(String(64), unique=True)
+    # Runs started, counted against the free runs every account gets (orchestrator/credits.py).
+    # Kept when an account is deleted and the email signs up again, so that doesn't reset it
+    runs_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 class Project(IdMixin, TimestampMixin, Base):

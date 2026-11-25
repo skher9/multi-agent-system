@@ -422,6 +422,55 @@
         }
       }
     },
+    "/me/credits": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Credits",
+        "operationId": "credits_me_credits_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Credits"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/project": {
       "get": {
         "tags": [
@@ -598,7 +647,7 @@
           "runs"
         ],
         "summary": "Start Run",
-        "description": "Queue a run. 202 = accepted, not finished. On the user's own project, the ticket\nmust be in their Jira project, and their runs share a daily budget (429 past it). The\nbudget is ours to know: the message names a run limit, never an amount.",
+        "description": "Queue a run. 202 = accepted, not finished. Each run uses one of the account's free\nruns (403 when none are left). On the user's own project, the ticket must be in their\nJira project, and their runs share a daily budget (429 past it). The budget is ours to\nknow: the message names a run limit, never an amount.",
         "operationId": "start_run_runs_post",
         "parameters": [
           {
@@ -882,6 +931,32 @@
   },
   "components": {
     "schemas": {
+      "Credits": {
+        "properties": {
+          "left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Left"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "left",
+          "total"
+        ],
+        "title": "Credits",
+        "description": "How many more runs this account may start; left is None for the owner (no limit)."
+      },
       "EventOut": {
         "properties": {
           "id": {

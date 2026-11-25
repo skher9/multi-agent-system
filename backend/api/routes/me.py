@@ -20,6 +20,7 @@ from api.auth import CurrentUser, current_user
 from api.config import get_settings
 from api.db import SessionFactory
 from db.models import IntegrationKind
+from orchestrator.credits import runs_left, unlimited
 from orchestrator.projects import connect, disconnect, ensure_user, integrations, own_project
 from services.github import GitHubClient, RepoNotFoundError
 from services.jira import PROJECT_KEY, JiraClient, TicketNotFoundError
@@ -211,3 +212,19 @@ def _bad(detail: str) -> HTTPException:
 
 def _unreachable(service: str) -> HTTPException:
     return HTTPException(status.HTTP_502_BAD_GATEWAY, f"Couldn't reach {service}. Try again.")
+
+
+class Credits(BaseModel):
+    """How many more runs this account may start; left is None for the owner (no limit)."""
+
+    left: int | None
+    total: int
+
+
+@router.get("/credits")
+def credits(user: CurrentUser, factory: SessionFactory) -> Credits:
+    settings = get_settings()
+    if unlimited(user.email, settings.agent_owner_email):
+        return Credits(left=None, total=settings.free_runs)
+    user_id = ensure_user(factory, user.id, user.email)
+    return Credits(left=runs_left(factory, user_id, settings.free_runs), total=settings.free_runs)
