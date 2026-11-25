@@ -24,11 +24,10 @@ def no_credit_check(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Starting a run without a database: every account has runs left."""
     import api.routes.runs as runs
 
-    app.dependency_overrides[runs.session_factory] = lambda: None
+    monkeypatch.setattr(runs, "session_factory", lambda: None)
     monkeypatch.setattr(runs, "ensure_user", lambda factory, auth_id, email: 1)
     monkeypatch.setattr(runs, "take_run", lambda factory, user_id, free_runs: True)
     yield
-    app.dependency_overrides.pop(runs.session_factory, None)
 
 
 @pytest.mark.usefixtures("no_credit_check")

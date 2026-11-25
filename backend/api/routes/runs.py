@@ -61,7 +61,7 @@ class RunRequest(BaseModel):
 
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
-def start_run(body: RunRequest, user: CurrentUser, factory: SessionFactory) -> JobStarted:
+def start_run(body: RunRequest, user: CurrentUser) -> JobStarted:
     """Queue a run. 202 = accepted, not finished. Each run uses one of the account's free
     runs (403 when none are left). On the user's own project, the ticket must be in their
     Jira project, and their runs share a daily budget (429 past it). The budget is ours to
@@ -69,6 +69,7 @@ def start_run(body: RunRequest, user: CurrentUser, factory: SessionFactory) -> J
     if body.project_id is not None:
         _check_own_run(user, body.project_id, body.ticket)
     settings = get_settings()
+    factory = session_factory()  # opened after the request is validated: a bad one gets 422
     user_id = ensure_user(factory, user.id, user.email)
     limited = not unlimited(user.email, settings.agent_owner_email)
     if limited and not take_run(factory, user_id, settings.free_runs):
