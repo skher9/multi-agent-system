@@ -21,6 +21,7 @@ from api.config import get_settings
 from api.db import SessionFactory, session_factory
 from api.routes.jobs import JobStarted
 from db.models import AgentRun, EventKind, Feature, LlmCall, Project, RunEvent, Task
+from orchestrator.credits import give_back_run, take_run, unlimited
 from orchestrator.decisions import PlanDecision
 from orchestrator.projects import (
     demo_project_id,
@@ -60,15 +61,30 @@ class RunRequest(BaseModel):
 
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
-def start_run(body: RunRequest, user: CurrentUser) -> JobStarted:
-    """Queue a run. 202 = accepted, not finished. On the user's own project, the ticket
-    must be in their Jira project, and their runs share a daily budget (429 past it). The
-    budget is ours to know: the message names a run limit, never an amount."""
+def start_run(body: RunRequest, user: CurrentUser, factory: SessionFactory) -> JobStarted:
+    """Queue a run. 202 = accepted, not finished. Each run uses one of the account's free
+    runs (403 when none are left). On the user's own project, the ticket must be in their
+    Jira project, and their runs share a daily budget (429 past it). The budget is ours to
+    know: the message names a run limit, never an amount."""
     if body.project_id is not None:
         _check_own_run(user, body.project_id, body.ticket)
-    job = celery_app.send_task(
-        "run_ticket", args=[body.ticket, body.approve_plan, body.figma_url, body.project_id]
-    )
+    settings = get_settings()
+    user_id = ensure_user(factory, user.id, user.email)
+    limited = not unlimited(user.email, settings.agent_owner_email)
+    if limited and not take_run(factory, user_id, settings.free_runs):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"You've used your {settings.free_runs} free runs. "
+            "Watch the replay, or get in touch for more",
+        )
+    try:
+        job = celery_app.send_task(
+            "run_ticket", args=[body.ticket, body.approve_plan, body.figma_url, body.project_id]
+        )
+    except Exception:
+        if limited:
+            give_back_run(factory, user_id)  # nothing ran: the run isn't used up
+        raise
     return JobStarted(job_id=job.id)
 
 

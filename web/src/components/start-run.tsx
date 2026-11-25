@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
@@ -19,6 +20,7 @@ const POLL_MS = 5000;
 const FIGMA_LINK = /^https:\/\/(www\.)?figma\.com\/(design|file|proto)\/[A-Za-z0-9]{10,64}/;
 
 type Job = { id: string; ticket: string; status: string; result?: unknown; href: string };
+type Credits = components["schemas"]["Credits"];
 
 /** Start a run for a Jira ticket, on the demo project or the user's own, then open its
  * live run window. */
@@ -32,9 +34,12 @@ export function StartRun() {
   const [choice, setChoice] = useState<"own" | "demo" | null>(null); // null = not picked yet
   const useOwn = own?.ready === true && choice !== "demo"; // your project once it's set up
   const project = useOwn && own ? ownLinks(own) : demo;
+  const [credits, setCredits] = useState<Credits | null>(null);
+  const outOfRuns = credits?.left === 0;
 
   useEffect(() => {
     api.GET("/project").then(({ data }) => data && setDemo(data));
+    api.GET("/me/credits").then(({ data }) => data && setCredits(data));
   }, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -69,6 +74,7 @@ export function StartRun() {
       );
       return;
     }
+    setCredits((c) => (c?.left ? { ...c, left: c.left - 1 } : c));
     const href = runHref({ ticket, project_id: projectId ?? 0, demo: projectId === null });
     setJob({ id: data.job_id, ticket, status: "PENDING", href });
     router.push(href); // watch it live
@@ -89,7 +95,14 @@ export function StartRun() {
 
   return (
     <Card tone="sky" className="h-fit">
-      <h2 className="font-display text-2xl">Start a run</h2>
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-display text-2xl">Start a run</h2>
+        {credits?.left != null && (
+          <Chip tone={outOfRuns ? "rose" : "mint"}>
+            {credits.left} of {credits.total} free runs left
+          </Chip>
+        )}
+      </header>
       <p className="mt-1 text-sm text-muted">
         Enter a Jira ticket. The agents read it, plan, build, test and open a pull request.
       </p>
@@ -144,7 +157,19 @@ export function StartRun() {
           Pause for me to approve the plan
         </label>
         <FormError message={error} />
-        <Button type="submit" disabled={pending || running} className="w-full">
+        {outOfRuns && (
+          <p className="text-sm text-muted">
+            You&apos;ve used your free runs. You can still watch any run, and the{" "}
+            <Link
+              href="/runs/sample"
+              className="font-semibold text-ink underline underline-offset-2"
+            >
+              replay
+            </Link>
+            .
+          </p>
+        )}
+        <Button type="submit" disabled={pending || running || outOfRuns} className="w-full">
           {pending ? "Starting…" : running ? "Run in progress…" : "Start run"}
         </Button>
       </form>

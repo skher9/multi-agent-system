@@ -91,6 +91,8 @@ class Settings(BaseSettings):
     # Runs on one user's own projects, last 24 hours, so one user can't use up the
     # daily budget the demo needs.
     user_daily_budget_inr: Decimal = Decimal("100")
+    # Runs each account may start (orchestrator/credits.py); AGENT_OWNER_EMAIL has no limit
+    free_runs: int = 3
 
 
 @lru_cache

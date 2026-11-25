@@ -1,5 +1,6 @@
 """POST /runs, the run_ticket task, and open_pipeline's settings check. No real queue or network."""
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import Any
@@ -18,6 +19,19 @@ from workers.celery_app import celery_app
 client = TestClient(app)
 
 
+@pytest.fixture
+def no_credit_check(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Starting a run without a database: every account has runs left."""
+    import api.routes.runs as runs
+
+    app.dependency_overrides[runs.session_factory] = lambda: None
+    monkeypatch.setattr(runs, "ensure_user", lambda factory, auth_id, email: 1)
+    monkeypatch.setattr(runs, "take_run", lambda factory, user_id, free_runs: True)
+    yield
+    app.dependency_overrides.pop(runs.session_factory, None)
+
+
+@pytest.mark.usefixtures("no_credit_check")
 def test_start_run_queues_the_ticket(monkeypatch: pytest.MonkeyPatch) -> None:
     sent: list[tuple[str, list[Any]]] = []
 
@@ -44,6 +58,7 @@ def test_start_run_queues_the_ticket(monkeypatch: pytest.MonkeyPatch) -> None:
         "not a link",
     ],
 )
+@pytest.mark.usefixtures("no_credit_check")
 def test_start_run_rejects_non_figma_links(monkeypatch: pytest.MonkeyPatch, url: str) -> None:
     monkeypatch.setattr(celery_app, "send_task", lambda *a, **k: pytest.fail("queued"))
     assert client.post("/runs", json={"ticket": "KAN-4", "figma_url": url}).status_code == 422
