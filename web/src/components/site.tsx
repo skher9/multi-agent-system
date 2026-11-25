@@ -4,44 +4,53 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { NavAuth } from "@/components/nav-auth";
+import { NavPill } from "@/components/ui/nav-pill";
 
 const REPO_URL = "https://github.com/skher9/multi-agent-system";
 
-/** The wordmark: set in the serif, with the accent on the one word that matters. */
+const DOTS = ["bg-butter", "bg-lilac", "bg-mint"];
+
+/** The mark: three overlapping dots, one per kind of work, then the name. */
 export function Logo({ href = "/", short = false }: { href?: string; short?: boolean }) {
   return (
-    <Link href={href} className="font-display text-xl leading-none whitespace-nowrap">
-      {short ? (
-        <span aria-label="Agent Dev Team">
-          a<span className="text-accent">d</span>t
-        </span>
-      ) : (
-        <>
-          Agent <span className="text-accent italic">Dev</span> Team
-        </>
-      )}
+    <Link
+      href={href}
+      aria-label={short ? "Agent Dev Team" : undefined}
+      className="inline-flex items-center gap-3 font-display text-xl whitespace-nowrap"
+    >
+      <span aria-hidden className="flex">
+        {DOTS.map((dot) => (
+          <span
+            key={dot}
+            className={`-ml-2 size-6 rounded-full border-ink-line first:ml-0 ${dot}`}
+          />
+        ))}
+      </span>
+      {!short && "Agent Dev Team"}
     </Link>
   );
 }
 
+const PUBLIC_LINKS = [
+  { href: "/#how", label: "How it works" },
+  { href: "/#results", label: "Results" },
+  { href: "/runs/sample", label: "Watch a run" },
+];
+
 export function SiteNav({ children }: { children?: ReactNode }) {
   return (
-    <header className="sticky top-0 z-10 border-b border-line bg-canvas/85 backdrop-blur">
-      <nav className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
+    <header className="sticky top-0 z-10 bg-canvas/90 backdrop-blur">
+      <nav className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-3">
         <Logo />
         {children ?? (
           <>
-            <div className="ml-4 hidden gap-6 text-sm text-muted sm:flex">
-              <Link href="/#how" className="hover:text-ink">
-                How it works
-              </Link>
-              <Link href="/#results" className="hover:text-ink">
-                Results
-              </Link>
-              <Link href="/runs/sample" className="hover:text-ink">
-                Watch a run
-              </Link>
-            </div>
+            <ul className="ml-4 hidden gap-2 md:flex">
+              {PUBLIC_LINKS.map((link) => (
+                <li key={link.href}>
+                  <NavPill href={link.href}>{link.label}</NavPill>
+                </li>
+              ))}
+            </ul>
             <div className="ml-auto flex items-center gap-3">
               <NavAuth />
             </div>
@@ -54,7 +63,7 @@ export function SiteNav({ children }: { children?: ReactNode }) {
 
 export function SiteFooter() {
   return (
-    <footer className="mt-auto border-t border-line">
+    <footer className="mt-auto border-t-[1.5px] border-dashed border-ink/20">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 text-sm sm:grid-cols-[1fr_auto_auto]">
         <div>
           <Logo />

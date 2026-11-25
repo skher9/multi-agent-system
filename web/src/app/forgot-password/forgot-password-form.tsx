@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
-import { AuthShell, Field, FormError, INPUT } from "@/components/auth-form";
+import { AuthShell } from "@/components/auth-form";
+import { Field, FormError, INPUT } from "@/components/ui/field";
 import { Button } from "@/components/site";
 import { authClient } from "@/lib/auth-client";
 

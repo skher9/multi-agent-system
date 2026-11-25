@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { FormError } from "@/components/auth-form";
+import { FormError } from "@/components/ui/field";
 import { Button } from "@/components/site";
 import { authClient } from "@/lib/auth-client";
 

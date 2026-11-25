@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { Chip } from "@/components/ui/chip";
+import { TONE_SHADOW } from "@/components/ui/tone";
+import { agentTone } from "@/lib/agents";
 import type { FeedItem, FeedTone } from "@/lib/runs/feed";
 
 // Typographic marks, not emoji: quiet in the feed, coloured only where it matters
@@ -12,9 +15,6 @@ const ICON: Record<FeedTone, { mark: string; className: string }> = {
   bad: { mark: "!", className: "font-semibold text-bad" },
   info: { mark: "·", className: "text-muted" },
 };
-
-const ROLE_CHIP = "bg-raised text-ink";
-const RUN_CHIP = "bg-transparent text-muted";
 
 /** What the agents think and do, oldest at the top; keeps the newest line in view. */
 export function Feed({
@@ -36,13 +36,13 @@ export function Feed({
       ref={box}
       aria-label="Live feed"
       aria-live="polite"
-      className="h-[28rem] space-y-1 overflow-y-auto rounded-lg border border-line bg-surface p-2"
+      className={`h-[28rem] space-y-1 overflow-y-auto rounded-3xl border-ink-line bg-surface p-3 ${TONE_SHADOW.lilac}`}
     >
-      {items.length === 0 && <li className="p-2 text-sm text-gray-500">Waiting for the run…</li>}
+      {items.length === 0 && <li className="p-2 text-sm text-muted">Waiting for the run…</li>}
       {items.map((item) => (
         <li
           key={item.id}
-          className={`flex gap-2 rounded px-2 py-1.5 text-sm ${
+          className={`flex gap-2 rounded-xl px-2 py-1.5 text-sm ${
             item.tone === "thought" ? "bg-raised/60" : ""
           }`}
         >
@@ -53,11 +53,9 @@ export function Feed({
             {ICON[item.tone].mark}
           </span>
           <span className="min-w-0 flex-1">
-            <span
-              className={`mr-2 rounded px-1.5 py-0.5 text-xs font-medium ${item.role === "run" ? RUN_CHIP : ROLE_CHIP}`}
-            >
+            <Chip tone={agentTone(item.role)} className="mr-2 py-0 text-xs">
               {item.role}
-            </span>
+            </Chip>
             {item.tone === "thought" ? (
               <Thought text={item.title} />
             ) : (
@@ -68,7 +66,7 @@ export function Feed({
               </span>
             )}
             {item.detail && (
-              <span className="block break-words text-xs text-gray-500">{item.detail}</span>
+              <span className="block break-words text-xs text-muted">{item.detail}</span>
             )}
           </span>
         </li>
@@ -78,11 +76,9 @@ export function Feed({
           <span aria-hidden className="w-5 shrink-0 text-center font-mono">
             ~
           </span>
-          <span
-            className={`rounded px-1.5 py-0.5 text-xs font-medium ${thinkingRole === "run" ? RUN_CHIP : ROLE_CHIP}`}
-          >
+          <Chip tone={agentTone(thinkingRole)} className="py-0 text-xs">
             {thinkingRole}
-          </span>
+          </Chip>
           <span>is working</span>
           <span className="flex gap-0.5" aria-hidden>
             <span className="size-1 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
@@ -112,7 +108,7 @@ function Thought({ text }: { text: string }) {
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="text-xs text-accent hover:underline"
+          className="text-xs font-semibold text-accent underline-offset-2 hover:underline"
         >
           {open ? "Show less" : "Show more"}
         </button>

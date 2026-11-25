@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 import { ButtonLink } from "@/components/button";
 import { authClient } from "@/lib/auth-client";
 
@@ -18,9 +16,9 @@ export function NavAuth() {
   }
   return (
     <>
-      <Link href="/login" className="text-sm text-muted hover:text-ink">
+      <ButtonLink href="/login" variant="ghost" size="sm">
         Log in
-      </Link>
+      </ButtonLink>
       <ButtonLink href="/signup" size="sm">
         Try it
       </ButtonLink>

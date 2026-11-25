@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
-import { Field, FormError, INPUT } from "@/components/auth-form";
+import { Field, FormError, INPUT } from "@/components/ui/field";
 import { Button } from "@/components/button";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
@@ -49,7 +49,7 @@ export function OwnProject({
     return (
       <p className="text-sm text-bad">Couldn&apos;t load your connections. Refresh to retry.</p>
     );
-  if (!project) return <div className="h-48 animate-pulse rounded-lg bg-raised" />;
+  if (!project) return <div className="h-48 animate-pulse rounded-3xl bg-raised" />;
   if (!project.available)
     return (
       <p className="text-sm text-muted">
@@ -108,13 +108,15 @@ function Card({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-line bg-canvas p-5">
+    <section className="rounded-2xl border-ink-line bg-canvas p-5">
       <h3 className="flex items-center gap-3 font-medium">
         {step !== undefined && (
           <span
             aria-hidden
             className={`grid size-6 place-items-center rounded-full text-xs ${
-              done ? "bg-ok text-canvas" : "border border-line text-muted"
+              done
+                ? "border-ink-line bg-mint"
+                : "border-[1.5px] border-dashed border-ink/30 text-muted"
             }`}
           >
             {done ? "✓" : step}
@@ -168,7 +170,7 @@ function Connected({
         ))}
       </dl>
       {confirming ? (
-        <div className="rounded-md border border-bad/30 p-3 text-sm">
+        <div className="rounded-2xl border-ink-line bg-rose p-3 text-sm">
           <p>
             We delete our copy of the token, so agents can&apos;t use it. Your run history stays. To
             end the token everywhere,{" "}
@@ -176,7 +178,7 @@ function Connected({
               href={revoke.href}
               target="_blank"
               rel="noreferrer"
-              className="text-accent underline underline-offset-2"
+              className="font-semibold text-accent underline underline-offset-2"
             >
               {revoke.label} ↗
             </a>
@@ -231,7 +233,7 @@ function JiraForm({ onSaved }: { onSaved: (project: OwnProjectState) => void }) 
           href={JIRA_TOKENS}
           target="_blank"
           rel="noreferrer"
-          className="text-accent underline underline-offset-2"
+          className="font-semibold text-accent underline underline-offset-2"
         >
           API token ↗
         </a>
@@ -301,7 +303,7 @@ function GitHubForm({ onSaved }: { onSaved: (project: OwnProjectState) => void }
             href={GITHUB_NEW_TOKEN}
             target="_blank"
             rel="noreferrer"
-            className="text-accent underline underline-offset-2"
+            className="font-semibold text-accent underline underline-offset-2"
           >
             fine-grained token ↗
           </a>{" "}

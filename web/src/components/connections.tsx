@@ -57,7 +57,7 @@ export function Connections({
 
   return (
     <div>
-      <ul className="divide-y divide-line border-y border-line">
+      <ul className="divide-y-[1.5px] divide-dashed divide-ink/20">
         <li className="flex items-center gap-4 py-3 text-sm">
           <span className="w-20 font-medium">Password</span>
           <span className="text-muted">{hasPassword ? "Set" : "Not set"}</span>

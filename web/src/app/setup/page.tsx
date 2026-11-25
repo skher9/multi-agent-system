@@ -19,7 +19,7 @@ export default function SetupPage() {
           Point the team at your Jira and your GitHub repo. Two steps, about five minutes. The demo
           project stays available either way.
         </p>
-        <Suspense fallback={<div className="mt-8 h-96 animate-pulse rounded-lg bg-surface" />}>
+        <Suspense fallback={<div className="mt-8 h-96 animate-pulse rounded-3xl bg-raised" />}>
           <Steps />
         </Suspense>
       </main>

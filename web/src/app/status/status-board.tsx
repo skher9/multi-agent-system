@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { Button } from "@/components/button";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import type { Tone } from "@/components/ui/tone";
 import { api, type HealthReport } from "@/lib/api/client";
 
 type State =
@@ -9,11 +13,7 @@ type State =
   | { kind: "loaded"; report: HealthReport; checkedAt: Date }
   | { kind: "unreachable"; message: string };
 
-const BADGE: Record<string, string> = {
-  ok: "bg-ok/10 text-ok",
-  error: "bg-bad/10 text-bad",
-  not_configured: "bg-warn/10 text-warn",
-};
+const BADGE: Record<string, Tone> = { ok: "mint", error: "rose", not_configured: "butter" };
 
 async function fetchHealth(): Promise<State> {
   try {
@@ -47,41 +47,42 @@ export function StatusBoard() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          onClick={check}
-          disabled={state.kind === "loading"}
-          className="rounded border px-3 py-1 text-sm disabled:opacity-50"
-        >
+      <div className="flex flex-wrap items-center gap-4">
+        <Button type="button" variant="ghost" onClick={check} disabled={state.kind === "loading"}>
           {state.kind === "loading" ? "Checking…" : "Check again"}
-        </button>
+        </Button>
         {state.kind === "loaded" && (
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted">
             Overall: <strong>{state.report.status}</strong> · checked{" "}
             {state.checkedAt.toLocaleTimeString()}
           </span>
         )}
       </div>
 
-      {state.kind === "unreachable" && <p className="text-bad">{state.message}</p>}
+      {state.kind === "unreachable" && (
+        <p role="alert" className="rounded-2xl border-ink-line bg-rose p-3">
+          {state.message}
+        </p>
+      )}
 
       {state.kind === "loaded" && (
-        <ul className="divide-y rounded border">
-          {Object.entries(state.report.services).map(([name, service]) => (
-            <li key={name} className="flex items-start justify-between gap-4 p-3">
-              <span className="font-mono">{name}</span>
-              <span className="text-right">
-                <span className={`rounded px-2 py-0.5 text-sm ${BADGE[service.status] ?? ""}`}>
-                  {service.status}
+        <Card as="div" tone="sky" className="p-0! sm:p-0!">
+          <ul className="divide-y-[1.5px] divide-dashed divide-ink/20">
+            {Object.entries(state.report.services).map(([name, service]) => (
+              <li key={name} className="flex items-start justify-between gap-4 px-5 py-4">
+                <span className="font-mono">{name}</span>
+                <span className="text-right">
+                  <Chip tone={BADGE[service.status] ?? "plain"}>
+                    {service.status.replace("_", " ")}
+                  </Chip>
+                  {service.detail && (
+                    <span className="mt-1 block text-xs text-muted">{service.detail}</span>
+                  )}
                 </span>
-                {service.detail && (
-                  <span className="mt-1 block text-xs text-gray-500">{service.detail}</span>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
     </section>
   );
