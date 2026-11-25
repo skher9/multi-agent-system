@@ -14,12 +14,12 @@ in every area.
 Same six tickets, same repo, one change at a time (QA off in these rounds, to measure the
 other agents).
 
-| Round                       | What changed                                            | Correct | Cost    | Wasted tool calls (developer / planner / reviewer) |
-| --------------------------- | ------------------------------------------------------- | ------- | ------- | -------------------------------------------------- |
-| base-1                      | Starting point: MiniMax M3, every agent starts blank    | 5/6     | ₹102.26 | 48% / 61% / 57%                                    |
-| ctx-2                       | Shared project context, guardrails in code              | 5/6     | ₹56.44  | 14% / 51% / 59%                                    |
-| ds-v4.1-flash               | Switched every agent to DeepSeek V4.1 Flash             | 6/6     | ₹10.59  | 26% / 45% / 50%                                    |
-| final-2                     | Repo skills, reasoning effort per role, given-files guard | 6/6     | ₹5.73   | 11% / 19% / 29%                                    |
+| Round         | What changed                                              | Correct | Cost    | Wasted tool calls (developer / planner / reviewer) |
+| ------------- | --------------------------------------------------------- | ------- | ------- | -------------------------------------------------- |
+| base-1        | Starting point: MiniMax M3, every agent starts blank      | 5/6     | ₹102.26 | 48% / 61% / 57%                                    |
+| ctx-2         | Shared project context, guardrails in code                | 5/6     | ₹56.44  | 14% / 51% / 59%                                    |
+| ds-v4.1-flash | Switched every agent to DeepSeek V4.1 Flash               | 6/6     | ₹10.59  | 26% / 45% / 50%                                    |
+| final-2       | Repo skills, reasoning effort per role, given-files guard | 6/6     | ₹5.73   | 11% / 19% / 29%                                    |
 
 A "wasted" call is one that bought nothing: re-reading an unchanged file, browsing library
 docs, reading config the change doesn't touch, a shell `cat` instead of the read tool. The
@@ -36,18 +36,18 @@ model family (Claude Opus 5.5) scores each change 1–10 in five areas against a
 rubric ([`agents/rubric.md`](backend/agents/rubric.md)). Every point it makes must quote
 real code, and our code checks the quote exists. The bar is 7 in every area.
 
-| Ticket           | Correctness | Tests | Readability | Fits the repo | Robustness | Meets bar |
-| ---------------- | ----------- | ----- | ----------- | ------------- | ---------- | --------- |
-| about-page       | 9           | 7     | 9           | 9             | 8          | ✅        |
-| footer           | 8           | 7     | 8           | 8             | 7          | ✅        |
-| heading-text     | 9           | 8     | 9           | 9             | 9          | ✅        |
-| like-button      | 9           | 7     | 9           | 8             | 8          | ✅        |
-| contact-api      | 7           | 8     | 8           | 8             | 6          | ❌        |
-| todo-page        | 8           | 7     | 7           | 8             | 7          | ✅        |
-| heading-refactor | 9           | 7     | 9           | 8             | 9          | ✅        |
-| health-api       | 9           | 7     | 9           | 8             | 8          | ✅        |
-| theme-toggle     | 8           | 8     | 8           | 8             | 7          | ✅        |
-| **Average**      | **8.4**     | **7.3** | **8.4**   | **8.2**       | **7.7**    | **8 of 9** |
+| Ticket           | Correctness | Tests   | Readability | Fits the repo | Robustness | Meets bar  |
+| ---------------- | ----------- | ------- | ----------- | ------------- | ---------- | ---------- |
+| about-page       | 9           | 7       | 9           | 9             | 8          | ✅         |
+| footer           | 8           | 7       | 8           | 8             | 7          | ✅         |
+| heading-text     | 9           | 8       | 9           | 9             | 9          | ✅         |
+| like-button      | 9           | 7       | 9           | 8             | 8          | ✅         |
+| contact-api      | 7           | 8       | 8           | 8             | 6          | ❌         |
+| todo-page        | 8           | 7       | 7           | 8             | 7          | ✅         |
+| heading-refactor | 9           | 7       | 9           | 8             | 9          | ✅         |
+| health-api       | 9           | 7       | 9           | 8             | 8          | ✅         |
+| theme-toggle     | 8           | 8       | 8           | 8             | 7          | ✅         |
+| **Average**      | **8.4**     | **7.3** | **8.4**     | **8.2**       | **7.7**    | **8 of 9** |
 
 Round quality-3, 12 Nov 2026: 9 of 9 tickets ended ready to merge, ₹69.38 to build
 (about ₹7.70 a ticket, QA on). Grading cost more than building: about ₹14 a ticket.
@@ -107,7 +107,20 @@ ticket, run under `caffeinate`, keep the charger in.
 
 ## 4. Real runs on the production path
 
-RELIABILITY_SECTION
+Real Jira tickets, real GitHub pull requests, the production database and the cloud
+sandbox, with QA testing each ticket on video.
+
+| Ticket | What                      | Outcome                                                         | Notes                                                                            |
+| ------ | ------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| KAN-10 | Add a site footer         | ✅ PR [#13](https://github.com/skher9/agent-playground/pull/13) | 5 test cases, all passing, each with a video; QA added two edge cases on its own |
+| KAN-13 | Add a page-not-found page | ✅ PR [#4](https://github.com/skher9/agent-playground/pull/4)   | Cloud sandbox end to end; the reviewer sent it back once                         |
+
+What broke on the way: the first cloud-sandbox attempts stopped at planning with
+`mkdir: cannot create directory '/graph': Permission denied`. Commands there never run as
+root, and nothing created the folder the code graph is copied to. The sandbox image now
+creates every folder the pipeline mounts, and a test fails if one is missing.
+
+Two runs is a start, not a reliability number. The next step is a longer series.
 
 ## How to reproduce
 
