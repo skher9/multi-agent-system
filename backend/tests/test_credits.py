@@ -11,10 +11,11 @@ from api.auth import User
 from api.config import get_settings
 from api.main import app
 from orchestrator.credits import unlimited
-from tests.test_own_project import act_as, factory, users  # noqa: F401  (fixtures)
+from tests.test_own_project import act_as, factory, test_db_url, users  # noqa: F401  (fixtures)
 from workers.celery_app import celery_app
 
 client = TestClient(app)
+pytestmark = pytest.mark.skipif(test_db_url is None, reason="DATABASE_URL_TEST not set")
 
 
 @pytest.fixture
